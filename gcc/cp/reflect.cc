@@ -232,6 +232,11 @@ get_reflection (location_t loc, tree t)
   else if (!processing_template_decl)
     t = resolve_nondeduced_context_or_error (t, tf_warning_or_error);
 
+  /* For injected-class-name, use the main variant so that comparing
+     reflections works (cf. compare3.C).  */
+  if (RECORD_OR_UNION_TYPE_P (t) && DECL_SELF_REFERENCE_P (TYPE_NAME (t)))
+    t = TYPE_MAIN_VARIANT (t);
+
   if (t == error_mark_node)
     return error_mark_node;
 
@@ -305,7 +310,7 @@ check_out_of_consteval_use (tree t)
    or is compounded from it.  */
 
 bool
-consteval_only_var_p (tree var)
+consteval_only_var_p (const_tree var)
 {
   tree type = strip_pointer_or_array_types (TREE_TYPE (var));
   if (REFLECTION_TYPE_P (type))
@@ -325,13 +330,7 @@ consteval_only_var_p (tree var)
 /* Return true if the reflections LHS and RHS are equal.  */
 
 bool
-compare_reflections (tree lhs, tree rhs)
+compare_reflections (const_tree lhs, const_tree rhs)
 {
-  tree h1 = REFLECT_EXPR_HANDLE (lhs);
-  tree h2 = REFLECT_EXPR_HANDLE (rhs);
-
-  /* ??? This is wrong in some cases when we're comparing
-     a class self-reference with the class as in compare3.C.
-     But using cp_tree_equal brings more problems than it solves.  */
-  return h1 == h2;
+  return REFLECT_EXPR_HANDLE (lhs) == REFLECT_EXPR_HANDLE (rhs);
 }

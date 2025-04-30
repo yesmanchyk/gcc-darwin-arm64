@@ -5,13 +5,11 @@
 namespace N {
 namespace foo {
 struct foo {
-  // FIXME See compare_reflections.
-  //static_assert(^^foo == ^^::N::foo::foo);
+  static_assert(^^foo == ^^::N::foo::foo);
 };
 static_assert(^^foo == ^^::N::foo::foo);
 }
 
-#if 0
 namespace tfoo {
 template <typename T> struct tfoo {
   static_assert(^^tfoo == ^^tfoo<T>);
@@ -23,5 +21,4 @@ tfoo<int> instantiation;
 
 static_assert(^^foo == ^^::N::foo);
 static_assert(^^tfoo == ^^::N::tfoo);
-#endif
 }
