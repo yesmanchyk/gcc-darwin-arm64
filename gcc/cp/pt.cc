@@ -7980,6 +7980,17 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
       if (expr == error_mark_node)
 	return NULL_TREE;
     }
+  else if (REFLECTION_TYPE_P (type))
+    {
+      if (!REFLECTION_TYPE_P (TREE_TYPE (expr)))
+	{
+	  if (complain & tf_error)
+	    error ("%qE is not a valid template argument for type %qT "
+		   "because it is of type %qT", expr, type, TREE_TYPE (expr));
+	  return NULL_TREE;
+	}
+      return expr;
+    }
   /* A template non-type parameter must be one of the above.  */
   else
     gcc_unreachable ();
@@ -16725,6 +16736,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case VECTOR_TYPE:
     case BOOLEAN_TYPE:
     case NULLPTR_TYPE:
+    case META_TYPE:
     case LANG_TYPE:
       return t;
 
@@ -22766,6 +22778,22 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      op = build1 (VIEW_CONVERT_EXPR, type, op);
 	  }
 	RETURN (op);
+      }
+
+    case REFLECT_EXPR:
+      {
+	tree h = REFLECT_EXPR_HANDLE (t);
+	if (TYPE_P (h))
+	  h = tsubst (h, args, complain, in_decl);
+	else
+	  h = RECUR (h);
+	RETURN (get_reflection (EXPR_LOCATION (t), h));
+      }
+
+    case SPLICE_EXPR:
+      {
+	tree op = RECUR (TREE_OPERAND (t, 0));
+	RETURN (splice (op));
       }
 
     default:
@@ -29350,6 +29378,13 @@ value_dependent_expression_p (tree expression)
 	      || value_dependent_expression_p (TREE_OPERAND (expression, 2))
 	      || value_dependent_expression_p (TREE_OPERAND (expression, 3)));
 
+    case REFLECT_EXPR:
+      /* [temp.dep.constexpr] A reflect-expression is value-dependent
+	 if it contains a dependent nested-name-specifier, type-id,
+	 namespace-name, or template-name, or if it contains
+	 a value-dependent or type-dependent id-expression.  */
+      return uses_template_parms (REFLECT_EXPR_HANDLE (expression));
+
     default:
       /* A constant expression is value-dependent if any subexpression is
 	 value-dependent.  */
@@ -29439,7 +29474,8 @@ type_dependent_expression_p (tree expression)
       || TREE_CODE (expression) == DELETE_EXPR
       || TREE_CODE (expression) == VEC_DELETE_EXPR
       || TREE_CODE (expression) == THROW_EXPR
-      || TREE_CODE (expression) == REQUIRES_EXPR)
+      || TREE_CODE (expression) == REQUIRES_EXPR
+      || REFLECT_EXPR_P (expression))
     return false;
 
   /* The types of these expressions depends only on the type to which

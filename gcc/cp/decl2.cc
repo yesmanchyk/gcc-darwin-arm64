@@ -4782,6 +4782,14 @@ prune_vars_needing_no_initialization (tree *vars)
 	  continue;
 	}
 
+      /* Reflections are consteval-only types and we don't want them
+	 to survive until gimplification.  */
+      if (consteval_only_var_p (decl))
+	{
+	  var = &TREE_CHAIN (t);
+	  continue;
+	}
+
       /* This variable is going to need initialization and/or
 	 finalization, so we add it to the list.  */
       *var = TREE_CHAIN (t);
@@ -5846,6 +5854,8 @@ c_parse_final_cleanups (void)
 	     should have synthesized it above.)  */
 	  && !(header_module_p ()
 	       && (DECL_DEFAULTED_FN (decl) || decl_tls_wrapper_p (decl)))
+	  /* Metafunctions are never defined.  */
+	  && !metafunction_p (decl)
 	  /* Don't complain if the template was defined.  */
 	  && !((DECL_TEMPLATE_INSTANTIATION (decl)
 		|| DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (decl))

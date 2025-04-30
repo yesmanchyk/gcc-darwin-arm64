@@ -3749,6 +3749,9 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
   if (DECL_THUNK_P (fun))
     return cxx_eval_thunk_call (ctx, t, fun, lval, non_constant_p, overflow_p,
 				jump_target);
+  if (metafunction_p (fun))
+    // TODO: cache -- in outermost_ ?, set non_constant_p, etc.
+    return process_metafunction (t);
   bool non_constexpr_call = false;
   if (!maybe_constexpr_fn (fun))
     {
@@ -4402,6 +4405,7 @@ reduced_constant_expression_p (tree t, tree sz /* = NULL_TREE */)
   switch (TREE_CODE (t))
     {
     case PTRMEM_CST:
+    case REFLECT_EXPR:
       /* Even if we can't lower this yet, it's constant.  */
       return true;
 
@@ -4876,6 +4880,11 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
 	lhs = cplus_expand_constant (lhs);
       else if (TREE_CODE (rhs) == PTRMEM_CST)
 	rhs = cplus_expand_constant (rhs);
+      else if (REFLECT_EXPR_P (lhs) && REFLECT_EXPR_P (rhs))
+	{
+	  const bool eq = compare_reflections (lhs, rhs);
+	  r = constant_boolean_node (eq == is_code_eq, type);
+	}
     }
   if (r == NULL_TREE
       && TREE_CODE_CLASS (code) == tcc_comparison
@@ -9006,6 +9015,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case CASE_LABEL_EXPR:
     case PREDICT_EXPR:
     case OMP_DECLARE_MAPPER:
+    case REFLECT_EXPR:
       return t;
 
     case PARM_DECL:
@@ -9796,6 +9806,14 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 			"%qT in a constant expression", TREE_TYPE (op), type);
 	    *non_constant_p = true;
 	    return t;
+	  }
+
+	/* This can happen for std::meta::info(^^int) where the cast has no
+	   meaning.  */
+	if (REFLECTION_TYPE_P (type) && REFLECT_EXPR_P (op))
+	  {
+	    r = op;
+	    break;
 	  }
 
 	/* [expr.const]: a conversion from type cv void* to a pointer-to-object
@@ -11470,6 +11488,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
     case REQUIRES_EXPR:
     case STATIC_ASSERT:
     case DEBUG_BEGIN_STMT:
+    case REFLECT_EXPR:
       return true;
 
     case RETURN_EXPR:
@@ -12561,6 +12580,10 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
     /* Assume a TU-local entity is not constant, we'll error later when
        instantiating.  */
     case TU_LOCAL_ENTITY:
+      return false;
+
+    /* A splice expression is dependent, so not constant.  */
+    case SPLICE_EXPR:
       return false;
 
     case NONTYPE_ARGUMENT_PACK:

@@ -211,6 +211,7 @@ enum cp_tree_index
 
     /* We must find these via the global namespace.  */
     CPTI_STD,
+    CPTI_STD_META,
     CPTI_ABI,
 
     /* These are created at init time, but the library/headers provide
@@ -236,6 +237,7 @@ enum cp_tree_index
     CPTI_DCAST,
 
     CPTI_PSEUDO_CONTRACT_VIOLATION,
+    CPTI_META_INFO_TYPE,
 
     CPTI_MAX
 };
@@ -257,6 +259,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
 #define std_node			cp_global_trees[CPTI_STD]
+#define std_meta_node			cp_global_trees[CPTI_STD_META]
 #define abi_node			cp_global_trees[CPTI_ABI]
 #define global_namespace		cp_global_trees[CPTI_GLOBAL]
 #define const_type_info_type_node	cp_global_trees[CPTI_CONST_TYPE_INFO_TYPE]
@@ -266,6 +269,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* std::align_val_t */
 #define align_type_node			cp_global_trees[CPTI_ALIGN_TYPE]
 #define pseudo_contract_violation_type	cp_global_trees[CPTI_PSEUDO_CONTRACT_VIOLATION]
+#define meta_info_type_node		cp_global_trees[CPTI_META_INFO_TYPE]
 
 /* We cache these tree nodes so as to call get_identifier less frequently.
    For identifiers for functions, including special member functions such
@@ -1881,6 +1885,16 @@ struct GTY(()) tree_tu_local_entity {
 /* Like PACK_EXPANSION_EXTRA_ARGS, for requires-expressions.  */
 #define REQUIRES_EXPR_EXTRA_ARGS(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, REQUIRES_EXPR), 2)
+
+/* True iff TYPE is cv decltype(^^int).  */
+#define REFLECTION_TYPE_P(TYPE) (TREE_CODE (TYPE) == META_TYPE)
+
+/* True if NODE is a REFLECT_EXPR.  */
+#define REFLECT_EXPR_P(NODE) (TREE_CODE (NODE) == REFLECT_EXPR)
+
+/* The handle of a reflection expression.  */
+#define REFLECT_EXPR_HANDLE(NODE) \
+  TREE_OPERAND (TREE_CHECK (NODE, REFLECT_EXPR), 0)
 
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
@@ -3795,6 +3809,9 @@ struct GTY(()) lang_decl {
 #define DECL_NAMESPACE_STD_P(NODE)			\
   ((NODE) == std_node)
 
+/* Nonzero if NODE is the std::meta namespace.  */
+#define DECL_NAMESPACE_STD_META_P(NODE) ((NODE) == std_meta_node)
+
 /* In a TREE_LIST in an attribute list, indicates that the attribute
    must be applied at instantiation time.  */
 #define ATTR_IS_DEPENDENT(NODE) TREE_LANG_FLAG_0 (TREE_LIST_CHECK (NODE))
@@ -4732,9 +4749,9 @@ get_vec_init_expr (tree t)
 
 /* [basic.types]
 
-   Arithmetic types, enumeration types, pointer types,
-   pointer-to-member types, and std::nullptr_t are collectively called
-   scalar types.
+   Arithmetic types, enumeration types, pointer types, pointer-to-member types,
+   std::meta::info, std::nullptr_t and cv-qualified versions of these types
+   are collectively called scalar types.
 
    Keep these checks in ascending code order.  */
 #define SCALAR_TYPE_P(TYPE)			\
@@ -4743,7 +4760,8 @@ get_vec_init_expr (tree t)
    || ARITHMETIC_TYPE_P (TYPE)			\
    || TYPE_PTR_P (TYPE)				\
    || TYPE_PTRMEMFUNC_P (TYPE)                  \
-   || NULLPTR_TYPE_P (TYPE))
+   || NULLPTR_TYPE_P (TYPE)			\
+   || REFLECTION_TYPE_P (TYPE))
 
 /* Determines whether this type is a C++0x scoped enumeration
    type. Scoped enumerations types are introduced via "enum class" or
@@ -9088,6 +9106,61 @@ extern tree coro_get_destroy_function		(tree);
 extern tree coro_get_ramp_function		(tree);
 
 extern tree co_await_get_resume_call		(tree await_expr);
+
+
+/* contracts.cc */
+extern tree make_postcondition_variable		(cp_expr);
+extern tree make_postcondition_variable		(cp_expr, tree);
+extern tree grok_contract			(tree, tree, tree, cp_expr, location_t);
+extern tree finish_contract_condition		(cp_expr);
+
+/* Return the first contract in ATTRS, or NULL_TREE if there are none.  */
+
+inline tree
+find_contract (tree attrs)
+{
+  while (attrs && !cxx_contract_attribute_p (attrs))
+    attrs = TREE_CHAIN (attrs);
+  return attrs;
+}
+
+inline void
+set_decl_contracts (tree decl, tree contract_attrs)
+{
+  remove_contract_attributes (decl);
+  DECL_ATTRIBUTES (decl) = chainon (DECL_ATTRIBUTES (decl), contract_attrs);
+}
+
+/* Returns the computed semantic of the node.  */
+
+inline contract_semantic
+get_contract_semantic (const_tree t)
+{
+  return (contract_semantic) (TREE_LANG_FLAG_3 (CONTRACT_CHECK (t))
+      | (TREE_LANG_FLAG_2 (t) << 1)
+      | (TREE_LANG_FLAG_0 ((t)) << 2));
+}
+
+/* Sets the computed semantic of the node.  */
+
+inline void
+set_contract_semantic (tree t, contract_semantic semantic)
+{
+  TREE_LANG_FLAG_3 (CONTRACT_CHECK (t)) = semantic & 0x01;
+  TREE_LANG_FLAG_2 (t) = (semantic & 0x02) >> 1;
+  TREE_LANG_FLAG_0 (t) = (semantic & 0x04) >> 2;
+}
+
+/* In reflect.cc */
+extern void init_reflection ();
+extern bool metafunction_p (tree) ATTRIBUTE_PURE;
+extern tree process_metafunction (tree);
+extern tree get_reflection (location_t, tree) ATTRIBUTE_PURE;
+extern tree get_null_reflection () ATTRIBUTE_PURE;
+extern tree splice (tree);
+extern bool check_out_of_consteval_use (tree);
+extern bool consteval_only_var_p (tree) ATTRIBUTE_PURE;
+extern bool compare_reflections (tree, tree) ATTRIBUTE_PURE;
 
 /* Inline bodies.  */
 

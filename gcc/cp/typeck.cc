@@ -6170,6 +6170,10 @@ cp_build_binary_op (const op_location_t &location,
 	  return cp_build_binary_op (location,
 				     EQ_EXPR, e, integer_zero_node, complain);
 	}
+      /* [expr.eq]: "If both operands are of type std::meta::info,
+	 comparison is defined as follows..."  */
+      else if (code0 == META_TYPE && code1 == META_TYPE)
+	result_type = type0;
       else
 	{
 	  gcc_assert (!TYPE_PTRMEMFUNC_P (type0)

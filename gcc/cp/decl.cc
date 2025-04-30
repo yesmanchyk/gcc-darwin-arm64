@@ -135,6 +135,7 @@ static bool identify_goto (tree, location_t, const location_t *,
    Namespaces,
 
 	tree std_node;
+	tree std_meta_node;
 	tree abi_node;
 
    A FUNCTION_DECL which can call `abort'.  Not necessarily the
@@ -1025,6 +1026,10 @@ wrapup_namespace_globals ()
 	      && DECL_ODR_USED (decl))
 	    error_at (DECL_SOURCE_LOCATION (decl),
 		      "odr-used inline variable %qD is not defined", decl);
+
+	  /* We shouldn't emit consteval-only types.  */
+	  if (VAR_P (decl) && consteval_only_var_p (decl))
+	    DECL_HAS_VALUE_EXPR_P (decl) = true;
 	}
 
       /* Clear out the list, so we don't rescan next time.  */
@@ -5523,6 +5528,12 @@ cxx_init_decl_processing (void)
   /* Create the `std' namespace.  */
   push_namespace (get_identifier ("std"));
   std_node = current_namespace;
+  if (flag_reflection)
+    {
+      push_namespace (get_identifier ("meta"), /*inline*/false);
+      std_meta_node = current_namespace;
+      pop_namespace ();
+    }
   pop_namespace ();
 
   flag_noexcept_type = (cxx_dialect >= cxx17);
@@ -5703,6 +5714,9 @@ cxx_init_decl_processing (void)
 
   if (modules_p ())
     init_modules (parse_in);
+
+  if (flag_reflection)
+    init_reflection ();
 
   make_fname_decl = cp_make_fname_decl;
   start_fname_decls ();
@@ -7234,7 +7248,8 @@ maybe_commonize_var (tree decl)
      linkage.  */
   if ((TREE_STATIC (decl)
        && DECL_FUNCTION_SCOPE_P (decl)
-       && vague_linkage_p (DECL_CONTEXT (decl)))
+       && vague_linkage_p (DECL_CONTEXT (decl))
+       && !consteval_only_var_p (decl))
       || (TREE_PUBLIC (decl) && DECL_INLINE_VAR_P (decl)))
     {
       if (flag_weak)
@@ -8587,6 +8602,16 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	  init = NULL_TREE;
 	}
     }
+  else if (!init && REFLECTION_TYPE_P (type))
+    {
+      /* [dcl.init.general]: To default-initialize an object of type
+	 std::meta::info means that the object is zero-initialized.  */
+      DECL_INITIAL (decl)
+	= build_zero_init (type, NULL_TREE, /*static_storage_p=*/false);
+      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = true;
+      TREE_CONSTANT (decl) = true;
+      init = NULL_TREE;
+    }
   else
     {
       if (CLASS_TYPE_P (core_type = strip_array_types (type))
@@ -8697,6 +8722,10 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 
   /* We don't create any RTL for local variables.  */
   if (DECL_FUNCTION_SCOPE_P (decl) && !TREE_STATIC (decl))
+    return;
+
+  /* Don't output reflection variables.  */
+  if (consteval_only_var_p (decl))
     return;
 
   /* We defer emission of local statics until the corresponding
@@ -9732,7 +9761,8 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	 variable.  */
       if (DECL_FUNCTION_SCOPE_P (decl)
 	  && TREE_STATIC (decl)
-	  && !DECL_ARTIFICIAL (decl))
+	  && !DECL_ARTIFICIAL (decl)
+	  && !consteval_only_var_p (decl))
 	{
 	  /* The variable holding an anonymous union will have had its
 	     discriminator set in finish_anon_union, after which it's

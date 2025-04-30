@@ -1424,6 +1424,11 @@ cp_build_qualified_type (tree type, int type_quals,
   if (type_quals == cp_type_quals (type))
     return type;
 
+  /* There is a distinct cv-unqual type that is the type of all
+     reflect-expressions.  */
+  if (type == meta_info_type_node)
+    return type;
+
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       /* In C++, the qualification really applies to the array element

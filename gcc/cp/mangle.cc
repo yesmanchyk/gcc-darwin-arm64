@@ -2565,6 +2565,11 @@ write_type (tree type)
 	    case UNION_TYPE:
 	    case RECORD_TYPE:
 	    case ENUMERAL_TYPE:
+	    /* FIXME We shouldn't get here, because we shouldn't need to mangle
+	       consteval function.  Disabling that leads to a crash in
+	       cdtor_comdat_group though.  Maybe consteval 'tors need to be
+	       mangled, but not ordinary functions.  */
+	    case META_TYPE:
 	      /* A pointer-to-member function is represented as a special
 		 RECORD_TYPE, so check for this first.  */
 	      if (TYPE_PTRMEMFUNC_P (type))
@@ -3755,6 +3760,12 @@ write_expression (tree expr)
       write_string ("nx");
       write_expression (TREE_OPERAND (expr, 0));
     }
+  else if (code == REFLECT_EXPR)
+    /* ??? It's not clear at all how to mangle this.  We can get here
+       with e.g.:
+	 template <auto V> constexpr int e = [:V:];
+       when it's instantiated with a reflection.  */
+    write_expression (REFLECT_EXPR_HANDLE (expr));
   else if (code == CONSTRUCTOR)
     {
       bool braced_init = BRACE_ENCLOSED_INITIALIZER_P (expr);

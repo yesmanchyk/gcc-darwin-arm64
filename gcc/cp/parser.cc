@@ -152,6 +152,7 @@ enum required_token {
   RT_COMMA_CLOSE_PAREN, /* ',' or ')' */
   RT_PRAGMA_EOL, /* end of line */
   RT_NAME, /* identifier */
+  RT_CLOSE_SPLICE, /* ':]' */
 
   /* The type is CPP_KEYWORD */
   RT_NEW, /* new */
@@ -2850,7 +2851,7 @@ static tree cp_parser_template_parameter
 static tree cp_parser_type_parameter
   (cp_parser *, bool *);
 static tree cp_parser_template_id
-  (cp_parser *, bool, bool, enum tag_types, bool);
+  (cp_parser *, bool, bool, enum tag_types, bool, tree = NULL_TREE);
 static tree cp_parser_template_id_expr
   (cp_parser *, bool, bool, bool);
 static tree cp_parser_template_name
@@ -3341,6 +3342,8 @@ get_required_cpp_ttype (required_token token_desc)
       return CPP_COLON;
     case RT_CLOSE_PAREN:
       return CPP_CLOSE_PAREN;
+    case RT_CLOSE_SPLICE:
+      return CPP_CLOSE_SPLICE;
 
     default:
       /* Use CPP_EOF as a "no completions possible" code.  */
@@ -5988,6 +5991,262 @@ cp_parser_pack_index (cp_parser *parser, tree pack)
   return make_pack_index (pack, index);
 }
 
+/* Return true iff the next tokens start a splice-type-specifier.  */
+
+static bool
+cp_parser_next_tokens_start_splice_type_spec_p (cp_parser *parser)
+{
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
+    return true;
+  return (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME)
+	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_OPEN_SPLICE));
+}
+
+/* Return true iff the next tokens start a splice-scope-specifier.  */
+
+static bool
+cp_parser_next_tokens_start_splice_scope_spec_p (cp_parser *parser)
+{
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
+    return true;
+  return (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE)
+	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_OPEN_SPLICE));
+}
+
+/* Parse a splice-specifier.
+
+   splice-specifier:
+     [: constant-expression :]
+
+    splice-specialization-specifier:
+      splice-specifier < template-argument-list[opt] >
+
+   TEMPLATE_P is true if we've parsed the leading template keyword.
+   TARGS_P is set to true if there is a splice-specialization-specifier.  */
+
+static cp_expr
+cp_parser_splice_specifier (cp_parser *parser, bool template_p, bool *targs_p)
+{
+  /* Get the location of the '[:'.  */
+  location_t start_loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  /* Consume the '[:'.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  /* Get the location of the operand.  */
+  location_t caret_loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  tree expr = cp_parser_constant_expression (parser,
+					     /*allow_non_constant_p=*/false,
+					     /*non_constant_p=*/nullptr,
+					     /*strict_p=*/true);
+
+  /* Get the location of the ':]'.  */
+  location_t finish_loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  /* Consume the ':]'.  */
+  if (!cp_parser_require (parser, CPP_CLOSE_SPLICE, RT_CLOSE_SPLICE))
+    return error_mark_node;
+
+  /* Get the reflected operand.  */
+  expr = splice (expr);
+
+  /* If the next token is a '<', it's a splice-specialization-specifier.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_LESS))
+    {
+      /* Let cp_parser_template_id parse the template arguments.  */
+      expr = cp_parser_template_id (parser, template_p,
+				    /*check_dependency_p=*/true,
+				    /*tag_type=*/none_type,
+				    /*is_declaration=*/false,
+				    expr);
+      if (targs_p)
+	*targs_p = true;
+    }
+
+  /* We may have to instantiate; for instance, if we're dealing with
+     a variable template.  */
+  if (TREE_CODE (expr) == TEMPLATE_ID_EXPR)
+    {
+      const char *error_msg;
+      cp_id_kind idk = CP_ID_KIND_NONE;
+      expr
+	= finish_id_expression (expr, expr, parser->scope, &idk,
+				/*integral_constant_expression_p=*/false,
+				/*allow_non_integral_constant_expr_p=*/true,
+				&parser->non_integral_constant_expression_p,
+				template_p,
+				/*done=*/true,
+				/*address_p=*/false,
+				/*template_arg_p=*/false,
+				&error_msg,
+				caret_loc);
+      if (error_msg)
+	cp_parser_error (parser, error_msg);
+    }
+
+  if (!flag_reflection)
+    {
+      error ("reflection is only available with %<-freflection%>");
+      return error_mark_node;
+    }
+
+  return cp_expr (expr, make_location (caret_loc, start_loc, finish_loc));
+}
+
+/* Parse a splice-type-specifier.
+
+   splice-type-specifier:
+     typename[opt] splice-specifier
+     typename[opt] splice-specialization-specifier
+
+ */
+
+static tree
+cp_parser_splice_type_specifier (cp_parser *parser)
+{
+  /* Consume the optional typename.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME))
+    cp_lexer_consume_token (parser->lexer);
+
+  tree type = cp_parser_splice_specifier (parser, /*template_p=*/false,
+					  /*targs_p=*/nullptr);
+
+  if (TREE_CODE (type) == TYPE_DECL)
+    type = TREE_TYPE (type);
+
+  /* [dcl.type.splice] For a splice-type-specifier of the form
+     "typename[opt] splice-specifier", the splice-specifier shall
+     designate a type, a primary class template, or an alias template.  */
+  if (!TYPE_P (type))
+    {
+      cp_parser_error (parser, "reflection not usable in a splice type");
+      type = NULL_TREE;
+    }
+
+  return type;
+}
+
+/* Parse a splice-expression.
+
+   splice-expression:
+     splice-specifier
+     template splice-specifier
+     template splice-specialization-specifier
+
+   TEMPLATE_P is true if we've parsed the leading template keyword.  */
+
+static tree
+cp_parser_splice_expression (cp_parser *parser, bool template_p)
+{
+  bool targs_p = false;
+  cp_expr expr = cp_parser_splice_specifier (parser, template_p, &targs_p);
+
+  if (template_p)
+    {
+      /* [expr.prim.splice] For a splice-expression of the form template
+	 splice-specifier, the splice-specifier shall designate a function
+	 template.  */
+      if (!targs_p)
+	{
+	  if (!really_overloaded_fn (expr))
+	    {
+	      auto_diagnostic_group d;
+	      error_at (expr.get_location (),
+			"reflection not usable in a template splice");
+	      inform (expr.get_location (),
+		      "only function templates are allowed here");
+	      return error_mark_node;
+	    }
+	}
+      /* [expr.prim.splice] For a splice-expression of the form
+	 template splice-specialization-specifier, the splice-specifier of the
+	 splice-specialization-specifier shall designate a template.  */
+      // TODO
+      else if (false)
+	{
+	  error_at (expr.get_location (),
+		    "reflection not usable in a template splice");
+	  return error_mark_node;
+	}
+    }
+  else
+    {
+      // TODO [expr.prim.splice]/2
+      if (really_overloaded_fn (expr))
+	{
+	  error_at (expr.get_location (),
+		    "reflection not usable in a template splice");
+	  return error_mark_node;
+	}
+      /* [expr.prim.splice] The expression is ill-formed if S is
+	 a constructor or a destructor.  */
+      if (TREE_CODE (expr) == BIT_NOT_EXPR
+	  && TYPE_P (TREE_OPERAND (expr, 0)))
+	{
+	  error_at (expr.get_location (),
+		    "cannot use constructor or destructor in a splice expression");
+	  return error_mark_node;
+	}
+    }
+
+  return expr;
+}
+
+/* Parse a splice-scope-specifier.
+
+   splice-scope-specifier:
+     splice-specifier
+     template[opt] splice-specialization-specifier
+
+   TYPENAME_P is true if we've seen the typename keyword.
+   TEMPLATE_P is true if we've seen the leading template keyword.  */
+
+static tree
+cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
+				  bool template_p)
+{
+  bool targs_p = false;
+  cp_expr scope = cp_parser_splice_specifier (parser, template_p, &targs_p);
+  location_t loc = scope.get_location ();
+  if (TREE_CODE (scope) == TYPE_DECL)
+    scope = TREE_TYPE (scope);
+
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
+    {
+      if (template_p && !targs_p)
+	{
+	  error_at (loc, "extra %<template%> in a scope splice");
+	  return error_mark_node;
+	}
+      /* [expr.prim.id.qual] The template may only be omitted from the
+	 form template(opt) splice-specialization-specifier :: when the
+	 splice-specialization-specifier is preceded by typename.  */
+      if (targs_p && !typename_p)
+	{
+	  // TODO add error
+	}
+
+      /* [basic.lookup.qual.general] "If a name, template-id,
+	 splice-scope-specifier, or computed-type-specifier is followed by
+	 a ::, it shall either be a dependent splice-scope-specifier or it
+	 shall designate a namespace, class, enumeration, or dependent
+	 type."  */
+      if (!CLASS_TYPE_P (scope)
+	  && TREE_CODE (scope) != ENUMERAL_TYPE
+	  && TREE_CODE (scope) != NAMESPACE_DECL)
+	{
+	  auto_diagnostic_group d;
+	  error_at (loc, "reflection not usable in a splice scope");
+	  if (TYPE_P (scope))
+	    inform (loc, "%qT is not a class, namespace, or enumeration",
+		    tree (scope));
+	  scope = error_mark_node;
+	}
+    }
+  return scope;
+}
+
 /* Parse a primary-expression.
 
    primary-expression:
@@ -5996,6 +6255,9 @@ cp_parser_pack_index (cp_parser *parser, tree pack)
      ( expression )
      id-expression
      lambda-expression (C++11)
+     fold-expression
+     requires-expression
+     splice-expression
 
    GNU Extensions:
 
@@ -6279,6 +6541,9 @@ cp_parser_primary_expression (cp_parser *parser,
 	return lam;
       }
 
+    case CPP_OPEN_SPLICE:
+      return cp_parser_splice_expression (parser, /*template_p=*/false);
+
     case CPP_OBJC_STRING:
       if (c_dialect_objc ())
 	/* We have an Objective-C++ string literal. */
@@ -6435,13 +6700,20 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_TEMPLATE:
 	  if (parser->in_function_body
 	      && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
-	      	  == CPP_LESS))
+		  == CPP_LESS))
 	    {
 	      error_at (token->location,
 			"a template declaration cannot appear at block scope");
 	      cp_parser_skip_to_end_of_block_or_statement (parser);
 	      return error_mark_node;
 	    }
+	  else if (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+		   == CPP_OPEN_SPLICE)
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      return cp_parser_splice_expression (parser, /*template_p=*/true);
+	    }
+
 	  /* FALLTHRU */
 	default:
 	  cp_parser_error (parser, "expected primary-expression");
@@ -6630,6 +6902,16 @@ cp_parser_primary_expression (cp_parser *parser,
 
 	return decl;
       }
+
+    case CPP_XOR:
+      if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_XOR)
+	{
+	  error_at (token->location,
+		    "reflection is only available in C++26 with "
+		    "%<-freflection%>");
+	  return error_mark_node;
+	}
+      gcc_fallthrough ();
 
       /* Anything else is an error.  */
     default:
@@ -7245,6 +7527,7 @@ check_template_keyword_in_nested_name_spec (tree name)
      type-name ::
      namespace-name ::
      computed-type-specifier ::
+     splice-scope-specifier ::
      nested-name-specifier identifier ::
      nested-name-specifier template [opt] simple-template-id ::
 
@@ -7331,6 +7614,9 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	;
       /* DR 743: decltype can be used in a nested-name-specifier.  */
       else if (token_is_decltype (token))
+	;
+      /* Could be a splice-scope-specifier.  */
+      else if (cp_parser_next_tokens_start_splice_scope_spec_p (parser))
 	;
       else
 	{
@@ -7708,6 +7994,22 @@ cp_parser_qualifying_entity (cp_parser *parser,
       return scope;
     }
 
+  /* In a nested-name-specifier, we can reach a splice-specifier
+     either via the computed-type-specifier -> splice-type-specifier
+     production, or via splice-scope-specifier.  But [dcl.type.splice]
+     says "A splice-specifier or splice-specialization-specifier immediately
+     followed by :: is never interpreted as part of a splice-type-specifier"
+     so we call only cp_parser_splice_scope_specifier.  */
+  if (cp_parser_next_tokens_start_splice_scope_spec_p (parser))
+    {
+      if (cp_parser_optional_template_keyword (parser))
+	template_keyword_p = true;
+      scope = cp_parser_splice_scope_specifier (parser,
+						typename_keyword_p,
+						template_keyword_p);
+      return scope;
+    }
+
   /* Before we try to parse the class-name, we must save away the
      current PARSER->SCOPE since cp_parser_class_name will destroy
      it.  */
@@ -7784,6 +8086,85 @@ literal_integer_zerop (const_tree expr)
 {
   return (location_wrapper_p (expr)
 	  && integer_zerop (TREE_OPERAND (expr, 0)));
+}
+
+/* Skip tokens until a non-nested closing CLOSE_TOKEN is the next
+   token, or there are no more tokens.  Return true in the first case,
+   false otherwise.  */
+
+// TODO: use instead of cp_parser_skip_to_closing_brace and
+// cp_parser_skip_up_to_closing_square_bracket
+
+template<cpp_ttype open_token, cpp_ttype close_token>
+static bool
+cp_parser_skip_to_closing_token (cp_parser *parser)
+{
+  unsigned nesting_depth = 0;
+
+  while (true)
+    {
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+      switch (token->type)
+	{
+	case CPP_PRAGMA_EOL:
+	  if (!parser->lexer->in_pragma)
+	    break;
+	  gcc_fallthrough ();
+
+	case CPP_EOF:
+	  /* If we've run out of tokens, stop.  */
+	  return false;
+
+	case close_token:
+	  if (nesting_depth-- == 0)
+	    return true;
+	  break;
+
+	case open_token:
+	  ++nesting_depth;
+	  break;
+
+	default:
+	  break;
+	}
+
+      /* Consume the token.  */
+      cp_lexer_consume_token (parser->lexer);
+    }
+}
+
+/* We know the next two tokens are "typename [:" and we are wondering if
+   a '::' follows right after the closing ':]', or after the possible '<...>'
+   after the ':]'.  Return true if yes, false otherwise.  */
+
+static bool
+cp_parser_splice_spec_is_nns_p (cp_parser *parser)
+{
+  saved_token_sentinel toks (parser->lexer, STS_ROLLBACK);
+
+  /* Consume the 'typename'.  */
+  cp_lexer_consume_token (parser->lexer);
+  /* Consume the '[:'.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  bool ok =
+    cp_parser_skip_to_closing_token<CPP_OPEN_SPLICE, CPP_CLOSE_SPLICE>(parser);
+
+  if (ok)
+    {
+      /* Consume the ':]'.  */
+      cp_lexer_consume_token (parser->lexer);
+
+      /* Consume the whole '<....>', if present.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_LESS)
+	  && !cp_parser_skip_entire_template_parameter_list (parser))
+	return false;
+
+      return cp_lexer_next_token_is (parser->lexer, CPP_SCOPE);
+    }
+
+  return false;
 }
 
 /* Parse a postfix-expression.
@@ -8005,6 +8386,13 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 
     case RID_TYPENAME:
       {
+	/* Just like cp_parser_type_specifier/RID_TYPENAME: if we see
+	   'typename [:', this could be a typename-specifier.  But if
+	   there's no '::' after the '[:x:]' then it is not.  */
+	if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_OPEN_SPLICE
+	    && !cp_parser_splice_spec_is_nns_p (parser))
+	  goto default_;
+
 	tree type;
 	/* The syntax permitted here is the same permitted for an
 	   elaborated-type-specifier.  */
@@ -8206,6 +8594,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
       }
 
     default:
+    default_:
       {
 	tree type;
 
@@ -9383,6 +9772,125 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
   *type = TREE_TYPE (cp_parser_nonclass_name (parser));
 }
 
+/* Parse a qualified-reflection-name.
+
+   qualified-reflection-name:
+    nested-name-specifier[opt] identifier
+    nested-name-specifier template identifier
+
+ */
+
+static tree
+cp_parser_qualified_reflection_name (cp_parser *parser)
+{
+  /* Look for the optional `::' operator.  */
+  bool global_scope_p
+    = (cp_parser_global_scope_opt (parser,
+				   /*current_scope_valid_p=*/false)
+       != NULL_TREE);
+  /* And the optional nested-name-specifier.  */
+  bool nested_name_specifier_p
+    = (cp_parser_nested_name_specifier_opt (parser,
+					    /*typename_keyword_p=*/false,
+					    /*check_dependency_p=*/true,
+					    /*type_p=*/false,
+					    /*is_declaration=*/false)
+       != NULL_TREE);
+  /* Look for the optional `template' keyword.  */
+  if (cp_parser_optional_template_keyword (parser)
+      && !global_scope_p
+      && !nested_name_specifier_p)
+    /* Only "template identifier" isn't valid.  */
+    cp_parser_simulate_error (parser);
+
+  /* Look for the identifier.  */
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+  tree name = cp_parser_identifier (parser);
+  tree decl = cp_parser_lookup_name_simple (parser, name, loc);
+  if (name != error_mark_node && decl == error_mark_node)
+    cp_parser_name_lookup_error (parser, name, decl, NLE_NULL, loc);
+  else if (TREE_CODE (decl) == TYPE_DECL)
+    /* Let cp_parser_type_id handle this.  */
+    cp_parser_simulate_error (parser);
+
+  return decl;
+}
+
+/* Parse a reflect-expression.
+
+   reflect-expression:
+     ^^ ::
+     ^^ qualified-reflection-name
+     ^^ type-id
+     ^^ id-expression
+
+  Returns a representation of the reflection.  */
+
+static tree
+cp_parser_reflect_expression (cp_parser *parser)
+{
+  if (!flag_reflection)
+    {
+      error_at (cp_lexer_peek_token (parser->lexer)->location,
+		"reflection is only available with %<-freflection%>");
+      return error_mark_node;
+    }
+
+  /* Consume the '^^'.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  /* Get the location of the operand.  */
+  const location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  /* We don't know what this might be.  Try and see what works.  */
+  cp_parser_parse_tentatively (parser);
+  tree t = cp_parser_qualified_reflection_name (parser);
+  if (cp_parser_parse_definitely (parser))
+    return get_reflection (loc, t);
+  /* Nope.  Well then, maybe it's a type-id.  */
+  cp_parser_parse_tentatively (parser);
+  t = cp_parser_type_id (parser);
+  if (cp_parser_parse_definitely (parser))
+    return get_reflection (loc, t);
+  /* Try an id-expression.  */
+  {
+    cp_parser_parse_tentatively (parser);
+    /* [expr.reflect] The id-expression of a reflect-expression is
+       an unevaluated operand.  */
+    cp_unevaluated u;
+    tree id = cp_parser_id_expression (parser,
+				       /*template_keyword_p=*/false,
+				       /*check_dependency_p=*/true,
+				       /*template_p=*/nullptr,
+				       /*declarator_p=*/false,
+				       /*optional_p=*/false);
+    /* Lookup the name we got back from the id-expression.  */
+    if (identifier_p (id))
+      t = cp_parser_lookup_name_simple (parser, id, loc);
+    else
+      t = id;
+    /* We couldn't look ID up, harrumph.  */
+    if (id != error_mark_node && t == error_mark_node)
+      cp_parser_name_lookup_error (parser, id, t, NLE_NULL, loc);
+    if (cp_parser_parse_definitely (parser))
+      return get_reflection (loc, t);
+  }
+
+  /* Last chance, see if there's ^^::.  This must be done only after we've
+     tried the other options.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      /* A reflect-expression of the form ^^:: represents the global
+	 namespace.  */
+      return get_reflection (loc, global_namespace);
+    }
+
+  /* Oy vey, nothing worked.  */
+  error_at (loc, "%<^^%> cannot be applied to this operand");
+  return error_mark_node;
+}
+
 /* Parse a unary-expression.
 
    unary-expression:
@@ -9393,9 +9901,10 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
      unary-operator cast-expression
      sizeof unary-expression
      sizeof ( type-id )
-     alignof ( type-id )  [C++0x]
+     alignof ( type-id )  [C++11]
      new-expression
      delete-expression
+     reflect-expression	[C++26]
 
    GNU Extensions:
 
@@ -9659,6 +10168,8 @@ cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
       else if (keyword == RID_DELETE)
 	return cp_parser_delete_expression (parser);
     }
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_REFLECT_OP))
+    return cp_parser_reflect_expression (parser);
 
   /* Look for a unary operator.  */
   unary_operator = cp_parser_unary_operator (token);
@@ -20167,6 +20678,9 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
    of functions, returns a TEMPLATE_ID_EXPR.  If the template-name
    names a class, returns a TYPE_DECL for the specialization.
 
+   PARSED_TEMPL, if non-null, is the already parsed template-name.  This
+   is used when parsing a splice-specialization-specifier.
+
    If CHECK_DEPENDENCY_P is FALSE, names are looked up in
    uninstantiated templates.  */
 
@@ -20175,7 +20689,8 @@ cp_parser_template_id (cp_parser *parser,
 		       bool template_keyword_p,
 		       bool check_dependency_p,
 		       enum tag_types tag_type,
-		       bool is_declaration)
+		       bool is_declaration,
+		       tree parsed_templ/*=NULL_TREE*/)
 {
   tree templ;
   tree arguments;
@@ -20196,28 +20711,32 @@ cp_parser_template_id (cp_parser *parser,
 
   /* Avoid performing name lookup if there is no possibility of
      finding a template-id.  */
-  if ((token->type != CPP_NAME && token->keyword != RID_OPERATOR)
-      || (token->type == CPP_NAME
-	  && !cp_parser_nth_token_starts_template_argument_list_p
-	       (parser, 2)))
+  if (!parsed_templ
+      && ((token->type != CPP_NAME && token->keyword != RID_OPERATOR)
+	  || (token->type == CPP_NAME
+	      && !cp_parser_nth_token_starts_template_argument_list_p
+		   (parser, 2))))
     {
       cp_parser_error (parser, "expected template-id");
       return error_mark_node;
     }
 
   /* Remember where the template-id starts.  */
-  if (cp_parser_uncommitted_to_tentative_parse_p (parser))
+  if (!parsed_templ && cp_parser_uncommitted_to_tentative_parse_p (parser))
     start_of_id = cp_lexer_token_position (parser->lexer, false);
 
   push_deferring_access_checks (dk_deferred);
 
   /* Parse the template-name.  */
   is_identifier = false;
-  templ = cp_parser_template_name (parser, template_keyword_p,
-				   check_dependency_p,
-				   is_declaration,
-				   tag_type,
-				   &is_identifier);
+  if (parsed_templ)
+    templ = parsed_templ;
+  else
+    templ = cp_parser_template_name (parser, template_keyword_p,
+				     check_dependency_p,
+				     is_declaration,
+				     tag_type,
+				     &is_identifier);
 
   /* Push any access checks inside the firewall we're about to create.  */
   vec<deferred_access_check, va_gc> *checks = get_deferred_access_checks ();
@@ -21408,18 +21927,30 @@ cp_parser_type_specifier (cp_parser* parser,
 
       /* Fall through.  */
     case RID_TYPENAME:
-      /* Look for an elaborated-type-specifier.  */
-      type_spec
-	= (cp_parser_elaborated_type_specifier
-	   (parser,
-	    decl_spec_seq_has_spec_p (decl_specs, ds_friend),
-	    is_declaration));
-      if (decl_specs)
-	cp_parser_set_decl_spec_type (decl_specs,
-				      type_spec,
-				      token,
-				      /*type_definition_p=*/false);
-      return type_spec;
+      {
+	/* If we see 'typename [:', this could be a typename-specifier.
+	   But if there's no '::' after the '[:x:]' then it is probably
+	   a simple-type-specifier.  */
+	if (keyword == RID_TYPENAME
+	    && cp_lexer_peek_nth_token (parser->lexer, 2)->type
+		== CPP_OPEN_SPLICE
+	    && !cp_parser_splice_spec_is_nns_p (parser))
+	  break;
+
+	/* Look for an elaborated-type-specifier.  */
+	type_spec
+	  = (cp_parser_elaborated_type_specifier
+	     (parser,
+	      decl_spec_seq_has_spec_p (decl_specs, ds_friend),
+	      is_declaration));
+
+	if (decl_specs)
+	  cp_parser_set_decl_spec_type (decl_specs,
+					type_spec,
+					token,
+					/*type_definition_p=*/false);
+	return type_spec;
+      }
 
     case RID_CONST:
       ds = ds_const;
@@ -21505,6 +22036,15 @@ cp_parser_type_specifier (cp_parser* parser,
    C++17 extension:
 
      nested-name-specifier(opt) template-name
+
+   computed-type-specifier:
+     decltype-specifier
+     pack-index-specifier
+     splice-type-specifier
+
+   splice-type-specifier:
+     typename[opt] splice-specifier
+     typename[opt] splice-specialization-specifier
 
    GNU Extension:
 
@@ -21872,6 +22412,10 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	  else if (TREE_CODE (type) != TYPE_DECL)
 	    type = NULL_TREE;
 	}
+
+      /* "[: ... :]" is a C++26 splice-type-specifier.  */
+      if (!type && cp_parser_next_tokens_start_splice_type_spec_p (parser))
+	type = cp_parser_splice_type_specifier (parser);
 
       /* Otherwise, look for a type-name.  */
       if (!type)
@@ -36176,6 +36720,9 @@ cp_parser_required_error (cp_parser *parser,
 	    break;
 	  case RT_CLASS_TYPENAME_TEMPLATE:
 	    gmsgid = G_("expected %<class%>, %<typename%>, or %<template%>");
+	    break;
+	  case RT_CLOSE_SPLICE:
+	    gmsgid = G_("expected %<:]%>");
 	    break;
 	  default:
 	    gcc_unreachable ();

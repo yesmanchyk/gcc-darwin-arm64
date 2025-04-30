@@ -749,6 +749,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
+    case CONST_DECL:
       dump_decl (pp, t, flags & ~TFF_DECL_SPECIFIERS);
       break;
 
@@ -878,6 +879,10 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 
     case NULLPTR_TYPE:
       pp_string (pp, "std::nullptr_t");
+      break;
+
+    case META_TYPE:
+      pp_string (pp, "std::meta::info");
       break;
 
     default:
@@ -1139,6 +1144,7 @@ dump_type_prefix (cxx_pretty_printer *pp, tree t, int flags)
     case FIXED_POINT_TYPE:
     case NULLPTR_TYPE:
     case PACK_INDEX_TYPE:
+    case META_TYPE:
       dump_type (pp, t, flags);
       pp->set_padding (pp_before);
       break;
@@ -1272,6 +1278,7 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
     case FIXED_POINT_TYPE:
     case NULLPTR_TYPE:
     case PACK_INDEX_TYPE:
+    case META_TYPE:
       break;
 
     default:
@@ -3313,6 +3320,19 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	  dump_expr (pp, TREE_OPERAND (t, 0), flags);
 	}
       break;
+
+    case REFLECT_EXPR:
+      {
+	pp_string (pp, "^^");
+	tree h = REFLECT_EXPR_HANDLE (t);
+	if (DECL_P (h))
+	  dump_decl (pp, h, flags);
+	else if (TYPE_P (h))
+	  dump_type (pp, h, flags);
+	else
+	  dump_expr (pp, h, flags);
+	break;
+      }
 
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call

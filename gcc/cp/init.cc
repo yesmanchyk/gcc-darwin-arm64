@@ -178,6 +178,10 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
 
   if (type == error_mark_node)
     ;
+  else if (REFLECTION_TYPE_P (type))
+    /* [dcl.init.general]: "if T is std::meta::info, the object is initialized
+       to a null reflection value".  */
+    init = get_null_reflection ();
   else if (static_storage_p && zero_init_p (type))
     /* In order to save space, we do not explicitly build initializers
        for items that do not need them.  GCC's semantics are that

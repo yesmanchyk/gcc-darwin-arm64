@@ -101,6 +101,8 @@ class rich_location;
   OP(CLOSE_SQUARE,	"]")						\
   OP(OPEN_BRACE,	"{")						\
   OP(CLOSE_BRACE,	"}")						\
+  OP(OPEN_SPLICE,	"[:")						\
+  OP(CLOSE_SPLICE,	":]")						\
   /* The remainder of the punctuation.	Order is not significant.  */	\
   OP(SEMICOLON,		";")	/* structure */				\
   OP(ELLIPSIS,		"...")						\
@@ -111,6 +113,7 @@ class rich_location;
   OP(SCOPE,		"::")						\
   OP(DEREF_STAR,	"->*")						\
   OP(DOT_STAR,		".*")						\
+  OP(REFLECT_OP,	"^^")						\
   OP(ATSIGN,		"@")  /* used in Objective-C */			\
 									\
   TK(NAME,		IDENT)	 /* word */				\
