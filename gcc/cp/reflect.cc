@@ -173,16 +173,26 @@ get_reflection_raw (location_t loc, tree t)
 tree
 get_reflection (location_t loc, tree t)
 {
+  STRIP_ANY_LOCATION_WRAPPER (t);
+
   /* [expr.reflect] If the type-id designates a placeholder type, R is
      ill-formed.  */
-  if (is_auto (t)
-      // XXX Used to say NTTPs, now constant tparms.  Fix/test.
-      /* Constant template parameters and pack-index-expressions cannot
-	 appear as operands of the reflection operator.  */
-      || PACK_INDEX_P (t)
-      || (DECL_P (t) && DECL_TEMPLATE_PARM_P (t)))
+  if (is_auto (t))
     {
-      error_at (loc, "%<^^%> cannot be applied to %qT", t);
+      error_at (loc, "%<^^%> cannot be applied to a placeholder type");
+      return error_mark_node;
+    }
+  /* Constant template parameters and pack-index-expressions cannot
+     appear as operands of the reflection operator.  */
+  else if (PACK_INDEX_P (t))
+    {
+      error_at (loc, "%<^^%> cannot be applied to a pack index");
+      return error_mark_node;
+    }
+  else if (DECL_P (t) && DECL_TEMPLATE_PARM_P (t))
+    {
+      error_at (loc, "%<^^%> cannot be applied to a non-type template "
+		"parameter %qD", t);
       return error_mark_node;
     }
   /* If the id-expression denotes a local parameter introduced by
@@ -202,6 +212,14 @@ get_reflection (location_t loc, tree t)
     {
       error_at (loc, "%<^^%> cannot be applied a local entity for which "
 		"there is an intervening lambda expression");
+      return error_mark_node;
+    }
+  /* If the id-expression denotes a variable declared by an init-capture,
+     R is ill-formed.  */
+  else if (is_capture_proxy (t) && !is_normal_capture_proxy (t))
+    {
+      error_at (loc, "%<^^%> cannot be applied to a local entity declared "
+		"by init-capture");
       return error_mark_node;
     }
 

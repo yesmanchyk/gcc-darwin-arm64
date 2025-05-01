@@ -32,3 +32,19 @@ g ()
     static_assert(^^x == r);  // { dg-error "intervening lambda expression" }
   }.operator()<^^x>();
 }
+
+void
+h ()
+{
+  int x = 42;
+  int y = 42;
+  [x_=x, y]() {
+    constexpr auto r1 = ^^x;  // { dg-error "intervening lambda expression" }
+    constexpr auto r2 = ^^x_; // { dg-error "local entity declared by init-capture" }
+    constexpr auto r3 = ^^y;  // { dg-error "intervening lambda expression" }
+
+    [x_]() {
+      constexpr auto r4 = ^^x_;	// { dg-error "intervening lambda expression" }
+    };
+  };
+}

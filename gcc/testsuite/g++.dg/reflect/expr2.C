@@ -33,11 +33,18 @@ template<S s, int n, E e, double d, const int& r>
 void
 g ()
 {
-  constexpr auto r1 = ^^s;  // { dg-error "cannot be applied to .s." }
-  constexpr auto r2 = ^^n;  // { dg-error "cannot be applied to .n." }
-  constexpr auto r3 = ^^e;  // { dg-error "cannot be applied to .e." }
-  constexpr auto r4 = ^^d;  // { dg-error "cannot be applied to .d." }
-  constexpr auto r5 = ^^r;  // { dg-error "cannot be applied to .r." }
+  constexpr auto r1 = ^^s;  // { dg-error "cannot be applied to a non-type template parameter .s." }
+  constexpr auto r2 = ^^n;  // { dg-error "cannot be applied to a non-type template parameter .n." }
+  constexpr auto r3 = ^^e;  // { dg-error "cannot be applied to a non-type template parameter .e." }
+  constexpr auto r4 = ^^d;  // { dg-error "cannot be applied to a non-type template parameter .d." }
+  constexpr auto r5 = ^^r;  // { dg-error "cannot be applied to a non-type template parameter .r." }
+}
+
+template<typename T, T t>
+void
+g2 ()
+{
+  constexpr auto r = ^^t; // { dg-error "cannot be applied to a non-type template parameter .t." }
 }
 
 void
@@ -48,4 +55,6 @@ h ()
   constexpr E e{};
   constexpr double d = 0.0;
   g<s, n, e, d, glob>();
+
+  g2<int, 42>();
 }
