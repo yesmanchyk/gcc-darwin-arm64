@@ -2,13 +2,13 @@
 // { dg-additional-options "-freflection" }
 // Test various forms of initialization with reflections.
 
-#include <meta>
+#include <initializer_list>
 
 using info = decltype(^^int);
 
 struct S { int i; };
 struct X {
-  consteval operator std::meta::info() { return ^^int; }
+  consteval operator info() { return ^^int; }
 };
 
 struct Y {

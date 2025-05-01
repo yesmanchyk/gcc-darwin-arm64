@@ -305,26 +305,47 @@ check_out_of_consteval_use (tree t)
   return false;
 }
 
+/* A walker for consteval_only_var_p.  It cannot be a lambda, because we
+   have to call this recursively, sigh.  */
+
+static tree
+consteval_only_var_r (tree *tp, int *, void *data)
+{
+  tree t = *tp;
+  /* Types can contain themselves recursively, hence this.  */
+  auto visited = static_cast<hash_set<tree> *>(data);
+
+  if (!TYPE_P (t))
+    return NULL_TREE;
+
+  if (REFLECTION_TYPE_P (t))
+    return t;
+
+  if (RECORD_OR_UNION_TYPE_P (t))
+    for (tree member = TYPE_FIELDS (t);
+	 member; member = DECL_CHAIN (member))
+      if (TREE_CODE (member) == FIELD_DECL)
+	if (tree r = cp_walk_tree (&TREE_TYPE (member), consteval_only_var_r,
+				   visited, visited))
+	  return r;
+
+  return NULL_TREE;
+}
+
 /* True if VAR, a decl, is a consteval-only type as per
    [basic.types.general].  Currently, that means it has reflection type,
    or is compounded from it.  */
 
 bool
-consteval_only_var_p (const_tree var)
+consteval_only_var_p (tree var)
 {
-  tree type = strip_pointer_or_array_types (TREE_TYPE (var));
-  if (REFLECTION_TYPE_P (type))
-    return true;
+  if (!flag_reflection)
+    return false;
 
   /* Classes with std::meta::info members are also consteval-only.  */
-  if (CLASS_TYPE_P (type))
-    for (tree member = TYPE_FIELDS (type);
-	 member; member = DECL_CHAIN (member))
-      if (TREE_CODE (member) == FIELD_DECL
-	  && consteval_only_var_p (member))
-	return true;
-
-  return false;
+  hash_set<tree> visited;
+  return !!cp_walk_tree (&TREE_TYPE (var), consteval_only_var_r, &visited,
+			 &visited);
 }
 
 /* Return true if the reflections LHS and RHS are equal.  */
