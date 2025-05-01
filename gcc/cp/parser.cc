@@ -6162,12 +6162,18 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p)
       /* [expr.prim.splice] For a splice-expression of the form
 	 template splice-specialization-specifier, the splice-specifier of the
 	 splice-specialization-specifier shall designate a template.  */
-      // TODO
-      else if (false)
+      else
 	{
-	  error_at (expr.get_location (),
-		    "reflection not usable in a template splice");
-	  return error_mark_node;
+	  tree t = expr;
+	  STRIP_ANY_LOCATION_WRAPPER (t);
+	  if (really_overloaded_fn (t) || get_template_info (t))
+	    /* OK */;
+	  else
+	    {
+	      error_at (expr.get_location (),
+			"reflection not usable in a template splice");
+	      return error_mark_node;
+	    }
 	}
     }
   else
@@ -6188,6 +6194,12 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p)
 		    "cannot use constructor or destructor in a splice expression");
 	  return error_mark_node;
 	}
+    }
+
+  if (TREE_CODE (expr) == TYPE_DECL)
+    {
+      cp_parser_error (parser, "expected a reflection of an expression");
+      return error_mark_node;
     }
 
   return expr;
@@ -6245,6 +6257,88 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
 	}
     }
   return scope;
+}
+
+/* Skip tokens until a non-nested closing CLOSE_TOKEN is the next
+   token, or there are no more tokens.  Return true in the first case,
+   false otherwise.  */
+
+// TODO: use instead of cp_parser_skip_to_closing_brace and
+// cp_parser_skip_up_to_closing_square_bracket
+
+template<cpp_ttype open_token, cpp_ttype close_token>
+static bool
+cp_parser_skip_to_closing_token (cp_parser *parser)
+{
+  unsigned nesting_depth = 0;
+
+  while (true)
+    {
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+      switch (token->type)
+	{
+	case CPP_PRAGMA_EOL:
+	  if (!parser->lexer->in_pragma)
+	    break;
+	  gcc_fallthrough ();
+
+	case CPP_EOF:
+	  /* If we've run out of tokens, stop.  */
+	  return false;
+
+	case close_token:
+	  if (nesting_depth-- == 0)
+	    return true;
+	  break;
+
+	case open_token:
+	  ++nesting_depth;
+	  break;
+
+	default:
+	  break;
+	}
+
+      /* Consume the token.  */
+      cp_lexer_consume_token (parser->lexer);
+    }
+}
+
+/* We know the next token is '[:' (optionally preceded by a template or
+   typename) and we are wondering if a '::' follows right after the
+   closing ':]', or after the possible '<...>' after the ':]'.  Return
+   true if yes, false otherwise.  */
+
+static bool
+cp_parser_splice_spec_is_nns_p (cp_parser *parser)
+{
+  saved_token_sentinel toks (parser->lexer, STS_ROLLBACK);
+
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME)
+      || cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
+    cp_lexer_consume_token (parser->lexer);
+
+  /* Consume the '[:'.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  bool ok =
+    cp_parser_skip_to_closing_token<CPP_OPEN_SPLICE, CPP_CLOSE_SPLICE>(parser);
+
+  if (ok)
+    {
+      /* Consume the ':]'.  */
+      cp_lexer_consume_token (parser->lexer);
+
+      /* Consume the whole '<....>', if present.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_LESS)
+	  && !cp_parser_skip_entire_template_parameter_list (parser))
+	return false;
+
+      return cp_lexer_next_token_is (parser->lexer, CPP_SCOPE);
+    }
+
+  return false;
 }
 
 /* Parse a primary-expression.
@@ -8000,7 +8094,8 @@ cp_parser_qualifying_entity (cp_parser *parser,
      says "A splice-specifier or splice-specialization-specifier immediately
      followed by :: is never interpreted as part of a splice-type-specifier"
      so we call only cp_parser_splice_scope_specifier.  */
-  if (cp_parser_next_tokens_start_splice_scope_spec_p (parser))
+  if (cp_parser_next_tokens_start_splice_scope_spec_p (parser)
+      && cp_parser_splice_spec_is_nns_p (parser))
     {
       if (cp_parser_optional_template_keyword (parser))
 	template_keyword_p = true;
@@ -8086,85 +8181,6 @@ literal_integer_zerop (const_tree expr)
 {
   return (location_wrapper_p (expr)
 	  && integer_zerop (TREE_OPERAND (expr, 0)));
-}
-
-/* Skip tokens until a non-nested closing CLOSE_TOKEN is the next
-   token, or there are no more tokens.  Return true in the first case,
-   false otherwise.  */
-
-// TODO: use instead of cp_parser_skip_to_closing_brace and
-// cp_parser_skip_up_to_closing_square_bracket
-
-template<cpp_ttype open_token, cpp_ttype close_token>
-static bool
-cp_parser_skip_to_closing_token (cp_parser *parser)
-{
-  unsigned nesting_depth = 0;
-
-  while (true)
-    {
-      cp_token *token = cp_lexer_peek_token (parser->lexer);
-
-      switch (token->type)
-	{
-	case CPP_PRAGMA_EOL:
-	  if (!parser->lexer->in_pragma)
-	    break;
-	  gcc_fallthrough ();
-
-	case CPP_EOF:
-	  /* If we've run out of tokens, stop.  */
-	  return false;
-
-	case close_token:
-	  if (nesting_depth-- == 0)
-	    return true;
-	  break;
-
-	case open_token:
-	  ++nesting_depth;
-	  break;
-
-	default:
-	  break;
-	}
-
-      /* Consume the token.  */
-      cp_lexer_consume_token (parser->lexer);
-    }
-}
-
-/* We know the next two tokens are "typename [:" and we are wondering if
-   a '::' follows right after the closing ':]', or after the possible '<...>'
-   after the ':]'.  Return true if yes, false otherwise.  */
-
-static bool
-cp_parser_splice_spec_is_nns_p (cp_parser *parser)
-{
-  saved_token_sentinel toks (parser->lexer, STS_ROLLBACK);
-
-  /* Consume the 'typename'.  */
-  cp_lexer_consume_token (parser->lexer);
-  /* Consume the '[:'.  */
-  cp_lexer_consume_token (parser->lexer);
-
-  bool ok =
-    cp_parser_skip_to_closing_token<CPP_OPEN_SPLICE, CPP_CLOSE_SPLICE>(parser);
-
-  if (ok)
-    {
-      /* Consume the ':]'.  */
-      cp_lexer_consume_token (parser->lexer);
-
-      /* Consume the whole '<....>', if present.  */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_LESS)
-	  && !cp_parser_skip_entire_template_parameter_list (parser))
-	return false;
-
-      return cp_lexer_next_token_is (parser->lexer, CPP_SCOPE);
-    }
-
-  return false;
 }
 
 /* Parse a postfix-expression.
@@ -20896,7 +20912,20 @@ cp_parser_template_id (cp_parser *parser,
     {
       /* If it's not a class-template or a template-template, it should be
 	 a function-template.  */
-      gcc_assert (OVL_P (templ) || BASELINK_P (templ));
+      if (OVL_P (templ) || BASELINK_P (templ))
+	/* It is.  */;
+      else if (parsed_templ)
+	{
+	  /* This means there was a splice-specifier.  Maybe the user
+	     used the wrong reflection, so complain.  */
+	  if (TYPE_P (templ))
+	    error_at (token->location, "%qT is not a template", templ);
+	  else
+	    error_at (token->location, "%qE is not a template", templ);
+	  return error_mark_node;
+	}
+      else
+	gcc_assert (false);
 
       template_id = lookup_template_function (templ, arguments);
       if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)

@@ -8,6 +8,13 @@ constexpr T two = 2;
 template<typename T>
 constexpr T foo (T t) { return t; }
 
+void bar () { }
+
+struct S { };
+
+template<typename>
+struct ST { };
+
 void
 g ()
 {
@@ -21,4 +28,14 @@ g ()
   int i8 = template [: ^^foo<int> :](42);   // { dg-error "reflection not usable in a template splice" }
   int i9 = [: ^^foo :]<int>(42);	    // { dg-error "reflection not usable in a template splice" }
   int i10 = template [: ^^foo :]<int>(42);
+  int i11 = template [: ^^bar :]<int>(42);  // { dg-error "reflection not usable in a template splice" }
+  int i12 = [: ^^two :]<int>;
+  int i13 = template [: ^^two :]<int>;
+
+  [: ^^ST :]<int> c1;
+  [: ^^S :]<int> c2;   // { dg-error "not a template" }
+  [: ^^bar :]<int>();	// { dg-error "no matching function for call" }
+
+  auto x1 = [: ^^ST :]<int>{};
+  auto x2 = template [: ^^ST :]<int>{};	// { dg-error "expected a reflection of an expression" }
 }
