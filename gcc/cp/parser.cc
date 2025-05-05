@@ -6022,10 +6022,14 @@ cp_parser_next_tokens_start_splice_scope_spec_p (cp_parser *parser)
       splice-specifier < template-argument-list[opt] >
 
    TEMPLATE_P is true if we've parsed the leading template keyword.
-   TARGS_P is set to true if there is a splice-specialization-specifier.  */
+   TARGS_P is set to true if there is a splice-specialization-specifier.
+   ADDRESS_P is true if we are taking the address of the splice.
+   TEMPLATE_ARG_P is true iff this splice is a template argument.  */
 
 static cp_expr
-cp_parser_splice_specifier (cp_parser *parser, bool template_p, bool *targs_p)
+cp_parser_splice_specifier (cp_parser *parser, bool template_p,
+			    bool address_p, bool template_arg_p,
+			    bool *targs_p)
 {
   /* Get the location of the '[:'.  */
   location_t start_loc = cp_lexer_peek_token (parser->lexer)->location;
@@ -6035,6 +6039,13 @@ cp_parser_splice_specifier (cp_parser *parser, bool template_p, bool *targs_p)
 
   /* Get the location of the operand.  */
   location_t caret_loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  if (!flag_reflection)
+    {
+      error_at (caret_loc,
+		"reflection is only available with %<-freflection%>");
+      return error_mark_node;
+    }
 
   tree expr = cp_parser_constant_expression (parser,
 					     /*allow_non_constant_p=*/false,
@@ -6065,9 +6076,12 @@ cp_parser_splice_specifier (cp_parser *parser, bool template_p, bool *targs_p)
     }
 
   /* We may have to instantiate; for instance, if we're dealing with
-     a variable template.  */
-  if (TREE_CODE (expr) == TEMPLATE_ID_EXPR)
+     a variable template.  For &[: ^^S::x :], we have to create
+     an OFFSET_REF.  */
+  if ((address_p && TREE_CODE (expr) == FIELD_DECL)
+      || TREE_CODE (expr) == TEMPLATE_ID_EXPR)
     {
+      cp_unevaluated u;
       const char *error_msg;
       cp_id_kind idk = CP_ID_KIND_NONE;
       expr
@@ -6077,18 +6091,12 @@ cp_parser_splice_specifier (cp_parser *parser, bool template_p, bool *targs_p)
 				&parser->non_integral_constant_expression_p,
 				template_p,
 				/*done=*/true,
-				/*address_p=*/false,
-				/*template_arg_p=*/false,
+				address_p,
+				template_arg_p,
 				&error_msg,
 				caret_loc);
       if (error_msg)
 	cp_parser_error (parser, error_msg);
-    }
-
-  if (!flag_reflection)
-    {
-      error ("reflection is only available with %<-freflection%>");
-      return error_mark_node;
     }
 
   return cp_expr (expr, make_location (caret_loc, start_loc, finish_loc));
@@ -6110,6 +6118,8 @@ cp_parser_splice_type_specifier (cp_parser *parser)
     cp_lexer_consume_token (parser->lexer);
 
   tree type = cp_parser_splice_specifier (parser, /*template_p=*/false,
+					  /*address_p=*/false,
+					  /*template_arg_p=*/false,
 					  /*targs_p=*/nullptr);
 
   if (TREE_CODE (type) == TYPE_DECL)
@@ -6134,13 +6144,19 @@ cp_parser_splice_type_specifier (cp_parser *parser)
      template splice-specifier
      template splice-specialization-specifier
 
-   TEMPLATE_P is true if we've parsed the leading template keyword.  */
+   TEMPLATE_P is true if we've parsed the leading template keyword.
+   ADDRESS_P is true if we are taking the address of the splice.
+   TEMPLATE_ARG_P is true iff this splice is a template argument.  */
 
 static tree
-cp_parser_splice_expression (cp_parser *parser, bool template_p)
+cp_parser_splice_expression (cp_parser *parser, bool template_p,
+			     bool address_p, bool template_arg_p)
 {
   bool targs_p = false;
-  cp_expr expr = cp_parser_splice_specifier (parser, template_p, &targs_p);
+  cp_expr expr = cp_parser_splice_specifier (parser, template_p,
+					     address_p, template_arg_p,
+					     &targs_p);
+  const location_t loc = expr.get_location ();
 
   if (template_p)
     {
@@ -6152,10 +6168,8 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p)
 	  if (!really_overloaded_fn (expr))
 	    {
 	      auto_diagnostic_group d;
-	      error_at (expr.get_location (),
-			"reflection not usable in a template splice");
-	      inform (expr.get_location (),
-		      "only function templates are allowed here");
+	      error_at (loc, "reflection not usable in a template splice");
+	      inform (loc, "only function templates are allowed here");
 	      return error_mark_node;
 	    }
 	}
@@ -6170,8 +6184,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p)
 	    /* OK */;
 	  else
 	    {
-	      error_at (expr.get_location (),
-			"reflection not usable in a template splice");
+	      error_at (loc, "reflection not usable in a template splice");
 	      return error_mark_node;
 	    }
 	}
@@ -6181,8 +6194,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p)
       // TODO [expr.prim.splice]/2
       if (really_overloaded_fn (expr))
 	{
-	  error_at (expr.get_location (),
-		    "reflection not usable in a template splice");
+	  error_at (loc, "reflection not usable in a template splice");
 	  return error_mark_node;
 	}
       /* [expr.prim.splice] The expression is ill-formed if S is
@@ -6190,15 +6202,23 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p)
       if (TREE_CODE (expr) == BIT_NOT_EXPR
 	  && TYPE_P (TREE_OPERAND (expr, 0)))
 	{
-	  error_at (expr.get_location (),
-		    "cannot use constructor or destructor in a splice expression");
+	  error_at (loc, "cannot use constructor or destructor in a splice "
+		    "expression");
 	  return error_mark_node;
 	}
     }
 
+  /* A TYPE_DECL is not an expression.  */
   if (TREE_CODE (expr) == TYPE_DECL)
     {
-      cp_parser_error (parser, "expected a reflection of an expression");
+      error_at (loc, "expected a reflection of an expression");
+      return error_mark_node;
+    }
+  /* Class members may not be implicitly referenced through a splice.  */
+  if (TREE_CODE (expr) == FIELD_DECL)
+    {
+      error_at (loc, "cannot implicitly reference a class member through "
+		"a splice");
       return error_mark_node;
     }
 
@@ -6219,7 +6239,10 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
 				  bool template_p)
 {
   bool targs_p = false;
-  cp_expr scope = cp_parser_splice_specifier (parser, template_p, &targs_p);
+  cp_expr scope = cp_parser_splice_specifier (parser, template_p,
+					      /*address_p=*/false,
+					      /*template_arg_p=*/false,
+					      &targs_p);
   location_t loc = scope.get_location ();
   if (TREE_CODE (scope) == TYPE_DECL)
     scope = TREE_TYPE (scope);
@@ -6636,7 +6659,8 @@ cp_parser_primary_expression (cp_parser *parser,
       }
 
     case CPP_OPEN_SPLICE:
-      return cp_parser_splice_expression (parser, /*template_p=*/false);
+      return cp_parser_splice_expression (parser, /*template_p=*/false,
+					  address_p, template_arg_p);
 
     case CPP_OBJC_STRING:
       if (c_dialect_objc ())
@@ -6805,7 +6829,8 @@ cp_parser_primary_expression (cp_parser *parser,
 		   == CPP_OPEN_SPLICE)
 	    {
 	      cp_lexer_consume_token (parser->lexer);
-	      return cp_parser_splice_expression (parser, /*template_p=*/true);
+	      return cp_parser_splice_expression (parser, /*template_p=*/true,
+						  address_p, template_arg_p);
 	    }
 
 	  /* FALLTHRU */

@@ -38,4 +38,5 @@ g ()
 
   auto x1 = [: ^^ST :]<int>{};
   auto x2 = template [: ^^ST :]<int>{};	// { dg-error "expected a reflection of an expression" }
+  auto x3 = typename [: ^^ST :]<int>{};
 }

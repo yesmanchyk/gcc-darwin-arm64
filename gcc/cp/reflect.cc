@@ -293,17 +293,7 @@ splice (tree refl)
     /* I don't wanna do your dirty work no more.  */
     return error_mark_node;
 
-  tree h = REFLECT_EXPR_HANDLE (refl);
-
-  /* Class members may not be implicitly referenced through a splice.  */
-  if (TREE_CODE (h) == FIELD_DECL)
-    {
-      error_at (EXPR_LOCATION (refl), "cannot implicitly reference a class "
-		"member through a splice");
-      return error_mark_node;
-    }
-
-  return h;
+  return REFLECT_EXPR_HANDLE (refl);
 }
 
 /* XXX */
