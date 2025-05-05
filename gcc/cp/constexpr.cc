@@ -10676,8 +10676,11 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
     }
 
   /* Check that immediate invocation does not return an expression referencing
-     any immediate function decls.  */
-  if (!non_constant_p && cxx_dialect >= cxx20)
+     any immediate function decls.  But allow
+       consteval int fn () { return 42; }
+       constexpr auto r = ^^fn;
+     which is OK to do.  */
+  if (!non_constant_p && cxx_dialect >= cxx20 && !REFLECT_EXPR_P (r))
     if (tree immediate_fndecl
 	= cp_walk_tree_without_duplicates (&r, find_immediate_fndecl,
 					   NULL))

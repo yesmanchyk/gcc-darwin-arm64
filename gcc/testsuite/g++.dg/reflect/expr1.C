@@ -55,3 +55,14 @@ g (S a, S b)
   constexpr auto r6 = ^^::operator ""_fm;
   constexpr auto r7 = ^^::operator ""_fm<'a'>;
 }
+
+consteval int
+h ()
+{
+  int x = 41;
+  constexpr auto rx = ^^x;
+  ++[: rx :];
+  return x;
+}
+
+static_assert(h () == 42);
