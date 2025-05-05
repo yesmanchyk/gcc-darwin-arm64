@@ -6078,7 +6078,10 @@ cp_parser_splice_specifier (cp_parser *parser, bool template_p,
   /* We may have to instantiate; for instance, if we're dealing with
      a variable template.  For &[: ^^S::x :], we have to create
      an OFFSET_REF.  */
-  if ((address_p && TREE_CODE (expr) == FIELD_DECL)
+  // ??? This check doesn't look right...
+  if ((address_p
+       && (TREE_CODE (expr) == FIELD_DECL
+	   || TREE_CODE (expr) == FUNCTION_DECL))
       || TREE_CODE (expr) == TEMPLATE_ID_EXPR)
     {
       cp_unevaluated u;

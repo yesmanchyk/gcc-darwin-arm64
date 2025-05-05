@@ -21,7 +21,7 @@ static_assert([:^^fn:] == fn);
 static_assert(&[:^^S::x:] == &S::x);
 static_assert(&[:^^S::x:] == &S::x);
 static_assert(&[:^^S::s_x:] == &S::s_x);
-//static_assert(&[:^^S::fn:] == &S::fn);
+static_assert(&[:^^S::fn:] == &S::fn);
 static_assert([:^^S::s_fn:] == S::s_fn);
 
 static_assert([:^^Enum::B:] == Enum::B);
