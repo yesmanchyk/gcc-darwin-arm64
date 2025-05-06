@@ -28,7 +28,7 @@ g ()
   int i8 = template [: ^^foo<int> :](42);   // { dg-error "reflection not usable in a template splice" }
   int i9 = [: ^^foo :]<int>(42);	    // { dg-error "reflection not usable in a template splice" }
   int i10 = template [: ^^foo :]<int>(42);
-  int i11 = template [: ^^bar :]<int>(42);  // { dg-error "reflection not usable in a template splice" }
+  int i11 = template [: ^^bar :]<int>(42);  // { dg-error "no matching function for call" }
   int i12 = [: ^^two :]<int>;
   int i13 = template [: ^^two :]<int>;
 
