@@ -6236,7 +6236,9 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	t = DECL_NAME (t);
       else if (OVL_P (t))
 	t = OVL_NAME (t);
-      gcc_assert (identifier_p (t) || TREE_CODE (t) == TEMPLATE_ID_EXPR);
+      gcc_assert (identifier_p (t)
+		  || TREE_CODE (t) == SPLICE_EXPR
+		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
     }
 
   /* A TYPE_DECL is not an expression.  */
@@ -6279,40 +6281,45 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
   if (TREE_CODE (scope) == TYPE_DECL)
     scope = TREE_TYPE (scope);
 
-  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
+  if (template_p && !targs_p)
     {
-      if (template_p && !targs_p)
-	{
-	  error_at (loc, "extra %<template%> in a scope splice");
-	  return error_mark_node;
-	}
-      /* [expr.prim.id.qual] The template may only be omitted from the
-	 form template(opt) splice-specialization-specifier :: when the
-	 splice-specialization-specifier is preceded by typename.  */
-      if (targs_p && !typename_p)
-	{
-	  // TODO add error
-	}
-
-      /* [basic.lookup.qual.general] "If a name, template-id,
-	 splice-scope-specifier, or computed-type-specifier is followed by
-	 a ::, it shall either be a dependent splice-scope-specifier or it
-	 shall designate a namespace, class, enumeration, or dependent
-	 type."  */
-      if (!CLASS_TYPE_P (scope)
-	  && TREE_CODE (scope) != ENUMERAL_TYPE
-	  && TREE_CODE (scope) != NAMESPACE_DECL
-	  /* Dependent scope.  */
-	  && TREE_CODE (scope) != SPLICE_EXPR)
-	{
-	  auto_diagnostic_group d;
-	  error_at (loc, "reflection not usable in a splice scope");
-	  if (TYPE_P (scope))
-	    inform (loc, "%qT is not a class, namespace, or enumeration",
-		    tree (scope));
-	  scope = error_mark_node;
-	}
+      error_at (loc, "extra %<template%> in a scope splice");
+      return error_mark_node;
     }
+  /* [expr.prim.id.qual] The template may only be omitted from the
+     form template(opt) splice-specialization-specifier :: when the
+     splice-specialization-specifier is preceded by typename.  */
+  if (targs_p && !typename_p)
+    {
+      // TODO add error
+    }
+
+  /* A dependent scope.  Turn this into SPLICE_SCOPE which is a type,
+     so that dependent_scope_p et al can recognize this.  */
+  if (TREE_CODE (scope) == SPLICE_EXPR)
+    {
+      tree t = cxx_make_type (SPLICE_SCOPE);
+      SPLICE_SCOPE_EXPR (t) = scope;
+      return t;
+    }
+
+  /* [basic.lookup.qual.general] "If a name, template-id,
+     splice-scope-specifier, or computed-type-specifier is followed by
+     a ::, it shall either be a dependent splice-scope-specifier or it
+     shall designate a namespace, class, enumeration, or dependent
+     type."  */
+  if (!CLASS_TYPE_P (scope)
+      && TREE_CODE (scope) != ENUMERAL_TYPE
+      && TREE_CODE (scope) != NAMESPACE_DECL)
+    {
+      auto_diagnostic_group d;
+      error_at (loc, "reflection not usable in a splice scope");
+      if (TYPE_P (scope))
+	inform (loc, "%qT is not a class, namespace, or enumeration",
+		tree (scope));
+      scope = error_mark_node;
+    }
+
   return scope;
 }
 

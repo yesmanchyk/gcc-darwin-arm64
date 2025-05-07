@@ -885,6 +885,10 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
       pp_string (pp, "std::meta::info");
       break;
 
+    case SPLICE_SCOPE:
+      dump_expr (pp, SPLICE_SCOPE_EXPR (t), flags & ~TFF_EXPR_IN_PARENS);
+      break;
+
     default:
       pp_unsupported_tree (pp, t);
       /* Fall through.  */
@@ -3333,6 +3337,14 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	  dump_expr (pp, h, flags);
 	break;
       }
+
+    case SPLICE_EXPR:
+      pp_cxx_ws_string (pp, "[:");
+      pp_cxx_whitespace (pp);
+      dump_expr (pp, TREE_OPERAND (t, 0), flags);
+      pp_cxx_whitespace (pp);
+      pp_cxx_ws_string (pp, ":]");
+      break;
 
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call

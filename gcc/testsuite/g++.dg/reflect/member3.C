@@ -28,9 +28,8 @@ struct D {
   void
   f ()
   {
-    // FIXME dependent scope not implemented yet
-    //static_assert([: ^^T :]::j == 42);
-    //int q = this->[: ^^T :]::j;
-    //this->[: ^^T :]::foo ();
+    static_assert([: ^^T :]::j == 42);
+    int q = this->[: ^^T :]::j;
+    this->[: ^^T :]::foo ();
   }
 };

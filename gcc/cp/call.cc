@@ -7368,6 +7368,13 @@ build_new_op (const op_location_t &loc, enum tree_code code, int flags,
     case LE_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
+      if (!arg1_type || !arg2_type)
+	{
+	  /* Something is very wrong.  Perhaps we're trying to compare
+	     type nodes.  Make sure we've complained.  */
+	  gcc_assert (seen_error ());
+	  return error_mark_node;
+	}
       /* These are saved for the sake of maybe_warn_bool_compare.  */
       code_orig_arg1 = TREE_CODE (arg1_type);
       code_orig_arg2 = TREE_CODE (arg2_type);

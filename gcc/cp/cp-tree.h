@@ -1896,6 +1896,10 @@ struct GTY(()) tree_tu_local_entity {
 #define REFLECT_EXPR_HANDLE(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, REFLECT_EXPR), 0)
 
+/* The expression in question for a SPLICE_SCOPE.  */
+#define SPLICE_SCOPE_EXPR(NODE) \
+  (TYPE_VALUES_RAW (SPLICE_SCOPE_CHECK (NODE)))
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
@@ -2373,6 +2377,7 @@ enum languages { lang_c, lang_cplusplus };
    || TREE_CODE (T) == DECLTYPE_TYPE			\
    || TREE_CODE (T) == TRAIT_TYPE			\
    || TREE_CODE (T) == DEPENDENT_OPERATOR_TYPE		\
+   || TREE_CODE (T) == SPLICE_SCOPE			\
    || TREE_CODE (T) == PACK_INDEX_TYPE)
 
 /* Nonzero if T is a class (or struct or union) type.  Also nonzero

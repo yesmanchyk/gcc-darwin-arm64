@@ -17461,6 +17461,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case PACK_INDEX_TYPE:
       return tsubst_pack_index (t, args, complain, in_decl);
 
+    case SPLICE_SCOPE:
+      return tsubst_expr (SPLICE_SCOPE_EXPR (t), args, complain, in_decl);
+
     case VOID_CST:
     case INTEGER_CST:
     case REAL_CST:
@@ -28977,6 +28980,11 @@ dependent_type_p_r (tree type)
     return true;
 
   if (TREE_CODE (type) == DEPENDENT_OPERATOR_TYPE)
+    return true;
+
+  /* A splice-scope-specifier is dependent if its splice-specifier
+     or splice-specialization-specifier is dependent.  */
+  if (TREE_CODE (type) == SPLICE_SCOPE)
     return true;
 
   if (any_dependent_type_attributes_p (TYPE_ATTRIBUTES (type)))

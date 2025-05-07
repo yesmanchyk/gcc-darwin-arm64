@@ -595,6 +595,9 @@ DEFTREECODE (META_TYPE, "meta_type", tcc_type, 0)
 /* Represents a dependent splice expression.  */
 DEFTREECODE (SPLICE_EXPR, "splice_expr", tcc_expression, 1)
 
+/* Represents a dependent splice scope.  */
+DEFTREECODE (SPLICE_SCOPE, "splice_scope", tcc_type, 0)
+
 /*
 Local variables:
 mode:c
