@@ -6133,6 +6133,15 @@ cp_parser_splice_type_specifier (cp_parser *parser)
   if (TREE_CODE (type) == TYPE_DECL)
     type = TREE_TYPE (type);
 
+  /* When we see [:T:]<arg> we don't know what it'll turn out to be.  */
+  if (TREE_CODE (type) == TEMPLATE_ID_EXPR
+      && TREE_CODE (TREE_OPERAND (type, 0)) == SPLICE_EXPR)
+    {
+      tree t = cxx_make_type (SPLICE_SCOPE);
+      SPLICE_SCOPE_EXPR (t) = type;
+      return t;
+    }
+
   /* [dcl.type.splice] For a splice-type-specifier of the form
      "typename[opt] splice-specifier", the splice-specifier shall
      designate a type, a primary class template, or an alias template.  */
@@ -20951,7 +20960,9 @@ cp_parser_template_id (cp_parser *parser,
     = make_location (token->location, token->location, parser->lexer);
 
   /* Build a representation of the specialization.  */
-  if (identifier_p (templ))
+  if (identifier_p (templ)
+      /* We can't do much with [:T:]<arg> at this point.  */
+      || TREE_CODE (templ) == SPLICE_EXPR)
     template_id = build_min_nt_loc (combined_loc,
 				    TEMPLATE_ID_EXPR,
 				    templ, arguments);

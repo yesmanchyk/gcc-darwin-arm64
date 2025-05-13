@@ -17290,6 +17290,22 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (f == error_mark_node)
 	  return error_mark_node;
 
+	/* We had [:X:]:: which was substituted into a NAMESPACE_DECL and not
+	   a type as is expected here.  So we must be coming from
+	   cp_parser_class_name and have to handle it specially.  */
+	if (TREE_CODE (ctx) == NAMESPACE_DECL)
+	  {
+	    gcc_assert (TREE_CODE (TYPE_CONTEXT (t)) == SPLICE_SCOPE);
+	    gcc_assert (TREE_CODE (f) == TEMPLATE_ID_EXPR);
+	    tree d = TREE_OPERAND (f, 0);
+	    tree n = TREE_OPERAND (f, 1);
+	    f = lookup_template_class (d, n, in_decl, ctx, complain);
+	    if (f == error_mark_node)
+	      return error_mark_node;
+	    return cp_build_qualified_type
+		    (f, cp_type_quals (f) | cp_type_quals (t), complain);
+	  }
+
 	if (!MAYBE_CLASS_TYPE_P (ctx))
 	  {
 	    if (complain & tf_error)
@@ -20955,6 +20971,20 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 							  complain);
 	    r = convert_from_reference (r);
 	    r = maybe_wrap_with_location (r, EXPR_LOCATION (t));
+	    RETURN (r);
+	  }
+
+	/* Normally, we only expect a template function at this point.  But
+	   for [:X:]<arg>, we don't really know what [:X:] means until we
+	   substitute it.  */
+	if (DECL_TYPE_TEMPLATE_P (templ)
+	    || DECL_TEMPLATE_TEMPLATE_PARM_P (templ))
+	  {
+	    gcc_assert (TREE_CODE (TREE_OPERAND (t, 0)) == SPLICE_EXPR);
+	    tree r = finish_template_type (templ, targs,
+					   /*entering_scope=*/false);
+	    if (TREE_CODE (r) == TYPE_DECL)
+	      r = TREE_TYPE (r);
 	    RETURN (r);
 	  }
 
