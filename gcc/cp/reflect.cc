@@ -189,7 +189,7 @@ get_reflection (location_t loc, tree t)
       error_at (loc, "%<^^%> cannot be applied to a pack index");
       return error_mark_node;
     }
-  else if (DECL_P (t) && DECL_TEMPLATE_PARM_P (t))
+  else if (TREE_CODE (t) == CONST_DECL && DECL_TEMPLATE_PARM_P (t))
     {
       error_at (loc, "%<^^%> cannot be applied to a non-type template "
 		"parameter %qD", t);
