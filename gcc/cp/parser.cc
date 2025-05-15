@@ -24125,7 +24125,8 @@ cp_parser_namespace_body (cp_parser* parser)
 /* Parse a namespace-alias-definition.
 
    namespace-alias-definition:
-     namespace identifier = qualified-namespace-specifier ;  */
+     namespace identifier = qualified-namespace-specifier
+     namespace identifier = splice-specifier  */
 
 static void
 cp_parser_namespace_alias_definition (cp_parser* parser)
@@ -24154,10 +24155,19 @@ cp_parser_namespace_alias_definition (cp_parser* parser)
       return;
     }
   cp_parser_require (parser, CPP_EQ, RT_EQ);
-  /* Look for the qualified-namespace-specifier.  */
-  namespace_specifier
-    = cp_parser_qualified_namespace_specifier (parser);
-  cp_warn_deprecated_use_scopes (namespace_specifier);
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE)
+      && !cp_parser_splice_spec_is_nns_p (parser))
+    namespace_specifier
+      = cp_parser_splice_specifier (parser, /*template_p=*/false,
+				    /*address_p=*/false,
+				    /*template_arg_p=*/false,
+				    /*member_access_p=*/false,
+				    /*targs_p=*/nullptr);
+  else
+    /* Look for the qualified-namespace-specifier.  */
+    namespace_specifier = cp_parser_qualified_namespace_specifier (parser);
+  if (!dependent_namespace_p (namespace_specifier))
+    cp_warn_deprecated_use_scopes (namespace_specifier);
   /* Look for the `;' token.  */
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 
@@ -34343,8 +34353,9 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	 looking up names in uninstantiated templates.  Even then, we
 	 cannot look up the name if the scope is not a class type; it
 	 might, for example, be a template type parameter.  */
-      dependent_p = (TYPE_P (parser->scope)
-		     && dependent_scope_p (parser->scope));
+      dependent_p = ((TYPE_P (parser->scope)
+		      && dependent_scope_p (parser->scope))
+		     || dependent_namespace_p (parser->scope));
       if ((check_dependency || !CLASS_TYPE_P (parser->scope))
 	  && dependent_p)
 	/* Defer lookup.  */
@@ -34396,8 +34407,10 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 
       /* If the scope is a dependent type and either we deferred lookup or
 	 we did lookup but didn't find the name, rememeber the name.  */
-      if (decl == error_mark_node && TYPE_P (parser->scope)
-	  && dependentish_scope_p (parser->scope))
+      if (decl == error_mark_node
+	  && ((TYPE_P (parser->scope)
+	       && dependentish_scope_p (parser->scope))
+	      || dependent_namespace_p (parser->scope)))
 	{
 	  if (tag_type)
 	    {

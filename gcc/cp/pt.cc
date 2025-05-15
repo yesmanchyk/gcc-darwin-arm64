@@ -17509,6 +17509,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 static tree
 tsubst_scope (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
+  /* This could be a dependent namespace.  */
+  if (TREE_CODE (t) == NAMESPACE_DECL)
+    return tsubst_expr (t, args, complain | tf_qualifying_scope, in_decl);
   gcc_checking_assert (TYPE_P (t));
   return tsubst (t, args, complain | tf_qualifying_scope, in_decl);
 }
@@ -17800,7 +17803,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
   else
     expr = name;
 
-  if (dependent_scope_p (scope))
+  if (dependent_scope_p (scope) || dependent_namespace_p (scope))
     {
       if (TREE_CODE (expr) == SCOPE_REF)
 	/* We built one in tsubst_baselink.  */
@@ -22527,6 +22530,11 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       RETURN (t);
 
     case NAMESPACE_DECL:
+      if (dependent_namespace_p (t))
+	{
+	  r = RECUR (ORIGINAL_NAMESPACE (t));
+	  RETURN (r);
+	}
       RETURN (t);
 
     case OVERLOAD:
@@ -29104,6 +29112,17 @@ bool
 dependentish_scope_p (tree scope)
 {
   return dependent_scope_p (scope) || any_dependent_bases_p (scope);
+}
+
+/* Returns TRUE if NS is a dependent namespace, in which we can't do any
+   lookup.  */
+
+bool
+dependent_namespace_p (tree ns)
+{
+  if (TREE_CODE (ns) == NAMESPACE_DECL)
+    ns = ORIGINAL_NAMESPACE (ns);
+  return TREE_CODE (ns) == SPLICE_EXPR;
 }
 
 /* T is a SCOPE_REF.  Return whether it represents a non-static member of

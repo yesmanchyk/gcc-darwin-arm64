@@ -4767,6 +4767,7 @@ finish_id_expression_1 (tree id_expression,
 	{
 	  /* Name lookup failed.  */
 	  if (scope
+	      && !dependent_namespace_p (scope)
 	      && (!TYPE_P (scope)
 		  || (!dependentish_scope_p (scope)
 		      && !(identifier_p (id_expression)

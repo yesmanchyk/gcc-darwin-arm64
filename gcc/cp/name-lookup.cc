@@ -6695,9 +6695,10 @@ do_namespace_alias (location_t loc, tree alias, tree name_space)
   if (name_space == error_mark_node)
     return;
 
-  gcc_assert (TREE_CODE (name_space) == NAMESPACE_DECL);
-
-  name_space = ORIGINAL_NAMESPACE (name_space);
+  if (TREE_CODE (name_space) == NAMESPACE_DECL)
+    name_space = ORIGINAL_NAMESPACE (name_space);
+  else
+    gcc_assert (TREE_CODE (name_space) == SPLICE_EXPR);
 
   /* Build the alias.  */
   alias = build_lang_decl_loc (loc, NAMESPACE_DECL, alias, void_type_node);
