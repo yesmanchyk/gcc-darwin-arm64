@@ -319,6 +319,10 @@ mark_discarded_use (tree expr)
   if (expr == NULL_TREE)
     return expr;
 
+  /* We are going to discard this expression, so can't wait till
+     cp_fold_immediate_r.  */
+  check_out_of_consteval_use (expr);
+
   STRIP_ANY_LOCATION_WRAPPER (expr);
 
   switch (TREE_CODE (expr))

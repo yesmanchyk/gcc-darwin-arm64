@@ -1344,7 +1344,6 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
 	    DECL_HAS_VALUE_EXPR_P (d) = true;
 	  }
       }
-  // XXX now everything else with a reflection is an error
 
   tree decl = NULL_TREE;
   bool call_p = false;

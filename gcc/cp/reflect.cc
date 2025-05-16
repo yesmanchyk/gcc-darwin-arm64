@@ -296,21 +296,38 @@ splice (tree refl)
   return REFLECT_EXPR_HANDLE (refl);
 }
 
-/* XXX */
+/* Give an error if a consteval-only expression in EXPR is used outside
+   a manifestly constant-evaluated context.  */
 
-bool
-check_out_of_consteval_use (tree t)
+void
+check_out_of_consteval_use (tree expr)
 {
-  if (TREE_CODE (t) == REFLECT_EXPR
-      || (VAR_P (t) && consteval_only_var_p (t)))
-    {
-      const location_t loc = cp_expr_loc_or_input_loc (t);
-      error_at (loc, "consteval-only expressions are only allowed in "
-		"manifestly constant-evaluated context");
-      return true;
-    }
+  if (in_immediate_context ())
+    return;
 
-  return false;
+  auto walker = [](tree *tp, int *walk_subtrees, void *) -> tree
+    {
+      tree t = *tp;
+
+      /* No need to look into types or unevaluated operands.  */
+      if (TYPE_P (t) || unevaluated_p (TREE_CODE (t))
+	  /* This will be checked in cp_fold_immediate_r.  */
+	  || TREE_CODE (t) == INIT_EXPR)
+	{
+	  *walk_subtrees = false;
+	  return NULL_TREE;
+	}
+
+      if (REFLECT_EXPR_P (t)
+	  || (VAR_P (t) && consteval_only_var_p (t)))
+	error_at (cp_expr_loc_or_input_loc (t),
+		  "consteval-only expressions are only allowed in "
+		  "manifestly constant-evaluated context");
+
+      return NULL_TREE;
+    };
+
+  cp_walk_tree_without_duplicates (&expr, walker, nullptr);
 }
 
 /* A walker for consteval_only_var_p.  It cannot be a lambda, because we

@@ -9,9 +9,10 @@ f1 ()
 {
   const auto r = ^^double; // { dg-error "consteval-only expressions" }
   constexpr auto r2 = ^^int;
-  r2; // { Xdg-error "" }
-  ^^void; // { Xdg-error "" }
-  ^^int == ^^int; // { Xdg-error "" }
+  r2; // { dg-error "consteval-only expressions" }
+  ^^void; // { dg-error "consteval-only expressions" }
+  ^^int == ^^int; // { dg-error "consteval-only expressions" }
+  (void) ^^float; // { dg-error "consteval-only expressions" }
   auto rr = r; // { dg-error "consteval-only expressions" }
 
   constexpr auto x = &(^^int); // { dg-error "lvalue required" }
