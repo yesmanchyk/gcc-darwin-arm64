@@ -1,6 +1,6 @@
 // { dg-do compile { target c++26 } }
 // { dg-additional-options "-freflection" }
-// Test reflections on types.
+// Test reflections as function parameters.
 
 #include <meta>
 
