@@ -15,6 +15,11 @@ struct S { };
 template<typename>
 struct ST { };
 
+template <int P1, const int &P2> void fn() {}
+
+static constexpr int p[2] = {1, 2};
+constexpr auto spec = ^^fn<p[0], p[1]>;
+
 void
 g ()
 {

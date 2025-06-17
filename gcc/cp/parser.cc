@@ -6386,7 +6386,10 @@ cp_parser_skip_to_closing_token (cp_parser *parser)
 static bool
 cp_parser_splice_spec_is_nns_p (cp_parser *parser)
 {
-  saved_token_sentinel toks (parser->lexer, STS_ROLLBACK);
+  /* ??? It'd be nice to use saved_token_sentinel, but its rollback
+     uses cp_lexer_previous_token, but we may the first tokens in the
+     file so there are no previous tokens.  Sigh.  */
+  cp_lexer_save_tokens (parser->lexer);
 
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME)
       || cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
@@ -6406,12 +6409,15 @@ cp_parser_splice_spec_is_nns_p (cp_parser *parser)
       /* Consume the whole '<....>', if present.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_LESS)
 	  && !cp_parser_skip_entire_template_parameter_list (parser))
-	return false;
+	ok = false;
 
-      return cp_lexer_next_token_is (parser->lexer, CPP_SCOPE);
+      ok = ok && cp_lexer_next_token_is (parser->lexer, CPP_SCOPE);
     }
 
-  return false;
+  /* Roll back the tokens we skipped.  */
+  cp_lexer_rollback_tokens (parser->lexer);
+
+  return ok;
 }
 
 /* Parse a primary-expression.
