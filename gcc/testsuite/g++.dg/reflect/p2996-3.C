@@ -1,6 +1,6 @@
 // { dg-do compile { target c++26 } }
 // { dg-additional-options "-freflection" }
-// Test from [expr.prim.id.qual].
+// Test that was in [expr.prim.id.qual].
 
 template <int V>
 struct TCls {

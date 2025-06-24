@@ -17356,6 +17356,12 @@ cp_parser_declaration (cp_parser* parser, tree prefix_attrs)
       /* `template <' indicates a template declaration.  */
       else if (token2->type == CPP_LESS)
 	cp_parser_template_declaration (parser, /*member_p=*/false);
+      /* We can have
+	   template [: ^^T :]<3>::type t = 4;
+	 where the template binds to the splice-scope-specifier.  */
+      else if (token2->type == CPP_OPEN_SPLICE
+	       && cp_parser_splice_spec_is_nns_p (parser))
+	cp_parser_block_declaration (parser, /*statement_p=*/false);
       /* Anything else must be an explicit instantiation.  */
       else
 	{
