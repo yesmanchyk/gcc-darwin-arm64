@@ -6029,9 +6029,12 @@ cp_parser_next_tokens_start_splice_scope_spec_p (cp_parser *parser)
    foo->[: bar :] context.  */
 
 static cp_expr
-cp_parser_splice_specifier (cp_parser *parser, bool template_p,
-			    bool address_p, bool template_arg_p,
-			    bool member_access_p, bool *targs_p)
+cp_parser_splice_specifier (cp_parser *parser,
+			    bool template_p = false,
+			    bool address_p = false,
+			    bool template_arg_p = false,
+			    bool member_access_p = false,
+			    bool *targs_p = nullptr)
 {
   /* Get the location of the '[:'.  */
   location_t start_loc = cp_lexer_peek_token (parser->lexer)->location;
@@ -6084,7 +6087,8 @@ cp_parser_splice_specifier (cp_parser *parser, bool template_p,
   if (((address_p
 	&& (TREE_CODE (expr) == FIELD_DECL
 	    || TREE_CODE (expr) == FUNCTION_DECL))
-       || TREE_CODE (expr) == TEMPLATE_ID_EXPR)
+       || (TREE_CODE (expr) == TEMPLATE_ID_EXPR
+	   && variable_template_p (TREE_OPERAND (expr, 0))))
       /* Retain the TEMPLATE_ID_EXPR for _postfix_dot_deref_expression.  */
       && !member_access_p)
     {
@@ -6124,11 +6128,7 @@ cp_parser_splice_type_specifier (cp_parser *parser)
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME))
     cp_lexer_consume_token (parser->lexer);
 
-  tree type = cp_parser_splice_specifier (parser, /*template_p=*/false,
-					  /*address_p=*/false,
-					  /*template_arg_p=*/false,
-					  /*member_access_p=*/false,
-					  /*targs_p=*/nullptr);
+  tree type = cp_parser_splice_specifier (parser);
 
   if (TREE_CODE (type) == TYPE_DECL)
     type = TREE_TYPE (type);
@@ -24169,12 +24169,7 @@ cp_parser_namespace_alias_definition (cp_parser* parser)
   cp_parser_require (parser, CPP_EQ, RT_EQ);
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE)
       && !cp_parser_splice_spec_is_nns_p (parser))
-    namespace_specifier
-      = cp_parser_splice_specifier (parser, /*template_p=*/false,
-				    /*address_p=*/false,
-				    /*template_arg_p=*/false,
-				    /*member_access_p=*/false,
-				    /*targs_p=*/nullptr);
+    namespace_specifier = cp_parser_splice_specifier (parser);
   else
     /* Look for the qualified-namespace-specifier.  */
     namespace_specifier = cp_parser_qualified_namespace_specifier (parser);
@@ -34056,12 +34051,10 @@ cp_parser_simple_requirement (cp_parser *parser)
 
 /* Parse a type requirement
 
-     type-requirement
-         nested-name-specifier [opt] required-type-name ';'
-
-     required-type-name:
-         type-name
-         'template' [opt] simple-template-id  */
+     type-requirement:
+       typename nested-name-specifier [opt] type-name ';'
+       typename splice-specifier
+       typename splice-specialization-specifier  */
 
 static tree
 cp_parser_type_requirement (cp_parser *parser)
@@ -34092,8 +34085,15 @@ cp_parser_type_requirement (cp_parser *parser)
       type = make_typename_type (parser->scope, type, typename_type,
                                  /*complain=*/tf_error);
     }
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
+    {
+      /* tsubst_type_requirement wants this to be a type.  */
+      tree t = cxx_make_type (SPLICE_SCOPE);
+      SPLICE_SCOPE_EXPR (t) = cp_parser_splice_specifier (parser);
+      type = t;
+    }
   else
-   type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
+    type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
 
   if (TREE_CODE (type) == TYPE_DECL)
     type = TREE_TYPE (type);

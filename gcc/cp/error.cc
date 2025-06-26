@@ -1629,9 +1629,14 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	tree name = TREE_OPERAND (t, 0);
 	tree args = TREE_OPERAND (t, 1);
 
-	if (!identifier_p (name))
-	  name = OVL_NAME (name);
-	dump_decl (pp, name, flags);
+	if (TREE_CODE (name) == SPLICE_EXPR)
+	  dump_expr (pp, name, flags);
+	else
+	  {
+	    if (!identifier_p (name))
+	      name = OVL_NAME (name);
+	    dump_decl (pp, name, flags);
+	  }
 	pp_cxx_begin_template_argument_list (pp);
 	if (args == error_mark_node)
 	  pp_string (pp, M_("<template arguments error>"));
