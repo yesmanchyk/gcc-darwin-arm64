@@ -3,6 +3,5 @@
 // Here, x is a null reflection so should be allowed to compare equal
 // to itself.  meta::info should be const-default-constructible.
 
-// TODO FIX ICE
-//constexpr decltype(^^::) x;
-//static_assert(x == x);
+constexpr decltype(^^::) x;
+static_assert(x == x);
