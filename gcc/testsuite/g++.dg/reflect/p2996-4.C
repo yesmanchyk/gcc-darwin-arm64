@@ -21,3 +21,8 @@ static_assert(f2 == 1);
 constexpr auto g = typename [:^^int:](42);
   // [:^^int:] forms part of a type, not a splice-expression
 static_assert(g == 42);
+
+constexpr auto h = ^^g;
+// TODO: give error
+constexpr auto i = e<[:^^h:]>;
+constexpr auto j = e<([:^^h:])>;

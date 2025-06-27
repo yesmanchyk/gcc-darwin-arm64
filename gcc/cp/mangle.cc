@@ -3761,11 +3761,17 @@ write_expression (tree expr)
       write_expression (TREE_OPERAND (expr, 0));
     }
   else if (code == REFLECT_EXPR)
-    /* ??? It's not clear at all how to mangle this.  We can get here
-       with e.g.:
-	 template <auto V> constexpr int e = [:V:];
-       when it's instantiated with a reflection.  */
-    write_expression (REFLECT_EXPR_HANDLE (expr));
+    {
+      /* ??? It's not clear at all how to mangle this.  We can get here
+	 with e.g.:
+	   template <auto V> constexpr int e = [:V:];
+	 when it's instantiated with a reflection.  */
+      tree h = REFLECT_EXPR_HANDLE (expr);
+      if (TYPE_P (h))
+	write_type (h);
+      else
+	write_expression (h);
+    }
   else if (code == CONSTRUCTOR)
     {
       bool braced_init = BRACE_ENCLOSED_INITIALIZER_P (expr);

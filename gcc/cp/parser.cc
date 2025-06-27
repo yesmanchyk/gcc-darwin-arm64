@@ -6215,7 +6215,23 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
     }
   else
     {
-      // TODO [expr.prim.splice]/2
+      /* [expr.prim.splice]/2 For a splice-expression of the form
+	 splice-specifier, the expression is ill-formed if it is:  */
+      /* -- a constructor or a destructor  */
+      if (TREE_CODE (t) == BIT_NOT_EXPR
+	  && TYPE_P (TREE_OPERAND (t, 0)))
+	{
+	  error_at (loc, "cannot use constructor or destructor in a splice "
+		    "expression");
+	  return error_mark_node;
+	}
+      /* -- an unnamed bit-field  */
+      if (TREE_CODE (t) == FIELD_DECL && DECL_UNNAMED_BIT_FIELD (t))
+	{
+	  error_at (loc, "cannot use an unnamed bit-field in a splice "
+		    "expression");
+	  return error_mark_node;
+	}
       if (really_overloaded_fn (t))
 	{
 	  error_at (loc, "reflection not usable in a template splice");
@@ -6223,15 +6239,6 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	  rich_location richloc (line_table, sloc);
 	  richloc.add_fixit_insert_before (sloc, "template ");
 	  inform (&richloc, "add %<template%> to denote a function template");
-	  return error_mark_node;
-	}
-      /* [expr.prim.splice] The expression is ill-formed if S is
-	 a constructor or a destructor.  */
-      if (TREE_CODE (t) == BIT_NOT_EXPR
-	  && TYPE_P (TREE_OPERAND (t, 0)))
-	{
-	  error_at (loc, "cannot use constructor or destructor in a splice "
-		    "expression");
 	  return error_mark_node;
 	}
     }

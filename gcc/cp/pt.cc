@@ -17956,6 +17956,16 @@ tsubst_init (tree init, tree decl, tree args,
 	    TARGET_EXPR_DIRECT_INIT_P (init) = true;
 	}
     }
+  /* This can happen with
+       template <auto V> constexpr int e = [:V:];
+       e<^^int>;
+     which we probably can't detect sooner.  */
+  else if (init && TYPE_P (init))
+    {
+      if (complain & tf_error)
+	error ("initializer for %q#D expands to a type", decl);
+      return error_mark_node;
+    }
 
   return init;
 }
