@@ -6028,6 +6028,7 @@ cp_parser_next_tokens_start_splice_scope_spec_p (cp_parser *parser)
    MEMBER_ACCESS_P is true if this splice is used in foo.[: bar :] or
    foo->[: bar :] context.  */
 
+// XXX use parser->in_template_argument_list_p?
 static cp_expr
 cp_parser_splice_specifier (cp_parser *parser,
 			    bool template_p = false,
