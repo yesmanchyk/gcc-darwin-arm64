@@ -23,6 +23,5 @@ constexpr auto g = typename [:^^int:](42);
 static_assert(g == 42);
 
 constexpr auto h = ^^g;
-// TODO: give error
-constexpr auto i = e<[:^^h:]>;
+constexpr auto i = e<[:^^h:]>;	  // { dg-error "unparenthesized splice|invalid" }
 constexpr auto j = e<([:^^h:])>;

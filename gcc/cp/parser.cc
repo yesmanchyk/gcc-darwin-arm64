@@ -6271,6 +6271,13 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 		"a splice");
       return error_mark_node;
     }
+  if (parser->in_template_argument_list_p
+      && !parser->greater_than_is_operator_p)
+    {
+      error_at (loc, "unparenthesized splice expression cannot be used as "
+		"a template argument");
+      return error_mark_node;
+    }
 
   return t;
 }
