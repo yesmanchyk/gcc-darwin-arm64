@@ -113,8 +113,7 @@ f1 ()
   constexpr auto r42 = ^^typename ::template C<int>;
   constexpr auto r43 = ^^typename ::S;
   constexpr auto r44 = ^^typename ::T;
-  // FIXME PR83469
-  //constexpr auto r45 = ^^typename ::U;
+  constexpr auto r45 = ^^typename ::U;
 
   [: r40 :] e5;
   [: r41 :] c7;
