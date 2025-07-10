@@ -9924,7 +9924,9 @@ cp_parser_qualified_reflection_name (cp_parser *parser)
 					    /*typename_keyword_p=*/false,
 					    /*check_dependency_p=*/true,
 					    /*type_p=*/false,
-					    /*is_declaration=*/false)
+					    /*is_declaration=*/false,
+					    /*template_keyword_p=*/false,
+					    global_scope_p)
        != NULL_TREE);
   /* Look for the optional `template' keyword.  */
   if (cp_parser_optional_template_keyword (parser)

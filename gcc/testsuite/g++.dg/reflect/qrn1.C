@@ -192,12 +192,11 @@ f1 (S s)
   constexpr auto r54 = ^^::C;
   constexpr auto r55 = ^^::template C;
   constexpr auto r56 = ^^::C<int>;
-  // FIXME PR119838
-  //constexpr auto r57 = ^^::template C<int>;
+  constexpr auto r57 = ^^::template C<int>;
 
   [: r53 :] c1;
   [: r56 :] c2;
-  //[: r57 :] c3;
+  [: r57 :] c3;
 
   constexpr auto r58 = ^^foo;
   constexpr auto r59 = ^^::foo;
@@ -216,9 +215,8 @@ f1 (S s)
 consteval void
 f2 ()
 {
-  // FIXME PR119838
-  //constexpr auto r1 = ^^::template C<int>;
-  //constexpr auto r2 = ^^::template C<int>::type;
+  constexpr auto r1 = ^^::template C<int>;
+  constexpr auto r2 = ^^::template C<int>::type;
   constexpr auto r3 = ^^N::M::template CC<int>::type;
   constexpr auto r4 = ^^N::M::template CC<int>::t;
   constexpr auto r5 = ^^N::M::template CC;
@@ -233,11 +231,10 @@ f2 ()
   constexpr auto r12 = ^^NN::M::template NMCC::type;
   constexpr auto r13 = ^^NN::M::template NMCC::t;
   constexpr auto r14 = ^^NN::M::template NMCC;
-  // And we reject these.  PR119838 again?
   //constexpr auto r15 = ^^::template UC;
-  //constexpr auto r16 = ^^::template UC::type;
+  constexpr auto r16 = ^^::template UC::type;
 
-  //[: r2 :] v1 = 7;
+  [: r2 :] v1 = 7;
   [: r3 :] v2 = 7;
   int n = [: r4 :];
   [: r6 :] v3 = 1;

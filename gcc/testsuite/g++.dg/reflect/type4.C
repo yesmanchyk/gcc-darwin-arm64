@@ -120,18 +120,17 @@ f1 ()
   [: r42 :] c8;
   [: r43 :] s5;
   [: r44 :] i1;
-  //[: r45 :] u5;
+  [: r45 :] u5;
 
   constexpr auto r46 = ^^AT<int>;
   constexpr auto r47 = ^^::AT<int>;
-  // FIXME PR119838
-  //constexpr auto r48 = ^^::template AT<int>;
+  constexpr auto r48 = ^^::template AT<int>;
   constexpr auto r49 = ^^typename ::AT<int>;
   constexpr auto r50 = ^^typename ::template AT<int>;
 
   [: r46 :] c9;
   [: r47 :] c10;
-  //[: r48 :] c11;
+  [: r48 :] c11;
   [: r49 :] c12;
   [: r50 :] c13;
 }
