@@ -1,7 +1,7 @@
 // { dg-do compile { target c++26 } }
 // { dg-additional-options "-freflection" }
-// Test reflections on qualified-reflection-names.
-//   qualified-reflection-name:
+// Test reflections on reflection-names.
+//   reflection-name:
 //    nested-name-specifier[opt] identifier
 //    nested-name-specifier template identifier
 

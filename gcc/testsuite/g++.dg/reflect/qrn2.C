@@ -1,6 +1,6 @@
 // { dg-do compile { target c++26 } }
 // { dg-additional-options "-freflection" }
-// Test reflections on qualified-reflection-names.  Invalid code.
+// Test reflections on reflection-names.  Invalid code.
 
 class A { int x; };
 template<typename T>

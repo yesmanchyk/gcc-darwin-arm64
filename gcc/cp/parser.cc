@@ -9902,16 +9902,16 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
   *type = TREE_TYPE (cp_parser_nonclass_name (parser));
 }
 
-/* Parse a qualified-reflection-name.
+/* Parse a reflection-name.
 
-   qualified-reflection-name:
+   reflection-name:
     nested-name-specifier[opt] identifier
     nested-name-specifier template identifier
 
  */
 
 static tree
-cp_parser_qualified_reflection_name (cp_parser *parser)
+cp_parser_reflection_name (cp_parser *parser)
 {
   /* Look for the optional `::' operator.  */
   bool global_scope_p
@@ -9952,7 +9952,7 @@ cp_parser_qualified_reflection_name (cp_parser *parser)
 
    reflect-expression:
      ^^ ::
-     ^^ qualified-reflection-name
+     ^^ reflection-name
      ^^ type-id
      ^^ id-expression
 
@@ -9976,7 +9976,7 @@ cp_parser_reflect_expression (cp_parser *parser)
 
   /* We don't know what this might be.  Try and see what works.  */
   cp_parser_parse_tentatively (parser);
-  tree t = cp_parser_qualified_reflection_name (parser);
+  tree t = cp_parser_reflection_name (parser);
   if (cp_parser_parse_definitely (parser))
     return get_reflection (loc, t);
   /* Nope.  Well then, maybe it's a type-id.  */
