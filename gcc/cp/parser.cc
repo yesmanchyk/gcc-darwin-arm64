@@ -288,6 +288,10 @@ static FILE *cp_lexer_debug_stream;
    sizeof, typeof, or alignof.  */
 int cp_unevaluated_operand;
 
+/* Nonzero if we are parsing a reflect-expression and shouldn't strip
+   using-declarations.  */
+bool cp_preserve_using_decl;
+
 #if ENABLE_ANALYZER
 
 namespace ana {
@@ -9973,6 +9977,8 @@ cp_parser_reflect_expression (cp_parser *parser)
 
   /* Get the location of the operand.  */
   const location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  auto s = make_temp_override (cp_preserve_using_decl, true);
 
   /* We don't know what this might be.  Try and see what works.  */
   cp_parser_parse_tentatively (parser);
@@ -34553,7 +34559,10 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 
      During an explicit instantiation, access is not checked at all,
      as per [temp.explicit].  */
-  if (DECL_P (decl))
+  if (DECL_P (decl)
+      /* One cannot take the reflection of a using-declarator.  Skip this
+	 check because we are going to report an error anyway.  */
+      && LIKELY (TREE_CODE (decl) != USING_DECL))
     check_accessibility_of_qualified_id (decl, object_type, parser->scope,
 					 tf_warning_or_error);
 

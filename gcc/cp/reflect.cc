@@ -224,6 +224,13 @@ get_reflection (location_t loc, tree t)
 		"by init-capture");
       return error_mark_node;
     }
+  /* If lookup finds a declaration that replaced a using-declarator during
+     a single search, R is ill-formed.  */
+  else if (TREE_CODE (t) == USING_DECL)
+    {
+      error_at (loc, "%<^^%> cannot be applied to a using-declarator");
+      return error_mark_node;
+    }
 
   /* Otherwise, if the template-name names a function template F,
      then the template-name interpreted as an id-expression shall

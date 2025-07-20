@@ -6013,6 +6013,8 @@ extern bool comparing_override_contracts;
 
 /* In parser.cc.  */
 
+extern bool cp_preserve_using_decl;
+
 /* Nonzero if we are parsing an unevaluated operand: an operand to
    sizeof, typeof, or alignof.  This is a count since operands to
    sizeof can be nested.  */
