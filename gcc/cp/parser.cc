@@ -6258,8 +6258,8 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
     }
 
-  /* A TYPE_DECL is not an expression.  */
-  if (TREE_CODE (t) == TYPE_DECL)
+  /* We may not have gotten an expression.  */
+  if (TREE_CODE (t) == TYPE_DECL || TREE_CODE (t) == NAMESPACE_DECL)
     {
       error_at (loc, "expected a reflection of an expression");
       return error_mark_node;
