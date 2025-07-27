@@ -9816,6 +9816,18 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	    break;
 	  }
 
+	/* Detect consteval-only smuggling: turning a consteval-only object
+	   into one that is not consteval-only.  */
+	if (consteval_only_type_p (TREE_TYPE (op))
+	    && !consteval_only_type_p (type))
+	  {
+	    if (!ctx->quiet)
+	       error_at (loc, "conversion from consteval-only type %qT to "
+			 "non-consteval-only type %qT", TREE_TYPE (op), type);
+	    *non_constant_p = true;
+	    return t;
+	  }
+
 	/* [expr.const]: a conversion from type cv void* to a pointer-to-object
 	   type cannot be part of a core constant expression as a resolution to
 	   DR 1312.  */

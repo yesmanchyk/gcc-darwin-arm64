@@ -343,7 +343,7 @@ check_out_of_consteval_use (tree expr)
    have to call this recursively, sigh.  */
 
 static tree
-consteval_only_var_r (tree *tp, int *, void *data)
+consteval_only_type_r (tree *tp, int *, void *data)
 {
   tree t = *tp;
   /* Types can contain themselves recursively, hence this.  */
@@ -359,11 +359,25 @@ consteval_only_var_r (tree *tp, int *, void *data)
     for (tree member = TYPE_FIELDS (t);
 	 member; member = DECL_CHAIN (member))
       if (TREE_CODE (member) == FIELD_DECL)
-	if (tree r = cp_walk_tree (&TREE_TYPE (member), consteval_only_var_r,
+	if (tree r = cp_walk_tree (&TREE_TYPE (member), consteval_only_type_r,
 				   visited, visited))
 	  return r;
 
   return NULL_TREE;
+}
+
+/* True if TYPE is a consteval-only type as per [basic.types.general].  */
+
+bool
+consteval_only_type_p (tree type)
+{
+  if (!flag_reflection)
+    return false;
+
+  /* Classes with std::meta::info members are also consteval-only.  */
+  hash_set<tree> visited;
+  return !!cp_walk_tree (&type, consteval_only_type_r, &visited,
+			 &visited);
 }
 
 /* True if VAR, a decl, is a consteval-only type as per
@@ -373,13 +387,7 @@ consteval_only_var_r (tree *tp, int *, void *data)
 bool
 consteval_only_var_p (tree var)
 {
-  if (!flag_reflection)
-    return false;
-
-  /* Classes with std::meta::info members are also consteval-only.  */
-  hash_set<tree> visited;
-  return !!cp_walk_tree (&TREE_TYPE (var), consteval_only_var_r, &visited,
-			 &visited);
+  return consteval_only_type_p (TREE_TYPE (var));
 }
 
 /* Return true if the reflections LHS and RHS are equal.  */
