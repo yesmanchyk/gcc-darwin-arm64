@@ -6026,19 +6026,10 @@ cp_parser_next_tokens_start_splice_scope_spec_p (cp_parser *parser)
       splice-specifier < template-argument-list[opt] >
 
    TEMPLATE_P is true if we've parsed the leading template keyword.
-   TARGS_P is set to true if there is a splice-specialization-specifier.
-   ADDRESS_P is true if we are taking the address of the splice.
-   TEMPLATE_ARG_P is true iff this splice is a template argument.
-   MEMBER_ACCESS_P is true if this splice is used in foo.[: bar :] or
-   foo->[: bar :] context.  */
+   TARGS_P is set to true if there is a splice-specialization-specifier.  */
 
-// XXX use parser->in_template_argument_list_p?
 static cp_expr
-cp_parser_splice_specifier (cp_parser *parser,
-			    bool template_p = false,
-			    bool address_p = false,
-			    bool template_arg_p = false,
-			    bool member_access_p = false,
+cp_parser_splice_specifier (cp_parser *parser, bool template_p = false,
 			    bool *targs_p = nullptr)
 {
   /* Get the location of the '[:'.  */
@@ -6083,36 +6074,6 @@ cp_parser_splice_specifier (cp_parser *parser,
 				    expr);
       if (targs_p)
 	*targs_p = true;
-    }
-
-  /* We may have to instantiate; for instance, if we're dealing with
-     a variable template.  For &[: ^^S::x :], we have to create
-     an OFFSET_REF.  */
-  // ??? This check doesn't look right...
-  if (((address_p
-	&& (TREE_CODE (expr) == FIELD_DECL
-	    || TREE_CODE (expr) == FUNCTION_DECL))
-       || (TREE_CODE (expr) == TEMPLATE_ID_EXPR
-	   && variable_template_p (TREE_OPERAND (expr, 0))))
-      /* Retain the TEMPLATE_ID_EXPR for _postfix_dot_deref_expression.  */
-      && !member_access_p)
-    {
-      cp_unevaluated u;
-      const char *error_msg;
-      cp_id_kind idk = CP_ID_KIND_NONE;
-      expr
-	= finish_id_expression (expr, expr, parser->scope, &idk,
-				/*integral_constant_expression_p=*/false,
-				/*allow_non_integral_constant_expr_p=*/true,
-				&parser->non_integral_constant_expression_p,
-				template_p,
-				/*done=*/true,
-				address_p,
-				template_arg_p,
-				&error_msg,
-				caret_loc);
-      if (error_msg)
-	cp_parser_error (parser, error_msg);
     }
 
   return cp_expr (expr, make_location (caret_loc, start_loc, finish_loc));
@@ -6178,9 +6139,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 			     bool member_access_p)
 {
   bool targs_p = false;
-  cp_expr expr = cp_parser_splice_specifier (parser, template_p,
-					     address_p, template_arg_p,
-					     member_access_p, &targs_p);
+  cp_expr expr = cp_parser_splice_specifier (parser, template_p, &targs_p);
   const location_t loc = expr.get_location ();
   tree t = expr.get_value ();
   STRIP_ANY_LOCATION_WRAPPER (t);
@@ -6248,28 +6207,16 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	}
     }
 
-  /* When doing foo.[: bar :], cp_parser_postfix_dot_deref_expression wants
-     to see an identifier or a TEMPLATE_ID_EXPR, if we have something like
-     s.template [: ^^S::var :]<int> where S::var is a variable template.  */
-  if (member_access_p)
-    {
-      if (DECL_P (t))
-	t = DECL_NAME (t);
-      else if (OVL_P (t))
-	t = OVL_NAME (t);
-      gcc_assert (identifier_p (t)
-		  || TREE_CODE (t) == SPLICE_EXPR
-		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
-    }
-
   /* We may not have gotten an expression.  */
   if (TREE_CODE (t) == TYPE_DECL || TREE_CODE (t) == NAMESPACE_DECL)
     {
       error_at (loc, "expected a reflection of an expression");
       return error_mark_node;
     }
-  /* Class members may not be implicitly referenced through a splice.  */
-  if (TREE_CODE (t) == FIELD_DECL)
+  /* Class members may not be implicitly referenced through a splice.
+     But taking the address is fine, and so is class member access a la
+     foo.[: ^^S::bar :].  */
+  if (TREE_CODE (t) == FIELD_DECL && !address_p && !member_access_p)
     {
       error_at (loc, "cannot implicitly reference a class member through "
 		"a splice");
@@ -6281,6 +6228,49 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
       error_at (loc, "unparenthesized splice expression cannot be used as "
 		"a template argument");
       return error_mark_node;
+    }
+
+  /* When doing foo.[: bar :], cp_parser_postfix_dot_deref_expression wants
+     to see an identifier or a TEMPLATE_ID_EXPR, if we have something like
+     s.template [: ^^S::var :]<int> where S::var is a variable template.  */
+  if (member_access_p)
+    {
+      /* Retain the TEMPLATE_ID_EXPR for _postfix_dot_deref_expression.  */
+      if (DECL_P (t))
+	t = DECL_NAME (t);
+      else if (OVL_P (t))
+	t = OVL_NAME (t);
+      gcc_assert (identifier_p (t)
+		  || TREE_CODE (t) == SPLICE_EXPR
+		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
+    }
+  else
+    {
+      /* We may have to instantiate; for instance, if we're dealing with
+	 a variable template.  For &[: ^^S::x :], we have to create an
+	 OFFSET_REF.  For a VAR_DECL, we need the convert_from_reference.  */
+      cp_unevaluated u;
+      const char *error_msg;
+      cp_id_kind idk = CP_ID_KIND_NONE;
+      /* We don't have the parser scope here, so figure out the context.  In
+	   struct S { static constexpr int i = 42; };
+	   constexpr auto r = ^^S::i;
+	   int i = [: r :];
+	 we need to pass down 'S'.  */
+      tree ctx = DECL_P (t) ? DECL_CONTEXT (t) : NULL_TREE;
+      t = finish_id_expression (t, t, ctx,
+				&idk,
+				/*integral_constant_expression_p=*/false,
+				/*allow_non_integral_constant_expr_p=*/true,
+				&parser->non_integral_constant_expression_p,
+				template_p,
+				/*done=*/true,
+				address_p,
+				template_arg_p,
+				&error_msg,
+				loc);
+      if (error_msg)
+	cp_parser_error (parser, error_msg);
     }
 
   return t;
@@ -6300,11 +6290,7 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
 				  bool template_p)
 {
   bool targs_p = false;
-  cp_expr scope = cp_parser_splice_specifier (parser, template_p,
-					      /*address_p=*/false,
-					      /*template_arg_p=*/false,
-					      /*member_access_p=*/false,
-					      &targs_p);
+  cp_expr scope = cp_parser_splice_specifier (parser, template_p, &targs_p);
   location_t loc = scope.get_location ();
   if (TREE_CODE (scope) == TYPE_DECL)
     scope = TREE_TYPE (scope);
@@ -10010,6 +9996,9 @@ cp_parser_reflect_expression (cp_parser *parser)
     /* We couldn't look ID up, harrumph.  */
     if (id != error_mark_node && t == error_mark_node)
       cp_parser_name_lookup_error (parser, id, t, NLE_NULL, loc);
+    /* We don't finish_id_expression here because we don't know in what
+       context this reflection will be used (address, class member access,
+       template argument, ...).  */
     if (cp_parser_parse_definitely (parser))
       return get_reflection (loc, t);
   }
