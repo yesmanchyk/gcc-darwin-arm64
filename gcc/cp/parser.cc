@@ -6208,7 +6208,9 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
     }
 
   /* We may not have gotten an expression.  */
-  if (TREE_CODE (t) == TYPE_DECL || TREE_CODE (t) == NAMESPACE_DECL)
+  if (TREE_CODE (t) == TYPE_DECL
+      || TREE_CODE (t) == NAMESPACE_DECL
+      || TYPE_P (t))
     {
       error_at (loc, "expected a reflection of an expression");
       return error_mark_node;
@@ -19142,9 +19144,22 @@ cp_parser_decltype_expr (cp_parser *parser,
          expression.  */
       cp_parser_abort_tentative_parse (parser);
 
-      /* Parse a full expression.  */
-      expr = cp_parser_expression (parser, /*pidk=*/NULL, /*cast_p=*/false,
-				   /*decltype_p=*/true);
+      /* [dcl.type.decltype] "if E is an unparenthesized splice-expression,
+	 decltype(E) is the type of the entity, object, or value designated
+	 by the splice-specifier of E"  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE)
+	  && !cp_parser_splice_spec_is_nns_p (parser))
+	{
+	  expr = cp_parser_splice_expression (parser, /*template_p=*/false,
+					      /*address_p=*/false,
+					      /*template_arg_p=*/false,
+					      /*member_access_p=*/false);
+	  id_expression_or_member_access_p = true;
+	}
+      else
+	/* Parse a full expression.  */
+	expr = cp_parser_expression (parser, /*pidk=*/NULL, /*cast_p=*/false,
+				     /*decltype_p=*/true);
     }
 
   return expr;
