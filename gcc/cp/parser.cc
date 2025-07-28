@@ -6218,7 +6218,9 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   /* Class members may not be implicitly referenced through a splice.
      But taking the address is fine, and so is class member access a la
      foo.[: ^^S::bar :].  */
-  if (TREE_CODE (t) == FIELD_DECL && !address_p && !member_access_p)
+  if ((TREE_CODE (t) == FIELD_DECL
+       || (VAR_P (t) && DECL_ANON_UNION_VAR_P (t)))
+      && !address_p && !member_access_p)
     {
       error_at (loc, "cannot implicitly reference a class member through "
 		"a splice");
@@ -6229,6 +6231,16 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
     {
       error_at (loc, "unparenthesized splice expression cannot be used as "
 		"a template argument");
+      return error_mark_node;
+    }
+  /* [expr.unary.op]/3.1 "If the operand [of unary &] is a qualified-id or
+     splice-expression designating a non-static member m, other than an
+     explicit object member function, m shall be a direct member of some
+     class C that is not an anonymous union."  */
+  if (address_p && VAR_P (t) && DECL_ANON_UNION_VAR_P (t))
+    {
+      error_at (loc, "unary %<&%> applied to an anonymous union member %qD "
+		"that is not a direct member of a named class", t);
       return error_mark_node;
     }
 
@@ -6260,8 +6272,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	   int i = [: r :];
 	 we need to pass down 'S'.  */
       tree ctx = DECL_P (t) ? DECL_CONTEXT (t) : NULL_TREE;
-      t = finish_id_expression (t, t, ctx,
-				&idk,
+      t = finish_id_expression (t, t, ctx, &idk,
 				/*integral_constant_expression_p=*/false,
 				/*allow_non_integral_constant_expr_p=*/true,
 				&parser->non_integral_constant_expression_p,
