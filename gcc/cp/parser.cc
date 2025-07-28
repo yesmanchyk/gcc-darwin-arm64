@@ -6218,9 +6218,10 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   /* Class members may not be implicitly referenced through a splice.
      But taking the address is fine, and so is class member access a la
      foo.[: ^^S::bar :].  */
-  if ((TREE_CODE (t) == FIELD_DECL
-       || (VAR_P (t) && DECL_ANON_UNION_VAR_P (t)))
-      && !address_p && !member_access_p)
+  if (!address_p
+      && !member_access_p
+      && ((DECL_P (t) && DECL_NONSTATIC_MEMBER_P (t))
+	  || (VAR_P (t) && DECL_ANON_UNION_VAR_P (t))))
     {
       error_at (loc, "cannot implicitly reference a class member through "
 		"a splice");
