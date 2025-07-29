@@ -6244,6 +6244,11 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 		"that is not a direct member of a named class", t);
       return error_mark_node;
     }
+  if (error_operand_p (t))
+    {
+      gcc_assert (seen_error ());
+      return error_mark_node;
+    }
 
   /* When doing foo.[: bar :], cp_parser_postfix_dot_deref_expression wants
      to see an identifier or a TEMPLATE_ID_EXPR, if we have something like

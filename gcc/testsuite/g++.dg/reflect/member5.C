@@ -1,5 +1,5 @@
 // { dg-do compile { target c++26 } }
-// // { dg-additional-options "-freflection" }
+// { dg-additional-options "-freflection" }
 
 struct A { };
 
@@ -9,6 +9,9 @@ struct S {
   enum { FOO } e;
   A a;
 };
+
+auto p = &[: ^^S::m :];
+auto q = &[: ^^S::m :];
 
 auto rm = [: ^^S::m :];	 // { dg-error "cannot implicitly reference a class member through a splice" }
 auto rn = [: ^^S::n :];  // { dg-error "cannot implicitly reference a class member through a splice" }
