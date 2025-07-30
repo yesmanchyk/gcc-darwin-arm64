@@ -241,6 +241,7 @@ get_reflection (location_t loc, tree t)
        void foo (T) {}
        constexpr auto a = ^^foo;
      we will get an OVERLOAD containing only one function.  */
+  // FIXME Put the darn BASELINK back!
   t = MAYBE_BASELINK_FUNCTIONS (t);
   if (OVL_P (t))
     {
@@ -252,12 +253,15 @@ get_reflection (location_t loc, tree t)
     }
   /* [expr.reflect] If the id-expression denotes an overload set S,
      overload resolution for the expression &S with no target shall
-     select a unique function; R represents that function.
-
-     We need to resolve TEMPLATE_ID_EXPRs so that they don't get into
-     cp_genericize_r.  */
+     select a unique function; R represents that function.  */
   else if (!processing_template_decl)
-    t = resolve_nondeduced_context_or_error (t, tf_warning_or_error);
+    {
+      /* We can't resolve all TEMPLATE_ID_EXPRs here (due to
+	 _postfix_dot_deref_expression) but we can weed out the bad ones.  */
+      tree r = resolve_nondeduced_context_or_error (t, tf_warning_or_error);
+      if (r == error_mark_node)
+	t = r;
+    }
 
   /* For injected-class-name, use the main variant so that comparing
      reflections works (cf. compare3.C).  */

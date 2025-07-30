@@ -48,3 +48,34 @@ static_assert([:rEleven:]() == 11);
 // Splicing static member template function instantiation.
 constexpr auto rConst14 = ^^S::constant<14>;
 static_assert([:rConst14:]() == 14);
+
+// Splicing member function template instanstiations.
+constexpr auto rgetJPlus5 = ^^S::getJPlusN<5>;
+static_assert(S{2, 4}.[:rgetJPlus5:]() == 7);
+
+// Splicing member function template instantiations with spliced objects.
+constexpr S instance {1, 4};
+constexpr info rInstance = ^^instance;
+static_assert([:rInstance:].[:rgetJPlus5:]() == 6);
+static_assert((&[:rInstance:])->[:rgetJPlus5:]() == 6);
+
+// Splicing dependent object in a member access expression.
+template <info RObj>
+consteval int fn3() {
+  return [:RObj:].k;
+}
+static_assert(fn3<^^instance>() == 4);
+
+// Passing address of a spliced operand as an argument.
+consteval int getMem(const S *s, int S::* mem) {
+  return s->*mem;
+}
+constexpr info rJ = ^^S::j;
+static_assert(getMem(&instance, &[:rJ:]) == 1);
+
+#if 0
+// FIXME
+// Member access through a splice of a private member.
+class WithPrivateBase : S {} d;
+int dK = d.[:^^S::k:];
+#endif

@@ -1329,21 +1329,33 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
 
      is OK.  */
   if (data->flags & ff_genericize)
-    if (TREE_CODE (stmt) == DECL_EXPR)
-      {
-	tree d = DECL_EXPR_DECL (stmt);
-	if (VAR_P (d) && consteval_only_var_p (d))
-	  {
-	    if (!DECL_DECLARED_CONSTEXPR_P (d))
-	      error_at (DECL_SOURCE_LOCATION (d),
-			"consteval-only expressions are only allowed in "
-			"manifestly constant-evaluated context");
-	    /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
-	    *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
-	    /* And skip varpool_node::finalize_decl.  */
-	    DECL_HAS_VALUE_EXPR_P (d) = true;
-	  }
-      }
+    {
+      if (TREE_CODE (stmt) == DECL_EXPR)
+	{
+	  tree d = DECL_EXPR_DECL (stmt);
+	  if (VAR_P (d) && consteval_only_var_p (d))
+	    {
+	      if (!DECL_DECLARED_CONSTEXPR_P (d))
+		error_at (DECL_SOURCE_LOCATION (d),
+			  "consteval-only expressions are only allowed in "
+			  "manifestly constant-evaluated context");
+	      /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
+	      *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
+	      /* And skip varpool_node::finalize_decl.  */
+	      DECL_HAS_VALUE_EXPR_P (d) = true;
+	    }
+	}
+      /* We can't resolve all TEMPLATE_ID_EXPRs while creating reflections
+	 because cp_parser_postfix_dot_deref_expression wants to see the
+	 original TEMPLATE_ID_EXPR.  Resolve them now so that we don't crash
+	 in gimple.  (The resolution shouldn't fail here because the bad ones
+	 won't get this far.)  */
+      if (REFLECT_EXPR_P (stmt))
+	{
+	  tree &h = REFLECT_EXPR_HANDLE (stmt);
+	  h = resolve_nondeduced_context (h, tf_none);
+	}
+    }
 
   tree decl = NULL_TREE;
   bool call_p = false;

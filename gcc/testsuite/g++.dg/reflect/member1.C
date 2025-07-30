@@ -55,9 +55,9 @@ f ()
   sp->template [: ^^S::tfn :](42);
   s.template [: ^^S::tfn :]<int>(42);
   sp->template [: ^^S::tfn :]<int>(42);
-  s.[: ^^S::var :]<int> = 1;
+  s.[: ^^S::var :]<int> = 1; // { dg-error "reflection not usable in a splice expression with template arguments" }
   s.template [: ^^S::var :]<int> = 1;
-  sp->[: ^^S::var :]<int> = 1;
+  sp->[: ^^S::var :]<int> = 1; // { dg-error "reflection not usable in a splice expression with template arguments" }
   sp->template [: ^^S::var :]<int> = 1;
   s.[: ^^S::b :].[: ^^B::a :].val;
   sp->[: ^^S::b :].[: ^^B::a :].val;
@@ -74,9 +74,9 @@ f ()
   cp->template [: ^^C<int>::tfn :](42);
   c.template [: ^^C<int>::tfn :]<int>(42);
   cp->template [: ^^C<int>::tfn :]<int>(42);
-  c.[: ^^C<int>::var :]<int> = 1;
+  c.[: ^^C<int>::var :]<int> = 1; // { dg-error "reflection not usable in a splice expression with template arguments" }
   c.template [: ^^C<int>::var :]<int> = 1;
-  cp->[: ^^C<int>::var :]<int> = 1;
+  cp->[: ^^C<int>::var :]<int> = 1; // { dg-error "reflection not usable in a splice expression with template arguments" }
   cp->template [: ^^C<int>::var :]<int> = 1;
   c.[: ^^C<int>::b :].[: ^^B::a :].val;
   cp->[: ^^C<int>::b :].[: ^^B::a :].val;

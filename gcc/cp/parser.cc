@@ -6143,6 +6143,8 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   const location_t loc = expr.get_location ();
   tree t = expr.get_value ();
   STRIP_ANY_LOCATION_WRAPPER (t);
+  tree unresolved = t;
+  t = resolve_nondeduced_context (t, tf_warning_or_error);
 
   if (template_p)
     {
@@ -6196,13 +6198,20 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 		    "expression");
 	  return error_mark_node;
 	}
-      if (really_overloaded_fn (t))
+      /* No 'template' but there were template arguments?  */
+      if (targs_p
+	  /* No 'template' but the splice-specifier designates a template?  */
+	  || really_overloaded_fn (t))
 	{
-	  error_at (loc, "reflection not usable in a template splice");
+	  if (targs_p)
+	    error_at (loc, "reflection not usable in a splice expression with "
+		      "template arguments");
+	  else
+	    error_at (loc, "reflection not usable in a splice expression");
 	  location_t sloc = expr.get_start ();
 	  rich_location richloc (line_table, sloc);
 	  richloc.add_fixit_insert_before (sloc, "template ");
-	  inform (&richloc, "add %<template%> to denote a function template");
+	  inform (&richloc, "add %<template%> to denote a template");
 	  return error_mark_node;
 	}
     }
@@ -6255,7 +6264,8 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
      s.template [: ^^S::var :]<int> where S::var is a variable template.  */
   if (member_access_p)
     {
-      /* Retain the TEMPLATE_ID_EXPR for _postfix_dot_deref_expression.  */
+      /* Grab the unresolved expression then.  */
+      t = unresolved;
       if (DECL_P (t))
 	t = DECL_NAME (t);
       else if (OVL_P (t))

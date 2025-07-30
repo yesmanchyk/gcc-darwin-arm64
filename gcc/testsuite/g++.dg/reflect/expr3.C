@@ -27,19 +27,20 @@ g ()
   int i2 = template [: ^^x :];    // { dg-error "reflection not usable in a template splice" }
   int i3 = [: ^^two<int> :];
   int i4 = template [: ^^two<int> :]; // { dg-error "reflection not usable in a template splice" }
-  int i5 = [: ^^foo :](42);	      // { dg-error "reflection not usable in a template splice" }
+  int i5 = [: ^^foo :](42);	      // { dg-error "reflection not usable in a splice expression" }
   int i6 = template [: ^^foo :](42);
   int i7 = [: ^^foo<int> :](42);
   int i8 = template [: ^^foo<int> :](42);   // { dg-error "reflection not usable in a template splice" }
-  int i9 = [: ^^foo :]<int>(42);	    // { dg-error "reflection not usable in a template splice" }
+  int i9 = [: ^^foo :]<int>(42);	    // { dg-error "reflection not usable in a splice expression with template arguments" }
   int i10 = template [: ^^foo :]<int>(42);
   int i11 = template [: ^^bar :]<int>(42);  // { dg-error "no matching function for call" }
-  int i12 = [: ^^two :]<int>;
+  int i12 = [: ^^two :]<int>;		    // { dg-error "reflection not usable in a splice expression with template arguments" }
   int i13 = template [: ^^two :]<int>;
 
+  // FIXME This is also wrong?
   [: ^^ST :]<int> c1;
-  [: ^^S :]<int> c2;   // { dg-error "not a template" }
-  [: ^^bar :]<int>();	// { dg-error "no matching function for call" }
+  [: ^^S :]<int> c2;   // { dg-error "not a template|reflection not usable in a splice expression with template arguments" }
+  [: ^^bar :]<int>();	// { dg-error "reflection not usable in a splice expression with template arguments" }
 
   auto x1 = [: ^^ST :]<int>{};
   auto x2 = template [: ^^ST :]<int>{};	// { dg-error "expected a reflection of an expression" }
