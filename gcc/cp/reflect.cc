@@ -241,11 +241,10 @@ get_reflection (location_t loc, tree t)
        void foo (T) {}
        constexpr auto a = ^^foo;
      we will get an OVERLOAD containing only one function.  */
-  // FIXME Put the darn BASELINK back!
-  t = MAYBE_BASELINK_FUNCTIONS (t);
-  if (OVL_P (t))
+  tree r = MAYBE_BASELINK_FUNCTIONS (t);
+  if (OVL_P (r))
     {
-      if (!OVL_SINGLE_P (t))
+      if (!OVL_SINGLE_P (r))
 	{
 	  error_at (loc, "cannot take the reflection of an overload set");
 	  return error_mark_node;
@@ -258,7 +257,7 @@ get_reflection (location_t loc, tree t)
     {
       /* We can't resolve all TEMPLATE_ID_EXPRs here (due to
 	 _postfix_dot_deref_expression) but we can weed out the bad ones.  */
-      tree r = resolve_nondeduced_context_or_error (t, tf_warning_or_error);
+      r = resolve_nondeduced_context_or_error (t, tf_warning_or_error);
       if (r == error_mark_node)
 	t = r;
     }

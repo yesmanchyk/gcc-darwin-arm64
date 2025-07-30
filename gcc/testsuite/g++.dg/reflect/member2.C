@@ -10,6 +10,5 @@ constexpr auto rDfn = ^^D::fn;
 constexpr D d;
 constexpr auto rd = ^^d;
 
-// FIXME
-//static_assert([:rd:].[:rBfn:]() == 'B');
+static_assert([:rd:].[:rBfn:]() == 'B');
 static_assert([:rd:].[:rDfn:]() == 'D');

@@ -6136,7 +6136,7 @@ cp_parser_splice_type_specifier (cp_parser *parser)
 static tree
 cp_parser_splice_expression (cp_parser *parser, bool template_p,
 			     bool address_p, bool template_arg_p,
-			     bool member_access_p)
+			     bool member_access_p, cp_id_kind *idk)
 {
   bool targs_p = false;
   cp_expr expr = cp_parser_splice_specifier (parser, template_p, &targs_p);
@@ -6144,6 +6144,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   tree t = expr.get_value ();
   STRIP_ANY_LOCATION_WRAPPER (t);
   tree unresolved = t;
+  t = MAYBE_BASELINK_FUNCTIONS (t);
   t = resolve_nondeduced_context (t, tf_warning_or_error);
 
   if (template_p)
@@ -6271,8 +6272,10 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
       else if (OVL_P (t))
 	t = OVL_NAME (t);
       gcc_assert (identifier_p (t)
+		  || BASELINK_P (t)
 		  || TREE_CODE (t) == SPLICE_EXPR
 		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
+      /* ??? We're not setting *idk here.  */
     }
   else
     {
@@ -6281,14 +6284,13 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	 OFFSET_REF.  For a VAR_DECL, we need the convert_from_reference.  */
       cp_unevaluated u;
       const char *error_msg;
-      cp_id_kind idk = CP_ID_KIND_NONE;
       /* We don't have the parser scope here, so figure out the context.  In
 	   struct S { static constexpr int i = 42; };
 	   constexpr auto r = ^^S::i;
 	   int i = [: r :];
 	 we need to pass down 'S'.  */
       tree ctx = DECL_P (t) ? DECL_CONTEXT (t) : NULL_TREE;
-      t = finish_id_expression (t, t, ctx, &idk,
+      t = finish_id_expression (t, t, ctx, idk,
 				/*integral_constant_expression_p=*/false,
 				/*allow_non_integral_constant_expr_p=*/true,
 				&parser->non_integral_constant_expression_p,
@@ -6751,7 +6753,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_OPEN_SPLICE:
       return cp_parser_splice_expression (parser, /*template_p=*/false,
 					  address_p, template_arg_p,
-					  /*member_access_p=*/false);
+					  /*member_access_p=*/false, idk);
 
     case CPP_OBJC_STRING:
       if (c_dialect_objc ())
@@ -6922,7 +6924,8 @@ cp_parser_primary_expression (cp_parser *parser,
 	      cp_lexer_consume_token (parser->lexer);
 	      return cp_parser_splice_expression (parser, /*template_p=*/true,
 						  address_p, template_arg_p,
-						  /*member_access_p=*/false);
+						  /*member_access_p=*/false,
+						  idk);
 	    }
 
 	  /* FALLTHRU */
@@ -9567,13 +9570,19 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
       bool template_p;
       bool template_keyword_p = cp_parser_optional_template_keyword (parser);
       cp_token *token = cp_lexer_peek_token (parser->lexer);
-      if (token->type == CPP_OPEN_SPLICE
-	  /* this->[: ^^S :]::i; is not a splice-expression.  */
-	  && !cp_parser_splice_spec_is_nns_p (parser))
-	name = cp_parser_splice_expression (parser, template_keyword_p,
-					    /*address_p=*/false,
-					    /*template_arg_p=*/false,
-					    /*member_access_p=*/true);
+      /* this->[: ^^S :]::i; is not a splice-expression.  */
+      const bool splice_p = (token->type == CPP_OPEN_SPLICE
+			     && !cp_parser_splice_spec_is_nns_p (parser));
+      if (splice_p)
+	{
+	  name = cp_parser_splice_expression (parser, template_keyword_p,
+					      /*address_p=*/false,
+					      /*template_arg_p=*/false,
+					      /*member_access_p=*/true, idk);
+	  /* This is not the leading 'template' but the one after n-n-s,
+	     which we don't have here.  */
+	  template_p = false;
+	}
       else
 	/* Parse the id-expression.  */
 	name = (cp_parser_id_expression
@@ -9625,9 +9634,13 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	      parser->qualifying_scope = NULL_TREE;
 	      parser->object_scope = NULL_TREE;
 	    }
-	  if (parser->scope && name && BASELINK_P (name))
+	  if ((parser->scope || splice_p) && name && BASELINK_P (name))
 	    adjust_result_of_qualified_name_lookup
-	      (name, parser->scope, scope);
+	      (name,
+	       /* For obj->[:^^R:] we won't have parser->scope, but we still
+		  have to perform this adjustment.  */
+	       (splice_p ? BINFO_TYPE (BASELINK_BINFO (name)) : parser->scope),
+	       scope);
 	  postfix_expression
 	    = finish_class_member_access_expr (postfix_expression, name,
 					       template_p,
@@ -19177,10 +19190,11 @@ cp_parser_decltype_expr (cp_parser *parser,
       if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE)
 	  && !cp_parser_splice_spec_is_nns_p (parser))
 	{
+	  cp_id_kind idk;
 	  expr = cp_parser_splice_expression (parser, /*template_p=*/false,
 					      /*address_p=*/false,
 					      /*template_arg_p=*/false,
-					      /*member_access_p=*/false);
+					      /*member_access_p=*/false, &idk);
 	  id_expression_or_member_access_p = true;
 	}
       else
