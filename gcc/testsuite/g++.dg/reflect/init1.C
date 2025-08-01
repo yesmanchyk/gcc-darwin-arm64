@@ -22,6 +22,7 @@ struct W {
   decltype(^^::) i = ^^W::i;
 };
 
+// FIXME -- not constexpr, give error
 info r = ^^int;
 info *p = &r;
 
@@ -35,8 +36,8 @@ f ()
   auto a4{refl};
 
   constexpr decltype(refl) arr[] = { refl };
-  constexpr auto r = arr[0];
-  [: r :] s = { .i = 42 };
+  constexpr auto ra = arr[0];
+  [: ra :] s = { .i = 42 };
 
   constexpr static auto srefl = ^^S;
   constexpr static auto *p = &srefl;
@@ -54,6 +55,7 @@ void
 h ()
 {
   X x;
+  // FIXME -- not constexpr, give error
   [: x :] i = 42;
   [: X{} :] j = i;
 }

@@ -1149,6 +1149,7 @@ dump_type_prefix (cxx_pretty_printer *pp, tree t, int flags)
     case NULLPTR_TYPE:
     case PACK_INDEX_TYPE:
     case META_TYPE:
+    case SPLICE_SCOPE:
       dump_type (pp, t, flags);
       pp->set_padding (pp_before);
       break;
@@ -1283,6 +1284,7 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
     case NULLPTR_TYPE:
     case PACK_INDEX_TYPE:
     case META_TYPE:
+    case SPLICE_SCOPE:
       break;
 
     default:

@@ -42,7 +42,7 @@ g ()
   [: ^^S :]<int> c2;   // { dg-error "not a template|reflection not usable in a splice expression with template arguments" }
   [: ^^bar :]<int>();	// { dg-error "reflection not usable in a splice expression with template arguments" }
 
-  auto x1 = [: ^^ST :]<int>{};
+  auto x1 = [: ^^ST :]<int>{};	  // { dg-error "reflection not usable in a splice expression with template arguments" }
   auto x2 = template [: ^^ST :]<int>{};	// { dg-error "expected a reflection of an expression" }
   auto x3 = typename [: ^^ST :]<int>{};
 }

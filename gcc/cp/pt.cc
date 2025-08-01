@@ -17296,17 +17296,34 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  return error_mark_node;
 
 	/* We had [:X:]:: which was substituted into a NAMESPACE_DECL and not
-	   a type as is expected here.  So we must be coming from
-	   cp_parser_class_name and have to handle it specially.  */
+	   a type as is expected here.  */
 	if (TREE_CODE (ctx) == NAMESPACE_DECL)
 	  {
-	    gcc_assert (TREE_CODE (TYPE_CONTEXT (t)) == SPLICE_SCOPE);
-	    gcc_assert (TREE_CODE (f) == TEMPLATE_ID_EXPR);
-	    tree d = TREE_OPERAND (f, 0);
-	    tree n = TREE_OPERAND (f, 1);
-	    f = lookup_template_class (d, n, in_decl, ctx, complain);
-	    if (f == error_mark_node)
-	      return error_mark_node;
+	    if (TREE_CODE (f) == TEMPLATE_ID_EXPR)
+	      {
+		tree d = TREE_OPERAND (f, 0);
+		tree n = TREE_OPERAND (f, 1);
+		f = lookup_template_class (d, n, in_decl, ctx, complain);
+		if (f == error_mark_node)
+		  return error_mark_node;
+	      }
+	    else
+	      {
+		gcc_assert (TREE_CODE (f) == IDENTIFIER_NODE);
+		tree decl = lookup_qualified_name (ctx, f);
+		if (decl == error_mark_node || TREE_CODE (decl) == TREE_LIST)
+		  {
+		    qualified_name_lookup_error (ctx, f, decl, input_location);
+		    return error_mark_node;
+		  }
+		if (TREE_CODE (decl) == NAMESPACE_DECL)
+		  return decl;
+		else
+		  {
+		    gcc_checking_assert (TREE_CODE (decl) == TYPE_DECL);
+		    f = TREE_TYPE (decl);
+		  }
+	      }
 	    return cp_build_qualified_type
 		    (f, cp_type_quals (f) | cp_type_quals (t), complain);
 	  }

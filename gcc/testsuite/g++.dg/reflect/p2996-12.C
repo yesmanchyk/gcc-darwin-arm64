@@ -14,8 +14,8 @@ using alias = [:^^TCls:]<([:^^v:])>;
 
 static_assert(alias::s == 2);
 
-// FIXME -- should be an error.
-auto o1 = [:^^TCls:]<([:^^v:])>();
+// error: < means less than
+auto o1 = [:^^TCls:]<([:^^v:])>();  // { dg-error "reflection not usable" }
 // OK, o2 is an object of type TCls<1>
 auto o2 = typename [:^^TCls:]<([:^^v:])>();
 

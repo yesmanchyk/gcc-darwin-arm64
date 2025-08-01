@@ -5995,13 +5995,16 @@ cp_parser_pack_index (cp_parser *parser, tree pack)
   return make_pack_index (pack, index);
 }
 
-/* Return true iff the next tokens start a splice-type-specifier.  */
+/* Return true iff the next tokens start a splice-type-specifier.
+   If REQUIRE_TYPENAME_P, we only return true if there is a preceding
+   typename keyword.  */
 
 static bool
-cp_parser_next_tokens_start_splice_type_spec_p (cp_parser *parser)
+cp_parser_next_tokens_start_splice_type_spec_p (cp_parser *parser,
+						bool require_typename_p)
 {
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
-    return true;
+    return !require_typename_p;
   return (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME)
 	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_OPEN_SPLICE));
 }
@@ -6099,9 +6102,11 @@ cp_parser_splice_type_specifier (cp_parser *parser)
   if (TREE_CODE (type) == TYPE_DECL)
     type = TREE_TYPE (type);
 
-  /* When we see [:T:]<arg> we don't know what it'll turn out to be.  */
-  if (TREE_CODE (type) == TEMPLATE_ID_EXPR
-      && TREE_CODE (TREE_OPERAND (type, 0)) == SPLICE_EXPR)
+  /* When we see [:T:] or [:T:]<arg> we don't know what it'll turn out
+     to be.  */
+  if (TREE_CODE (type) == SPLICE_EXPR
+      || (TREE_CODE (type) == TEMPLATE_ID_EXPR
+	  && TREE_CODE (TREE_OPERAND (type, 0)) == SPLICE_EXPR))
     {
       tree t = cxx_make_type (SPLICE_SCOPE);
       SPLICE_SCOPE_EXPR (t) = type;
@@ -6341,7 +6346,9 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
 
   /* A dependent scope.  Turn this into SPLICE_SCOPE which is a type,
      so that dependent_scope_p et al can recognize this.  */
-  if (TREE_CODE (scope) == SPLICE_EXPR)
+  if (TREE_CODE (scope) == SPLICE_EXPR
+      || (TREE_CODE (scope) == TEMPLATE_ID_EXPR
+	  && TREE_CODE (TREE_OPERAND (scope, 0)) == SPLICE_EXPR))
     {
       tree t = cxx_make_type (SPLICE_SCOPE);
       SPLICE_SCOPE_EXPR (t) = scope;
@@ -22617,8 +22624,17 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	    type = NULL_TREE;
 	}
 
-      /* "[: ... :]" is a C++26 splice-type-specifier.  */
-      if (!type && cp_parser_next_tokens_start_splice_type_spec_p (parser))
+      /* "[: ... :]" is a C++26 splice-type-specifier.  The second argument
+	 decides if we require 'typename' before the splice-type-specifier.
+	 In a type-only context ([temp.res.general]/4) we shouldn't require
+	 it.  But also require 'typename' in a functional cast.
+	 ??? This should only check !typename, but that breaks a lot of code.
+	 This allows "[:R:] r;" or "[:R:] *r;" which should be an error.  */
+      // TODO Come back to this; just require typenames.
+      if (!type
+	  && cp_parser_next_tokens_start_splice_type_spec_p (parser,
+							     (!decl_specs
+							      && !typename_p)))
 	type = cp_parser_splice_type_specifier (parser);
 
       /* Otherwise, look for a type-name.  */
