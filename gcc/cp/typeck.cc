@@ -3404,7 +3404,9 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
 	      && IDENTIFIER_CONV_OP_P (name)
 	      && dependent_type_p (TREE_TYPE (name)))
 	  /* This is OBJECT.[:R:], which is dependent.  */
-	  || TREE_CODE (name) == SPLICE_EXPR)
+	  || TREE_CODE (name) == SPLICE_EXPR
+	  || (TREE_CODE (name) == TEMPLATE_ID_EXPR
+	      && TREE_CODE (TREE_OPERAND (name, 0)) == SPLICE_EXPR))
 	{
 	dependent:
 	  return build_min_nt_loc (UNKNOWN_LOCATION, COMPONENT_REF,
