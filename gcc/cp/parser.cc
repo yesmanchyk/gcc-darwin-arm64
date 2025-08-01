@@ -10047,7 +10047,17 @@ cp_parser_reflect_expression (cp_parser *parser)
       cp_parser_name_lookup_error (parser, id, t, NLE_NULL, loc);
     /* We don't finish_id_expression here because we don't know in what
        context this reflection will be used (address, class member access,
-       template argument, ...).  */
+       template argument, ...).  Except go ahead and (try to) resolve the
+       variable TEMPLATE_ID_EXPR (which is always considered type-dependent
+       because such TEMPLATE_ID_EXPRs don't have a type) now.  We don't need
+       to keep these TEMPLATE_ID_EXPRs for a possible class member access,
+       but most importantly, function templates with ^^vt<int> as one of its
+       template argument would never be mangled (mangle_decl checks if any
+       template arguments are dependent).  */
+    if (TREE_CODE (t) == TEMPLATE_ID_EXPR
+	&& variable_template_p (TREE_OPERAND (t, 0))
+	&& !concept_check_p (t))
+      t = finish_template_variable (t);
     if (cp_parser_parse_definitely (parser))
       return get_reflection (loc, t);
   }
