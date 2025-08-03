@@ -17500,7 +17500,24 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       return tsubst_pack_index (t, args, complain, in_decl);
 
     case SPLICE_SCOPE:
-      return tsubst_expr (SPLICE_SCOPE_EXPR (t), args, complain, in_decl);
+      r = tsubst_expr (SPLICE_SCOPE_EXPR (t), args, complain, in_decl);
+      if (r == error_mark_node)
+	return r;
+      if (SPLICE_SCOPE_TYPE_P (t)
+	  ? !valid_splice_type_p (r)
+	  : !valid_splice_scope_p (r))
+	{
+	  if (complain & tf_error)
+	    {
+	      const location_t loc = EXPR_LOCATION (SPLICE_SCOPE_EXPR (t));
+	      if (SPLICE_SCOPE_TYPE_P (t))
+		error_at (loc, "%qE is not usable in a splice type", r);
+	      else
+		error_at (loc, "%qE is not usable in a splice scope", r);
+	    }
+	  return error_mark_node;
+	}
+      return r;
 
     case VOID_CST:
     case INTEGER_CST:

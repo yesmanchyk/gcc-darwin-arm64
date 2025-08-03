@@ -6110,13 +6110,11 @@ cp_parser_splice_type_specifier (cp_parser *parser)
     {
       tree t = cxx_make_type (SPLICE_SCOPE);
       SPLICE_SCOPE_EXPR (t) = type;
+      SPLICE_SCOPE_TYPE_P (t) = true;
       return t;
     }
 
-  /* [dcl.type.splice] For a splice-type-specifier of the form
-     "typename[opt] splice-specifier", the splice-specifier shall
-     designate a type, a primary class template, or an alias template.  */
-  if (!TYPE_P (type))
+  if (!valid_splice_type_p (type))
     {
       cp_parser_error (parser, "reflection not usable in a splice type");
       type = NULL_TREE;
@@ -6355,14 +6353,7 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
       return t;
     }
 
-  /* [basic.lookup.qual.general] "If a name, template-id,
-     splice-scope-specifier, or computed-type-specifier is followed by
-     a ::, it shall either be a dependent splice-scope-specifier or it
-     shall designate a namespace, class, enumeration, or dependent
-     type."  */
-  if (!CLASS_TYPE_P (scope)
-      && TREE_CODE (scope) != ENUMERAL_TYPE
-      && TREE_CODE (scope) != NAMESPACE_DECL)
+  if (!valid_splice_scope_p (scope))
     {
       auto_diagnostic_group d;
       error_at (loc, "reflection not usable in a splice scope");
@@ -34184,6 +34175,7 @@ cp_parser_type_requirement (cp_parser *parser)
       /* tsubst_type_requirement wants this to be a type.  */
       tree t = cxx_make_type (SPLICE_SCOPE);
       SPLICE_SCOPE_EXPR (t) = cp_parser_splice_specifier (parser);
+      SPLICE_SCOPE_TYPE_P (t) = true;
       type = t;
     }
   else

@@ -400,3 +400,31 @@ compare_reflections (const_tree lhs, const_tree rhs)
 {
   return REFLECT_EXPR_HANDLE (lhs) == REFLECT_EXPR_HANDLE (rhs);
 }
+
+/* Return true if T is a valid splice-type-specifier.
+   [dcl.type.splice]: For a splice-type-specifier of the form
+   "typename[opt] splice-specifier", the splice-specifier shall designate
+   a type, a class template, or an alias template.
+   For a splice-type-specifier of the form
+   "typename[opt] splice-specialization-specifier", the splice-specifier
+   of the splice-specialization-specifier shall designate a template T
+   that is either a class template or an alias template.  */
+
+bool
+valid_splice_type_p (const_tree t)
+{
+  return TYPE_P (t);
+}
+
+/* Return true if T is a valid splice-scope-specifier.
+   [basic.lookup.qual.general]: If a splice-scope-specifier is followed
+   by a ::, it shall either be a dependent splice-scope-specifier or it
+   shall designate a namespace, class, enumeration, or dependent type.  */
+
+bool
+valid_splice_scope_p (const_tree t)
+{
+  return (CLASS_TYPE_P (t)
+	  || TREE_CODE (t) == ENUMERAL_TYPE
+	  || TREE_CODE (t) == NAMESPACE_DECL);
+}

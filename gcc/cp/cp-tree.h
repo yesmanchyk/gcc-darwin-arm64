@@ -1900,6 +1900,11 @@ struct GTY(()) tree_tu_local_entity {
 #define SPLICE_SCOPE_EXPR(NODE) \
   (TYPE_VALUES_RAW (SPLICE_SCOPE_CHECK (NODE)))
 
+/* True if this splice represents a splice-type-specifier rather than
+   a splice-scope-specifier.  */
+#define SPLICE_SCOPE_TYPE_P(NODE) \
+  (SPLICE_SCOPE_CHECK (NODE))->type_common.string_flag
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
@@ -9170,6 +9175,8 @@ extern void check_out_of_consteval_use (tree);
 extern bool consteval_only_var_p (tree) ATTRIBUTE_PURE;
 extern bool consteval_only_type_p (tree) ATTRIBUTE_PURE;
 extern bool compare_reflections (const_tree, const_tree) ATTRIBUTE_PURE;
+extern bool valid_splice_type_p (const_tree) ATTRIBUTE_PURE;
+extern bool valid_splice_scope_p (const_tree) ATTRIBUTE_PURE;
 
 /* Inline bodies.  */
 

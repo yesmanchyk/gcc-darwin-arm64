@@ -19,7 +19,7 @@ struct S {
 void
 g (S s)
 {
-  [: S::r1 :] i = 42;
-  [: S::r2 :]<int> z;
+  typename [: S::r1 :] i = 42;
+  typename [: S::r2 :]<int> z;
   C auto a = s;
 }
