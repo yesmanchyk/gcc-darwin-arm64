@@ -3362,11 +3362,13 @@ complain_about_unrecognized_member (tree access_path, tree name,
    TEMPLATE_ID_EXPR.  Templates must be looked up by the parser, and
    there is no reason to do the lookup twice, so the parser keeps the
    BASELINK.  TEMPLATE_P is true iff NAME was explicitly declared to
-   be a template via the use of the "A::template B" syntax.  */
+   be a template via the use of the "A::template B" syntax.  SPLICE_P
+   is true if NAME was designated by a splice-expression.  */
 
 tree
 finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
-				 tsubst_flags_t complain)
+				 tsubst_flags_t complain,
+				 bool splice_p/*=false*/)
 {
   tree expr;
   tree object_type;
@@ -3524,10 +3526,15 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
 	     one copy of the data member that is shared by all the objects of
 	     the class.  So NAME can be unambiguously referred to even if
 	     there are multiple indirect base classes containing NAME.  */
-	  const base_access ba = [scope, name] ()
+	  const base_access ba = [scope, name, splice_p] ()
 	    {
 	      if (identifier_p (name))
 		{
+		  /* [class.access.base]/5: A member m is accessible at the
+		     point R when designated in class N if
+		     -- m is designated by a splice-expression  */
+		  if (splice_p)
+		    return ba_unique;
 		  tree m = lookup_member (scope, name, /*protect=*/0,
 					  /*want_type=*/false, tf_none);
 		  if (!m || shared_member_p (m))

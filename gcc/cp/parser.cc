@@ -6142,7 +6142,18 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 			     bool member_access_p, cp_id_kind *idk)
 {
   bool targs_p = false;
+
+  /* [class.access.base]/5: A member m is accessible at the point R when
+     designated in class N if
+     -- m is designated by a splice-expression  */
+  if (member_access_p)
+    push_deferring_access_checks (dk_no_check);
+
   cp_expr expr = cp_parser_splice_specifier (parser, template_p, &targs_p);
+
+  if (member_access_p)
+    pop_deferring_access_checks ();
+
   const location_t loc = expr.get_location ();
   tree t = expr.get_value ();
   STRIP_ANY_LOCATION_WRAPPER (t);
@@ -9642,7 +9653,7 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	  postfix_expression
 	    = finish_class_member_access_expr (postfix_expression, name,
 					       template_p,
-					       tf_warning_or_error);
+					       tf_warning_or_error, splice_p);
 	  /* Build a location e.g.:
 	       ptr->access_expr
 	       ~~~^~~~~~~~~~~~~

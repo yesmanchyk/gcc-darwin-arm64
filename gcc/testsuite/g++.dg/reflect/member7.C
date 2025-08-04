@@ -73,9 +73,6 @@ consteval int getMem(const S *s, int S::* mem) {
 constexpr info rJ = ^^S::j;
 static_assert(getMem(&instance, &[:rJ:]) == 1);
 
-#if 0
-// FIXME
 // Member access through a splice of a private member.
 class WithPrivateBase : S {} d;
 int dK = d.[:^^S::k:];
-#endif
