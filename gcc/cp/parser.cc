@@ -6432,7 +6432,7 @@ static bool
 cp_parser_splice_spec_is_nns_p (cp_parser *parser)
 {
   /* ??? It'd be nice to use saved_token_sentinel, but its rollback
-     uses cp_lexer_previous_token, but we may the first tokens in the
+     uses cp_lexer_previous_token, but we may be the first token in the
      file so there are no previous tokens.  Sigh.  */
   cp_lexer_save_tokens (parser->lexer);
 
@@ -24732,8 +24732,9 @@ cp_parser_alias_declaration (cp_parser* parser)
 /* Parse a using-directive.
 
    using-directive:
-     attribute-specifier-seq [opt] using namespace :: [opt]
-       nested-name-specifier [opt] namespace-name ;  */
+     attribute-specifier-seq [opt] using namespace nested-name-specifier [opt]
+       namespace-name ;
+     attribute-specifier-seq [opt] using namespace splice-specifier ;  */
 
 static void
 cp_parser_using_directive (cp_parser* parser)
@@ -24752,16 +24753,22 @@ cp_parser_using_directive (cp_parser* parser)
   cp_parser_require_keyword (parser, RID_USING, RT_USING);
   /* And the `namespace' keyword.  */
   cp_parser_require_keyword (parser, RID_NAMESPACE, RT_NAMESPACE);
-  /* Look for the optional `::' operator.  */
-  cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false);
-  /* And the optional nested-name-specifier.  */
-  cp_parser_nested_name_specifier_opt (parser,
-				       /*typename_keyword_p=*/false,
-				       /*check_dependency_p=*/true,
-				       /*type_p=*/false,
-				       /*is_declaration=*/true);
-  /* Get the namespace being used.  */
-  namespace_decl = cp_parser_namespace_name (parser);
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE)
+      && !cp_parser_splice_spec_is_nns_p (parser))
+    namespace_decl = cp_parser_splice_specifier (parser);
+  else
+    {
+      /* Look for the optional `::' operator.  */
+      cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false);
+      /* And the optional nested-name-specifier.  */
+      cp_parser_nested_name_specifier_opt (parser,
+					   /*typename_keyword_p=*/false,
+					   /*check_dependency_p=*/true,
+					   /*type_p=*/false,
+					   /*is_declaration=*/true);
+      /* Get the namespace being used.  */
+      namespace_decl = cp_parser_namespace_name (parser);
+    }
   cp_warn_deprecated_use_scopes (namespace_decl);
   /* And any specified GNU attributes.  */
   if (cp_next_tokens_can_be_gnu_attribute_p (parser))
