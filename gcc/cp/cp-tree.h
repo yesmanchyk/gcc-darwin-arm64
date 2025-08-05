@@ -9177,6 +9177,8 @@ extern bool consteval_only_type_p (tree) ATTRIBUTE_PURE;
 extern bool compare_reflections (const_tree, const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_type_p (const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_scope_p (const_tree) ATTRIBUTE_PURE;
+extern tree make_splice_scope (tree, bool);
+extern bool dependent_splice_p (const_tree) ATTRIBUTE_PURE;
 
 /* Inline bodies.  */
 

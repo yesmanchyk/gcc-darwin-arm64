@@ -428,3 +428,26 @@ valid_splice_scope_p (const_tree t)
 	  || TREE_CODE (t) == ENUMERAL_TYPE
 	  || TREE_CODE (t) == NAMESPACE_DECL);
 }
+
+/* Create a new SPLICE_SCOPE tree.  EXPR is its SPLICE_SCOPE_EXPR, and
+   TYPE_P says if it should have SPLICE_SCOPE_TYPE_P set.  */
+
+tree
+make_splice_scope (tree expr, bool type_p)
+{
+  tree t = cxx_make_type (SPLICE_SCOPE);
+  SPLICE_SCOPE_EXPR (t) = expr;
+  SPLICE_SCOPE_TYPE_P (t) = type_p;
+  return t;
+}
+
+/* Return true if T is a splice expression; that is, it is either [:T:] or
+   [:T:]<arg>.  */
+
+bool
+dependent_splice_p (const_tree t)
+{
+  return (TREE_CODE (t) == SPLICE_EXPR
+	  || (TREE_CODE (t) == TEMPLATE_ID_EXPR
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == SPLICE_EXPR));
+}

@@ -14227,7 +14227,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
    node if only a partial substitution could be performed, or ERROR_MARK_NODE
    if there was an error.  */
 
-tree
+static tree
 tsubst_pack_index (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   tree pack = PACK_INDEX_PACK (t);
@@ -16578,6 +16578,34 @@ tsubst_tree_list (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return chain;
 }
 
+/* Substitute ARGS into T, which is a splice scope.  */
+
+static tree
+tsubst_splice_scope (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  tree r = tsubst_expr (SPLICE_SCOPE_EXPR (t), args, complain, in_decl);
+  if (r == error_mark_node)
+    return r;
+  if (dependent_splice_p (r))
+    return make_splice_scope (r, SPLICE_SCOPE_TYPE_P (t));
+  if (SPLICE_SCOPE_TYPE_P (t)
+      ? !valid_splice_type_p (r)
+      : !valid_splice_scope_p (r))
+    {
+      if (complain & tf_error)
+	{
+	  const location_t loc = EXPR_LOCATION (SPLICE_SCOPE_EXPR (t));
+	  if (SPLICE_SCOPE_TYPE_P (t))
+	    error_at (loc, "%qE is not usable in a splice type", r);
+	  else
+	    error_at (loc, "%qE is not usable in a splice scope", r);
+	}
+      return error_mark_node;
+    }
+
+  return r;
+}
+
 /* Take the tree structure T and replace template parameters used
    therein with the argument vector ARGS.  IN_DECL is an associated
    decl for diagnostics.  If an error occurs, returns ERROR_MARK_NODE.
@@ -17500,24 +17528,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       return tsubst_pack_index (t, args, complain, in_decl);
 
     case SPLICE_SCOPE:
-      r = tsubst_expr (SPLICE_SCOPE_EXPR (t), args, complain, in_decl);
-      if (r == error_mark_node)
-	return r;
-      if (SPLICE_SCOPE_TYPE_P (t)
-	  ? !valid_splice_type_p (r)
-	  : !valid_splice_scope_p (r))
-	{
-	  if (complain & tf_error)
-	    {
-	      const location_t loc = EXPR_LOCATION (SPLICE_SCOPE_EXPR (t));
-	      if (SPLICE_SCOPE_TYPE_P (t))
-		error_at (loc, "%qE is not usable in a splice type", r);
-	      else
-		error_at (loc, "%qE is not usable in a splice scope", r);
-	    }
-	  return error_mark_node;
-	}
-      return r;
+      return tsubst_splice_scope (t, args, complain, in_decl);
 
     case VOID_CST:
     case INTEGER_CST:
@@ -22653,7 +22664,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       }
 
     case PACK_INDEX_EXPR:
-    RETURN (tsubst_pack_index (t, args, complain, in_decl));
+      RETURN (tsubst_pack_index (t, args, complain, in_decl));
 
     case EXPR_PACK_EXPANSION:
       error ("invalid use of pack expansion expression");

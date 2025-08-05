@@ -6104,15 +6104,8 @@ cp_parser_splice_type_specifier (cp_parser *parser)
 
   /* When we see [:T:] or [:T:]<arg> we don't know what it'll turn out
      to be.  */
-  if (TREE_CODE (type) == SPLICE_EXPR
-      || (TREE_CODE (type) == TEMPLATE_ID_EXPR
-	  && TREE_CODE (TREE_OPERAND (type, 0)) == SPLICE_EXPR))
-    {
-      tree t = cxx_make_type (SPLICE_SCOPE);
-      SPLICE_SCOPE_EXPR (t) = type;
-      SPLICE_SCOPE_TYPE_P (t) = true;
-      return t;
-    }
+  if (dependent_splice_p (type))
+    return make_splice_scope (type, /*type_p=*/true);
 
   if (!valid_splice_type_p (type))
     {
@@ -6355,14 +6348,8 @@ cp_parser_splice_scope_specifier (cp_parser *parser, bool typename_p,
 
   /* A dependent scope.  Turn this into SPLICE_SCOPE which is a type,
      so that dependent_scope_p et al can recognize this.  */
-  if (TREE_CODE (scope) == SPLICE_EXPR
-      || (TREE_CODE (scope) == TEMPLATE_ID_EXPR
-	  && TREE_CODE (TREE_OPERAND (scope, 0)) == SPLICE_EXPR))
-    {
-      tree t = cxx_make_type (SPLICE_SCOPE);
-      SPLICE_SCOPE_EXPR (t) = scope;
-      return t;
-    }
+  if (dependent_splice_p (scope))
+    return make_splice_scope (scope, /*type_p=*/false);
 
   if (!valid_splice_scope_p (scope))
     {
@@ -34189,13 +34176,9 @@ cp_parser_type_requirement (cp_parser *parser)
                                  /*complain=*/tf_error);
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
-    {
-      /* tsubst_type_requirement wants this to be a type.  */
-      tree t = cxx_make_type (SPLICE_SCOPE);
-      SPLICE_SCOPE_EXPR (t) = cp_parser_splice_specifier (parser);
-      SPLICE_SCOPE_TYPE_P (t) = true;
-      type = t;
-    }
+    /* tsubst_type_requirement wants this to be a type.  */
+    type = make_splice_scope (cp_parser_splice_specifier (parser),
+			      /*type_p=*/true);
   else
     type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
 
