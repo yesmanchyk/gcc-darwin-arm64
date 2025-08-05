@@ -7590,6 +7590,18 @@ cp_parser_unqualified_id (cp_parser* parser,
 	    if (cp_parser_parse_definitely (parser))
 	      done = true;
 	  }
+	/* Allow r.~typename [:R:].  */
+	else if (!done
+		 && cp_parser_next_tokens_start_splice_type_spec_p
+		     (parser, /*require_typename_p=*/true))
+	  {
+	    parser->scope = object_scope;
+	    parser->object_scope = NULL_TREE;
+	    parser->qualifying_scope = NULL_TREE;
+	    type_decl = cp_parser_splice_type_specifier (parser);
+	    /* We don't have a TYPE_DECL, so return early.  */
+	    return build_min_nt_loc (loc, BIT_NOT_EXPR, type_decl);
+	  }
 	/* Look in the surrounding context.  */
 	if (!done)
 	  {
