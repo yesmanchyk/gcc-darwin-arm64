@@ -226,7 +226,8 @@ get_reflection (location_t loc, tree t)
     }
   /* If lookup finds a declaration that replaced a using-declarator during
      a single search, R is ill-formed.  */
-  else if (TREE_CODE (t) == USING_DECL)
+  else if (TREE_CODE (t) == USING_DECL
+	   || (TREE_CODE (t) == OVERLOAD && OVL_USING_P (t)))
     {
       error_at (loc, "%<^^%> cannot be applied to a using-declarator");
       return error_mark_node;

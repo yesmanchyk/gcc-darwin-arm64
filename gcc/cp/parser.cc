@@ -6154,6 +6154,12 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   t = MAYBE_BASELINK_FUNCTIONS (t);
   t = resolve_nondeduced_context (t, tf_warning_or_error);
 
+  if (error_operand_p (t))
+    {
+      gcc_assert (seen_error ());
+      return error_mark_node;
+    }
+
   if (template_p)
     {
       /* [expr.prim.splice] For a splice-expression of the form template
@@ -6259,11 +6265,6 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
     {
       error_at (loc, "unary %<&%> applied to an anonymous union member %qD "
 		"that is not a direct member of a named class", t);
-      return error_mark_node;
-    }
-  if (error_operand_p (t))
-    {
-      gcc_assert (seen_error ());
       return error_mark_node;
     }
 

@@ -7509,7 +7509,9 @@ lookup_qualified_name (tree scope, tree name, LOOK_want want, bool complain)
 
 	  /* If we have a known type overload, pull it out.  This can happen
 	     for using decls.  */
-	  if (TREE_CODE (t) == OVERLOAD && TREE_TYPE (t) != unknown_type_node)
+	  if (TREE_CODE (t) == OVERLOAD
+	      && TREE_TYPE (t) != unknown_type_node
+	      && LIKELY (!cp_preserve_using_decl))
 	    t = OVL_FUNCTION (t);
 	}
     }
