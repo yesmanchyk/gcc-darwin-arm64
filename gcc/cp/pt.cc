@@ -22894,7 +22894,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case SPLICE_EXPR:
       {
 	tree op = RECUR (TREE_OPERAND (t, 0));
-	RETURN (splice (op));
+	op = splice (op);
+	if (outer_automatic_var_p (op))
+	  op = process_outer_var_ref (op, complain);
+	RETURN (op);
       }
 
     default:
