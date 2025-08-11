@@ -34165,8 +34165,8 @@ cp_parser_simple_requirement (cp_parser *parser)
 
      type-requirement:
        typename nested-name-specifier [opt] type-name ';'
-       typename splice-specifier
-       typename splice-specialization-specifier  */
+       typename splice-specifier ';'
+       typename splice-specialization-specifier ';' */
 
 static tree
 cp_parser_type_requirement (cp_parser *parser)
@@ -34198,9 +34198,12 @@ cp_parser_type_requirement (cp_parser *parser)
                                  /*complain=*/tf_error);
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
-    /* tsubst_type_requirement wants this to be a type.  */
-    type = make_splice_scope (cp_parser_splice_specifier (parser),
-			      /*type_p=*/true);
+    {
+      /* tsubst_type_requirement wants this to be a type.  */
+      type = cp_parser_splice_type_specifier (parser);
+      if (!type)
+	type = error_mark_node;
+    }
   else
     type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
 
