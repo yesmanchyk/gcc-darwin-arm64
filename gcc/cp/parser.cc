@@ -7600,6 +7600,8 @@ cp_parser_unqualified_id (cp_parser* parser,
 	    parser->object_scope = NULL_TREE;
 	    parser->qualifying_scope = NULL_TREE;
 	    type_decl = cp_parser_splice_type_specifier (parser);
+	    if (!type_decl)
+	      return error_mark_node;
 	    /* We don't have a TYPE_DECL, so return early.  */
 	    return build_min_nt_loc (loc, BIT_NOT_EXPR, type_decl);
 	  }
@@ -9579,7 +9581,8 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
       bool template_p;
       bool template_keyword_p = cp_parser_optional_template_keyword (parser);
       cp_token *token = cp_lexer_peek_token (parser->lexer);
-      /* this->[: ^^S :]::i; is not a splice-expression.  */
+      /* See if there was this->[:R:].  Note that this->[: ^^S :]::i;
+	 is not a splice-expression.  */
       const bool splice_p = (token->type == CPP_OPEN_SPLICE
 			     && !cp_parser_splice_spec_is_nns_p (parser));
       if (splice_p)
@@ -9610,11 +9613,17 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	     template <typename T> void f(T* t) { t->X::f(); }
 
 	 Even though "t" is dependent, "X::f" is not and has been resolved
-	 to a BASELINK; there is no need to include scope information.  */
+	 to a BASELINK; there is no need to include scope information.
 
-      /* But we do need to remember that there was an explicit scope for
-	 virtual function calls.  */
-      if (parser->scope)
+	 But we do need to remember that there was an explicit scope for
+	 virtual function calls.  If the name was represented by
+	 a splice-expression, behave like this:
+
+	   [:^^B::fn:]()  // do not disable virtual dispatch
+	   [:^^B:]::fn()  // disable virtual dispatch
+
+	 so we check SPLICE_P.  */
+      if (parser->scope && !splice_p)
 	*idk = CP_ID_KIND_QUALIFIED;
 
       /* If the name is a template-id that names a type, we will get a
