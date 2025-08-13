@@ -9171,7 +9171,7 @@ extern tree process_metafunction (tree);
 extern tree get_reflection (location_t, tree) ATTRIBUTE_PURE;
 extern tree get_null_reflection () ATTRIBUTE_PURE;
 extern tree splice (tree);
-extern void check_out_of_consteval_use (tree);
+extern bool check_out_of_consteval_use (tree);
 extern bool consteval_only_p (tree) ATTRIBUTE_PURE;
 extern bool compare_reflections (const_tree, const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_type_p (const_tree) ATTRIBUTE_PURE;

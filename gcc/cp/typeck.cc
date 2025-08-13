@@ -11618,6 +11618,12 @@ check_return_expr (tree retval, bool *no_warning, bool *dangling)
 	*dangling = true;
     }
 
+  if (check_out_of_consteval_use (retval))
+    {
+      current_function_return_value = error_mark_node;
+      return error_mark_node;
+    }
+
   /* A naive attempt to reduce the number of -Wdangling-reference false
      positives: if we know that this function can return a variable with
      static storage duration rather than one of its parameters, suppress

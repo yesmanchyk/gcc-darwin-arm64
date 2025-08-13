@@ -374,13 +374,13 @@ consteval_only_p (tree t)
        auto z = r;
      }
 
-   is OK.  */
+   is OK.  Return true if we found a problem.  */
 
-void
+bool
 check_out_of_consteval_use (tree expr)
 {
   if (!flag_reflection || in_immediate_context ())
-    return;
+    return false;
 
   auto walker = [](tree *tp, int *walk_subtrees, void *) -> tree
     {
@@ -417,10 +417,11 @@ check_out_of_consteval_use (tree expr)
 		  "consteval-only expressions are only allowed in "
 		  "a constant-evaluated context");
 
-      return NULL_TREE;
+      *walk_subtrees = false;
+      return t;
     };
 
-  cp_walk_tree_without_duplicates (&expr, walker, nullptr);
+  return !!cp_walk_tree_without_duplicates (&expr, walker, nullptr);
 }
 
 /* Return true if the reflections LHS and RHS are equal.  */
