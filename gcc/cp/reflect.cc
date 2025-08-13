@@ -429,9 +429,17 @@ check_out_of_consteval_use (tree expr)
 
       /* Yep, gotta complain.  */
       if (VAR_P (t))
-	error_at (cp_expr_loc_or_input_loc (t),
-		  "consteval-only variable %qD not declared %<constexpr%> "
-		  "used outside a constant-evaluated context", t);
+	{
+	  auto_diagnostic_group d;
+	  error_at (cp_expr_loc_or_input_loc (t),
+		    "consteval-only variable %qD not declared %<constexpr%> "
+		    "used outside a constant-evaluated context", t);
+	  if (TREE_STATIC (t) || CP_DECL_THREAD_LOCAL_P (t))
+	    inform (DECL_SOURCE_LOCATION (t), "add %<constexpr%> or "
+		    "%<constinit%>");
+	  else
+	    inform (DECL_SOURCE_LOCATION (t), "add %<constexpr%>");
+	}
       else
 	error_at (cp_expr_loc_or_input_loc (t),
 		  "consteval-only expressions are only allowed in "
