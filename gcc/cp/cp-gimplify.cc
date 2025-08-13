@@ -1333,12 +1333,8 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
       if (TREE_CODE (stmt) == DECL_EXPR)
 	{
 	  tree d = DECL_EXPR_DECL (stmt);
-	  if (VAR_P (d) && consteval_only_var_p (d))
+	  if (VAR_P (d) && consteval_only_p (d))
 	    {
-	      if (!DECL_DECLARED_CONSTEXPR_P (d))
-		error_at (DECL_SOURCE_LOCATION (d),
-			  "consteval-only expressions are only allowed in "
-			  "manifestly constant-evaluated context");
 	      /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
 	      *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
 	      /* And skip varpool_node::finalize_decl.  */

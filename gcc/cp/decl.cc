@@ -1028,7 +1028,7 @@ wrapup_namespace_globals ()
 		      "odr-used inline variable %qD is not defined", decl);
 
 	  /* We shouldn't emit consteval-only types.  */
-	  if (VAR_P (decl) && consteval_only_var_p (decl))
+	  if (VAR_P (decl) && consteval_only_p (decl))
 	    DECL_HAS_VALUE_EXPR_P (decl) = true;
 	}
 
@@ -7249,7 +7249,7 @@ maybe_commonize_var (tree decl)
   if ((TREE_STATIC (decl)
        && DECL_FUNCTION_SCOPE_P (decl)
        && vague_linkage_p (DECL_CONTEXT (decl))
-       && !consteval_only_var_p (decl))
+       && !consteval_only_p (decl))
       || (TREE_PUBLIC (decl) && DECL_INLINE_VAR_P (decl)))
     {
       if (flag_weak)
@@ -8725,7 +8725,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     return;
 
   /* Don't output reflection variables.  */
-  if (consteval_only_var_p (decl))
+  if (consteval_only_p (decl))
     return;
 
   /* We defer emission of local statics until the corresponding
@@ -9753,6 +9753,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    }
 	}
 
+      /* Detect stuff like 'info r = ^^int;' outside a manifestly
+	 constant-evaluated context.  */
+      check_out_of_consteval_use (decl);
+
       /* If this is a local variable that will need a mangled name,
 	 register it now.  We must do this before processing the
 	 initializer for the variable, since the initialization might
@@ -9762,7 +9766,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       if (DECL_FUNCTION_SCOPE_P (decl)
 	  && TREE_STATIC (decl)
 	  && !DECL_ARTIFICIAL (decl)
-	  && !consteval_only_var_p (decl))
+	  && !consteval_only_p (decl))
 	{
 	  /* The variable holding an anonymous union will have had its
 	     discriminator set in finish_anon_union, after which it's

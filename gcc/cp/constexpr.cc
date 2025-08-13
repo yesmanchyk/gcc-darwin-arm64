@@ -9818,8 +9818,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 
 	/* Detect consteval-only smuggling: turning a consteval-only object
 	   into one that is not consteval-only.  */
-	if (consteval_only_type_p (TREE_TYPE (op))
-	    && !consteval_only_type_p (type))
+	if (consteval_only_p (op) && !consteval_only_p (type))
 	  {
 	    if (!ctx->quiet)
 	       error_at (loc, "conversion from consteval-only type %qT to "

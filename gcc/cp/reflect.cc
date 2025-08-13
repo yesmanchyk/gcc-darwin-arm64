@@ -311,41 +311,7 @@ splice (tree refl)
   return REFLECT_EXPR_HANDLE (refl);
 }
 
-/* Give an error if a consteval-only expression in EXPR is used outside
-   a manifestly constant-evaluated context.  */
-
-void
-check_out_of_consteval_use (tree expr)
-{
-  if (in_immediate_context ())
-    return;
-
-  auto walker = [](tree *tp, int *walk_subtrees, void *) -> tree
-    {
-      tree t = *tp;
-
-      /* No need to look into types or unevaluated operands.  */
-      if (TYPE_P (t) || unevaluated_p (TREE_CODE (t))
-	  /* This will be checked in cp_fold_immediate_r.  */
-	  || TREE_CODE (t) == INIT_EXPR)
-	{
-	  *walk_subtrees = false;
-	  return NULL_TREE;
-	}
-
-      if (REFLECT_EXPR_P (t)
-	  || (VAR_P (t) && consteval_only_var_p (t)))
-	error_at (cp_expr_loc_or_input_loc (t),
-		  "consteval-only expressions are only allowed in "
-		  "manifestly constant-evaluated context");
-
-      return NULL_TREE;
-    };
-
-  cp_walk_tree_without_duplicates (&expr, walker, nullptr);
-}
-
-/* A walker for consteval_only_var_p.  It cannot be a lambda, because we
+/* A walker for consteval_only_p.  It cannot be a lambda, because we
    have to call this recursively, sigh.  */
 
 static tree
@@ -372,28 +338,73 @@ consteval_only_type_r (tree *tp, int *, void *data)
   return NULL_TREE;
 }
 
-/* True if TYPE is a consteval-only type as per [basic.types.general].  */
+/* True if T is a consteval-only type as per [basic.types.general]:
+   "A type is consteval-only if it is either std::meta::info or a type
+   compounded from a consteval-only type", or something that has
+   a consteval-only type.  */
 
 bool
-consteval_only_type_p (tree type)
+consteval_only_p (tree t)
 {
   if (!flag_reflection)
     return false;
 
+  if (!TYPE_P (t))
+    t = TREE_TYPE (t);
+
   /* Classes with std::meta::info members are also consteval-only.  */
   hash_set<tree> visited;
-  return !!cp_walk_tree (&type, consteval_only_type_r, &visited,
-			 &visited);
+  return !!cp_walk_tree (&t, consteval_only_type_r, &visited, &visited);
 }
 
-/* True if VAR, a decl, is a consteval-only type as per
-   [basic.types.general].  Currently, that means it has reflection type,
-   or is compounded from it.  */
+/* Give an error if a consteval-only expression EXPR, or a consteval-only
+   variable EXPR not declared constexpr/constinit) is used outside
+   a manifestly constant-evaluated context.  */
 
-bool
-consteval_only_var_p (tree var)
+void
+check_out_of_consteval_use (tree expr)
 {
-  return consteval_only_type_p (TREE_TYPE (var));
+  if (!flag_reflection || in_immediate_context ())
+    return;
+
+  auto walker = [](tree *tp, int *walk_subtrees, void *) -> tree
+    {
+      tree t = *tp;
+
+      /* No need to look into types or unevaluated operands.  */
+      if (TYPE_P (t)
+	  || unevaluated_p (TREE_CODE (t))
+	  /* This will be checked in cp_fold_immediate_r.  */
+	  || TREE_CODE (t) == INIT_EXPR)
+	{
+	  *walk_subtrees = false;
+	  return NULL_TREE;
+	}
+
+      if (VAR_P (t)
+	  && (DECL_DECLARED_CONSTEXPR_P (t) || DECL_DECLARED_CONSTINIT_P (t)))
+	/* This is fine, don't bother checking the type.  */
+	return NULL_TREE;
+
+      /* Now check the type to see if we are dealing with a consteval-only
+	 expression.  */
+      if (!consteval_only_p (t))
+	return NULL_TREE;
+
+      /* Yep, gotta complain.  */
+      if (VAR_P (t))
+	error_at (cp_expr_loc_or_input_loc (t),
+		  "consteval-only variable %qD not declared %<constexpr%> "
+		  "used outside a constant-evaluated context", t);
+      else
+	error_at (cp_expr_loc_or_input_loc (t),
+		  "consteval-only expressions are only allowed in "
+		  "a constant-evaluated context");
+
+      return NULL_TREE;
+    };
+
+  cp_walk_tree_without_duplicates (&expr, walker, nullptr);
 }
 
 /* Return true if the reflections LHS and RHS are equal.  */

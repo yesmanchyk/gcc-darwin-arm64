@@ -22,9 +22,8 @@ struct W {
   decltype(^^::) i = ^^W::i;
 };
 
-// FIXME -- not constexpr, give error
-info r = ^^int;
-info *p = &r;
+constinit info r = ^^int;
+constinit info *p = &r;
 
 consteval void
 f ()

@@ -7,13 +7,13 @@ struct A;
 void
 f1 ()
 {
-  const auto r = ^^double; // { dg-error "consteval-only expressions" }
+  const auto r = ^^double; // { dg-error "consteval-only variable" }
   constexpr auto r2 = ^^int;
   r2; // { dg-error "consteval-only expressions" }
   ^^void; // { dg-error "consteval-only expressions" }
   ^^int == ^^int; // { dg-error "consteval-only expressions" }
   (void) ^^float; // { dg-error "consteval-only expressions" }
-  auto rr = r; // { dg-error "consteval-only expressions" }
+  auto rr = r; // { dg-error "consteval-only variable" }
 
   constexpr auto x = &(^^int); // { dg-error "lvalue required" }
 
@@ -28,7 +28,7 @@ f1 ()
 constexpr void
 f2 ()
 {
-  auto r = ^^int; // { dg-error "consteval-only expressions" }
+  auto r = ^^int; // { dg-error "consteval-only variable" }
 }
 
 void
