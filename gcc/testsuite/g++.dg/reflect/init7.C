@@ -32,7 +32,8 @@ f ()
   info l1 = ^^int;
   const info l2 = ^^int;
   constexpr info l3 = ^^int;
-  // Are these really OK?
+  // Are these really OK?  Only if we don't call this function, I suppose.
+  // See error8.C for that scenario.
   static info l4 = ^^int;
   static const info l5 = ^^int;
   static constexpr info l6 = ^^int;

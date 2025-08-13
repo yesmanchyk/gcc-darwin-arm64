@@ -359,7 +359,22 @@ consteval_only_p (tree t)
 
 /* Give an error if a consteval-only expression EXPR, or a consteval-only
    variable EXPR not declared constexpr/constinit) is used outside
-   a manifestly constant-evaluated context.  */
+   a manifestly constant-evaluated context.  E.g.:
+
+     void f() {
+       constexpr auto r = ^^int;  // OK
+       [: r :] i = 42;  // still OK
+       auto z = r;  // bad
+     }
+
+   But
+
+     consteval void g() {
+       constexpr auto r = ^^int;
+       auto z = r;
+     }
+
+   is OK.  */
 
 void
 check_out_of_consteval_use (tree expr)
@@ -374,7 +389,8 @@ check_out_of_consteval_use (tree expr)
       /* No need to look into types or unevaluated operands.  */
       if (TYPE_P (t)
 	  || unevaluated_p (TREE_CODE (t))
-	  /* This will be checked in cp_fold_immediate_r.  */
+	  /* Don't walk INIT_EXPRs, because we'd emit bogus errors about
+	     member initializers.  */
 	  || TREE_CODE (t) == INIT_EXPR)
 	{
 	  *walk_subtrees = false;

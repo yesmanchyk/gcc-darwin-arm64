@@ -1311,23 +1311,9 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
       return NULL_TREE;
     }
 
-  /* Detect consteval-only types outside a manifestly constant-evaluated
-     context.  E.g.:
-
-       void f() {
-	 constexpr auto r = ^^int;  // OK
-	 [: r :] i = 42;  // still OK
-	 auto z = r;  // bad
-       }
-
-     But
-
-       consteval void g() {
-	 constexpr auto r = ^^int;
-	 auto z = r;
-       }
-
-     is OK.  */
+  /* Invalid uses of consteval-only types should have been already
+     detected at this point.  And the valid ones won't be needed
+     anymore.  */
   if (data->flags & ff_genericize)
     {
       if (TREE_CODE (stmt) == DECL_EXPR)
