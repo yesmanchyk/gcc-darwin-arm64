@@ -382,6 +382,12 @@ check_out_of_consteval_use (tree expr)
   if (!flag_reflection || in_immediate_context ())
     return false;
 
+  /* Don't complain if we're generating the body for a synthesized method.  */
+  if (current_function_decl
+      && DECL_CONSTRUCTOR_P (current_function_decl)
+      && DECL_ARTIFICIAL (current_function_decl))
+    return false;
+
   auto walker = [](tree *tp, int *walk_subtrees, void *) -> tree
     {
       tree t = *tp;
@@ -396,6 +402,20 @@ check_out_of_consteval_use (tree expr)
 	  *walk_subtrees = false;
 	  return NULL_TREE;
 	}
+
+      /* A subexpression of a manifestly constant-evaluated expression is
+	 an immediate function context.  For example,
+
+	   consteval void foo (std::meta::info) { }
+	   void g() { foo (^^void); }
+
+	 is all good.  */
+      if (tree decl = cp_get_callee_fndecl_nofold (t))
+	if (immediate_invocation_p (decl))
+	  {
+	    *walk_subtrees = false;
+	    return NULL_TREE;
+	  }
 
       if (VAR_P (t)
 	  && (DECL_DECLARED_CONSTEXPR_P (t) || DECL_DECLARED_CONSTINIT_P (t)))
