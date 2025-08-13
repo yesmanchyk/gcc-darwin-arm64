@@ -6267,6 +6267,20 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 		"that is not a direct member of a named class", t);
       return error_mark_node;
     }
+  /* [expr.prim.splice]/2: "The expression is ill-formed if S [the construct
+     designated by splice-specifier] is
+     -- a local entity such that there is a lambda scope that intervenes
+     between the expression and the point at which S was introduced"  */
+  if (current_function_decl
+      && LAMBDA_FUNCTION_P (current_function_decl)
+      && outer_automatic_var_p (t))
+    {
+      auto_diagnostic_group d;
+      error_at (loc, "cannot splice local entity %qD for which there is an "
+		"intervening lambda expression", t);
+      inform (DECL_SOURCE_LOCATION (t), "%qD declared here", t);
+      return error_mark_node;
+    }
 
   /* When doing foo.[: bar :], cp_parser_postfix_dot_deref_expression wants
      to see an identifier or a TEMPLATE_ID_EXPR, if we have something like

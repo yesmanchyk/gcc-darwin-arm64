@@ -212,8 +212,10 @@ get_reflection (location_t loc, tree t)
 	   && LAMBDA_FUNCTION_P (current_function_decl)
 	   && outer_automatic_var_p (t))
     {
+      auto_diagnostic_group d;
       error_at (loc, "%<^^%> cannot be applied a local entity for which "
 		"there is an intervening lambda expression");
+      inform (DECL_SOURCE_LOCATION (t), "%qD declared here", t);
       return error_mark_node;
     }
   /* If the id-expression denotes a variable declared by an init-capture,
