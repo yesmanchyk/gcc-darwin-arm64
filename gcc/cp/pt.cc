@@ -1216,7 +1216,7 @@ verify_unstripped_args_1 (tree inner)
   for (int i = 0; i < TREE_VEC_LENGTH (inner); ++i)
     {
       tree arg = TREE_VEC_ELT (inner, i);
-      if (TREE_CODE (arg) == TEMPLATE_DECL)
+      if (TREE_CODE (arg) == TEMPLATE_DECL || REFLECT_EXPR_P (arg))
 	/* OK */;
       else if (TYPE_P (arg))
 	gcc_assert (strip_typedefs (arg, NULL) == arg);
