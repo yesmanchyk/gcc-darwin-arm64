@@ -490,6 +490,19 @@ valid_splice_scope_p (const_tree t)
 	  || TREE_CODE (t) == NAMESPACE_DECL);
 }
 
+/* Return true if T is a valid result of splice-expression.  */
+
+bool
+valid_splice_expr_p (const_tree t)
+{
+  if (TREE_CODE (t) == TYPE_DECL
+      || TREE_CODE (t) == NAMESPACE_DECL
+      || TYPE_P (t))
+    return false;
+
+  return true;
+}
+
 /* Create a new SPLICE_SCOPE tree.  EXPR is its SPLICE_SCOPE_EXPR, and
    TYPE_P says if it should have SPLICE_SCOPE_TYPE_P set.  */
 

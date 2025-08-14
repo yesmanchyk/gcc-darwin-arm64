@@ -12,7 +12,7 @@ template<info R>
 void
 f ()
 {
-  int j = s.template [:R:]<int>; // { dg-error ".struct S. is not a function template" }
+  int j = s.template [:R:]<int>; // { dg-error ".S. is not usable in a splice expression" }
 }
 
 void

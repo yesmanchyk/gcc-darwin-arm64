@@ -13,7 +13,7 @@ void
 f ()
 {
   // Parsed as "S::tfn < S".
-  [: ^^T :]::tfn<[: ^^T :]>();	// { dg-error "expected primary-expression" }
+  [: ^^T :]::tfn<[: ^^T :]>();	// { dg-error "expected primary-expression|.S. is not usable" }
 // { dg-warning "expected .template. keyword" "" { target *-*-* } .-1 }
   int i = [: ^^T :]::var<int>;	// { dg-error "missing|expected" }
 }

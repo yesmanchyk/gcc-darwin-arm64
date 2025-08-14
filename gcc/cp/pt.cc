@@ -18001,16 +18001,6 @@ tsubst_init (tree init, tree decl, tree args,
 	    TARGET_EXPR_DIRECT_INIT_P (init) = true;
 	}
     }
-  /* This can happen with
-       template <auto V> constexpr int e = [:V:];
-       e<^^int>;
-     which we probably can't detect sooner.  */
-  else if (init && TYPE_P (init))
-    {
-      if (complain & tf_error)
-	error ("initializer for %q#D expands to a type", decl);
-      return error_mark_node;
-    }
 
   return init;
 }
@@ -22895,6 +22885,18 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       {
 	tree op = RECUR (TREE_OPERAND (t, 0));
 	op = splice (op);
+	if (dependent_splice_p (op))
+	  {
+	    if (SPLICE_EXPR_EXPRESSION_P (t))
+	      SET_SPLICE_EXPR_EXPRESSION_P (op);
+	    RETURN (op);
+	  }
+	if (SPLICE_EXPR_EXPRESSION_P (t) && !valid_splice_expr_p (op))
+	  {
+	    if (complain & tf_error)
+	      error ("%qE is not usable in a splice expression", op);
+	    RETURN (error_mark_node);
+	  }
 	if (outer_automatic_var_p (op))
 	  op = process_outer_var_ref (op, complain);
 	RETURN (op);

@@ -458,6 +458,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       MUST_NOT_THROW_NOEXCEPT_P (in MUST_NOT_THROW_EXPR)
       CONSTEVAL_BLOCK_P (in STATIC_ASSERT)
       LAMBDA_EXPR_CONSTEVAL_BLOCK_P (in LAMBDA_EXPR)
+      SPLICE_EXPR_EXPRESSION_P (in SPLICE_EXPR)
    1: IDENTIFIER_KIND_BIT_1 (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -1895,6 +1896,15 @@ struct GTY(()) tree_tu_local_entity {
 /* The handle of a reflection expression.  */
 #define REFLECT_EXPR_HANDLE(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, REFLECT_EXPR), 0)
+
+/* True if this SPLICE_EXPR represents a splice-expression (as opposed to
+   a splice-specifier), so it cannot expand to e.g. a type.  */
+#define SPLICE_EXPR_EXPRESSION_P(NODE) \
+   TREE_LANG_FLAG_0 (SPLICE_EXPR_CHECK (NODE))
+
+#define SET_SPLICE_EXPR_EXPRESSION_P(NODE) \
+  (SPLICE_EXPR_EXPRESSION_P (TREE_CODE (NODE) == SPLICE_EXPR \
+			     ? NODE : TREE_OPERAND (NODE, 0)) = true)
 
 /* The expression in question for a SPLICE_SCOPE.  */
 #define SPLICE_SCOPE_EXPR(NODE) \
@@ -9176,6 +9186,7 @@ extern bool consteval_only_p (tree) ATTRIBUTE_PURE;
 extern bool compare_reflections (const_tree, const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_type_p (const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_scope_p (const_tree) ATTRIBUTE_PURE;
+extern bool valid_splice_expr_p (const_tree) ATTRIBUTE_PURE;
 extern tree make_splice_scope (tree, bool);
 extern bool dependent_splice_p (const_tree) ATTRIBUTE_PURE;
 

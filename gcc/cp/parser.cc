@@ -6154,6 +6154,9 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   t = MAYBE_BASELINK_FUNCTIONS (t);
   t = resolve_nondeduced_context (t, tf_warning_or_error);
 
+  if (dependent_splice_p (t))
+    SET_SPLICE_EXPR_EXPRESSION_P (t);
+
   if (error_operand_p (t))
     {
       gcc_assert (seen_error ());
@@ -6231,9 +6234,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
     }
 
   /* We may not have gotten an expression.  */
-  if (TREE_CODE (t) == TYPE_DECL
-      || TREE_CODE (t) == NAMESPACE_DECL
-      || TYPE_P (t))
+  if (!valid_splice_expr_p (t))
     {
       error_at (loc, "expected a reflection of an expression");
       return error_mark_node;

@@ -18,8 +18,8 @@ f ()
   static_assert ([: ^^T :]::x == 42);
   typename [: ^^T :]::type a = 42;
   [: ^^T :]::fn (42);
-  [: ^^T :]::template tfn<([: ^^T :])>();
-  auto x = [: ^^T :]::template var<([: ^^T :])>;
+  [: ^^T :]::template tfn<([: ^^T :])>();  // { dg-error ".S. is not usable in a splice expression" }
+  auto x = [: ^^T :]::template var<([: ^^T :])>;  // { dg-error ".S. is not usable in a splice expression" }
 }
 
 void

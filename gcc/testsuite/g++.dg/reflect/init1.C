@@ -36,12 +36,12 @@ f ()
 
   constexpr decltype(refl) arr[] = { refl };
   constexpr auto ra = arr[0];
-  [: ra :] s = { .i = 42 };
+  typename [: ra :] s = { .i = 42 };
 
   constexpr static auto srefl = ^^S;
   constexpr static auto *p = &srefl;
   constexpr auto *const *q = &p;
-  [: **q :] s2 = { .i = 42 };
+  typename [: **q :] s2 = { .i = 42 };
 }
 
 void
@@ -54,7 +54,6 @@ void
 h ()
 {
   X x;
-  // FIXME -- not constexpr, give error
-  [: x :] i = 42;
-  [: X{} :] j = i;
+  typename [: x :] i = 42;
+  typename [: X{} :] j = i;
 }

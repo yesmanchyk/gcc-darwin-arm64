@@ -9,7 +9,7 @@ template<info R>
 void
 f ()
 {
-  int i = [:R:]; // { dg-error "void value not ignored as it ought to be" }
+  int i = [:R:]; // { dg-error ".N. is not usable in a splice expression" }
 }
 
 void
