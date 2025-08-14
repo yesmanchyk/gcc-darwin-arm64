@@ -397,7 +397,9 @@ check_out_of_consteval_use (tree expr)
 	  || unevaluated_p (TREE_CODE (t))
 	  /* Don't walk INIT_EXPRs, because we'd emit bogus errors about
 	     member initializers.  */
-	  || TREE_CODE (t) == INIT_EXPR)
+	  || TREE_CODE (t) == INIT_EXPR
+	  || TREE_CODE (t) == BIND_EXPR
+	  || TREE_CODE (t) == DECL_EXPR)
 	{
 	  *walk_subtrees = false;
 	  return NULL_TREE;

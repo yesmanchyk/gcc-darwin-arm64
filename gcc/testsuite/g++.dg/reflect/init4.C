@@ -25,19 +25,19 @@ constexpr C c;
 struct D {
   int i;
   C c;
-  constexpr D() : c{}, i{42} { }
+  consteval D() : c{}, i{42} { }
 };
 constexpr D d;
 
 struct E {
   info arr[2];
-  constexpr E() : arr{glob, glob} { }
+  consteval E() : arr{glob, glob} { }
 };
 constexpr E e;
 
 struct F {
   const info &r;
-  constexpr F() : r{glob} { }
+  consteval F() : r{glob} { }
 };
 constexpr F f;
 

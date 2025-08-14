@@ -1311,11 +1311,16 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
       return NULL_TREE;
     }
 
-  /* Invalid uses of consteval-only types should have been already
+  /* Most invalid uses of consteval-only types should have been already
      detected at this point.  And the valid ones won't be needed
      anymore.  */
   if (data->flags & ff_genericize)
     {
+      /* We still may have some wrong uses that persisted until now.  */
+      if (complain && TREE_CODE (stmt) == STATEMENT_LIST)
+	for (tree s : tsi_range (stmt))
+	  if (check_out_of_consteval_use (s))
+	    *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
       if (TREE_CODE (stmt) == DECL_EXPR)
 	{
 	  tree d = DECL_EXPR_DECL (stmt);

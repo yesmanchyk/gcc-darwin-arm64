@@ -6,8 +6,7 @@ using info = decltype(^^int);
 
 struct A {
   info i;
-  // ??? Clang complains about the ^^void here.
-  constexpr A() : i{^^void} {}
+  consteval A() : i{^^void} {}
 };
 
 A a1;  // { dg-error "consteval-only variable .a1." }
@@ -17,7 +16,7 @@ constexpr A a3;
 struct B {
  info i;
  info j;
- constexpr B() : i{}, j{i} {}
+ consteval B() : i{}, j{i} {}
 };
 
 B b1;  // { dg-error "consteval-only variable .b1." }
