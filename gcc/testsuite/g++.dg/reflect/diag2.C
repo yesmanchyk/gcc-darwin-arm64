@@ -14,8 +14,8 @@ template<info R>
 void
 f ()
 {
-  [:R:] r{1};  // { dg-message "previous declaration as .\\\[: R :\\\] r." }
-  [:R:] r{2};  // { dg-error "conflicting declaration .\\\[: R :\\\] r." }
+  typename [:R:] r{1};  // { dg-message "previous declaration as .\\\[: R :\\\] r." }
+  typename [:R:] r{2};  // { dg-error "conflicting declaration .\\\[: R :\\\] r." }
 }
 
 int

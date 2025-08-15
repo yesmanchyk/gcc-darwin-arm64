@@ -7,11 +7,8 @@ template<info val>
 void
 f ()
 {
-  /* These aren't valid but the diagnostic is incorrect because we treat
-     these as splice-type-specifiers.  That comes back to the !typename_p
-     check in cp_parser_simple_type_specifier.  */
-  [:val:];	  // { dg-error "" }
-  [:val:] = {};	  // { dg-error "" }
+  [:val:];	  // { dg-error "use of local variable with automatic storage from containing function" }
+  [:val:] = {};	  // { dg-error "use of local variable with automatic storage from containing function" }
   /* This is ill-formed because:
      - the splice-expression designates b,
      - the splice-expression names b ([basic.def.odr]/5),
@@ -20,7 +17,7 @@ f ()
        by the splice-expression ([basic.def.odr]/10.2).  Since the local
        entity b is odr-used within a scope where b is not odr-usable,
        the program is ill-formed (also [basic.def.odr]/10).  */
-  [:val:] z;  // { dg-error "use of local variable with automatic storage from containing function" }
+  [:val:] z;  // { dg-error "use of local variable with automatic storage from containing function|expected" }
   float a = [:val:]; // { dg-error "use of local variable with automatic storage from containing function" }
 }
 

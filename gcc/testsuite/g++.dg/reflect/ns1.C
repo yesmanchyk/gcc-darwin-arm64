@@ -27,8 +27,7 @@ f1 ()
   typename [: n :]::T it = 42;
 
   constexpr auto t = ^^N::T;
-  [: t :] j = 42;
-  typename [: t :] jt = 42;
+  typename [: t :] j = 42;
 
   constexpr auto m = ^^N::M;
   [: m :]::TT k = 42;

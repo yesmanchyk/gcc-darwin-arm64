@@ -10,8 +10,8 @@ template<info R>
 void
 f ()
 {
-  [:R:] r;	// { dg-error "not usable in a splice type" }
-  [:R:]<int> r; // { dg-error "conflicting declaration" }
+  [:R:] r; // { dg-error "expected" }
+  [:R:]<int> r; // { dg-error "reflection not usable in a splice expression" }
 }
 
 void

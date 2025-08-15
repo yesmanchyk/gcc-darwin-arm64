@@ -6220,6 +6220,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	  /* No 'template' but the splice-specifier designates a template?  */
 	  || really_overloaded_fn (t))
 	{
+	  auto_diagnostic_group d;
 	  if (targs_p)
 	    error_at (loc, "reflection not usable in a splice expression with "
 		      "template arguments");
@@ -6236,7 +6237,16 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   /* We may not have gotten an expression.  */
   if (!valid_splice_expr_p (t))
     {
+      auto_diagnostic_group d;
       error_at (loc, "expected a reflection of an expression");
+      if (TYPE_P (t))
+	{
+	  location_t sloc = expr.get_start ();
+	  rich_location richloc (line_table, sloc);
+	  richloc.add_fixit_insert_before (sloc, "typename");
+	  inform (&richloc, "add %<typename%> to denote a type outside a "
+		  "type-only context");
+	}
       return error_mark_node;
     }
   /* Class members may not be implicitly referenced through a splice.
@@ -22663,14 +22673,10 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       /* "[: ... :]" is a C++26 splice-type-specifier.  The second argument
 	 decides if we require 'typename' before the splice-type-specifier.
 	 In a type-only context ([temp.res.general]/4) we shouldn't require
-	 it.  But also require 'typename' in a functional cast.
-	 ??? This should only check !typename, but that breaks a lot of code.
-	 This allows "[:R:] r;" or "[:R:] *r;" which should be an error.  */
-      // TODO Come back to this; just require typenames.
+	 it.  */
       if (!type
 	  && cp_parser_next_tokens_start_splice_type_spec_p (parser,
-							     (!decl_specs
-							      && !typename_p)))
+							     !typename_p))
 	type = cp_parser_splice_type_specifier (parser);
 
       /* Otherwise, look for a type-name.  */

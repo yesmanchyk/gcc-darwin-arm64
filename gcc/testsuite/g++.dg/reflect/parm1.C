@@ -30,26 +30,26 @@ void
 g (int p)
 {
   constexpr auto r = ref (^^int);
-  [: r :] i1 = 42;
+  [: r :] i1 = 42;  // { dg-error "expected a reflection of an expression" }
   typename [: r :] i2 = 42;
-  [: ref (r) :] i3 = 42;
+  [: ref (r) :] i3 = 42;  // { dg-error "expected a reflection of an expression" }
 
   constexpr auto r2 = def ();
-  [: r2 :] i4 = 42;
+  [: r2 :] i4 = 42;  // { dg-error "expected a reflection of an expression" }
   typename [: r2 :] i5 = 42;
-  [: def () :] i6 = 42;
+  [: def () :] i6 = 42;  // { dg-error "expected a reflection of an expression" }
 
   constexpr auto r3 = def2 ();
-  [: r3 :] i7 = 42;
+  [: r3 :] i7 = 42;  // { dg-error "expected a reflection of an expression" }
   typename [: r3 :] i8 = 42;
-  [: def2 () :] i9 = 42;
+  [: def2 () :] i9 = 42;  // { dg-error "expected a reflection of an expression" }
 
   constexpr auto r4 = std::meta::info(^^int);
-  [: r4 :] i10 = 42;
+  [: r4 :] i10 = 42;  // { dg-error "expected a reflection of an expression" }
   typename [: r4 :] i11 = 42;
 
   constexpr auto r5 = std::meta::info(r4);
-  [: r5 :] i12 = 42;
+  [: r5 :] i12 = 42;  // { dg-error "expected a reflection of an expression" }
   typename [: r5 :] i13 = 42;
 
   constexpr auto r6 = ^^p;

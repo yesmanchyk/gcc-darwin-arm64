@@ -22,7 +22,7 @@ constexpr int bar (T t) { return t; }
 void
 g ()
 {
-  constexpr auto r = [: ^^bar<[: ^^int :]> :](42);
+  constexpr auto r = [: ^^bar<typename [: ^^int :]> :](42);
   static_assert (r == 42);
 }
 

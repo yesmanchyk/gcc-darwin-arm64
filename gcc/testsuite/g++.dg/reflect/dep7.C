@@ -12,10 +12,8 @@ template<typename T, auto R>
 void
 g ()
 {
- [: R :]<int> c0;
- [: T::r :]<int> c1;
- typename [: R :]<int> c2;
- typename [: T::r :]<int> c3;
+ typename [: R :]<int> c1;
+ typename [: T::r :]<int> c2;
 }
 
 void

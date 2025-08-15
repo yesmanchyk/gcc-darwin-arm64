@@ -37,8 +37,7 @@ g ()
   int i12 = [: ^^two :]<int>;		    // { dg-error "reflection not usable in a splice expression with template arguments" }
   int i13 = template [: ^^two :]<int>;
 
-  // FIXME This is also wrong?
-  [: ^^ST :]<int> c1;
+  [: ^^ST :]<int> c1;  // { dg-error "reflection not usable in a splice expression with template arguments" }
   [: ^^S :]<int> c2;   // { dg-error "not a template|reflection not usable in a splice expression with template arguments" }
   [: ^^bar :]<int>();	// { dg-error "reflection not usable in a splice expression with template arguments" }
 

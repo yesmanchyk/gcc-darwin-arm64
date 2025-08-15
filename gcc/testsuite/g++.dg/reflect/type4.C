@@ -47,26 +47,26 @@ f1 ()
   S s;
   typename [: r1 :] fn1 ();
   typename [: r16 :] fn2 (typename [: r1 :]);
-  [: r2 :] v1 = nullptr;
-  [: r3 :] v2 = i;
-  [: r4 :] v3 = 42;
-  [: r5 :] v4 = 0U;
-  [: r6 :] v5 = &e;
-  [: r7 :] v6 = &s;
-  [: r8 :] v7 = &i;
-  [: r9 :] v8 = nullptr;
-  [: r10 :] v9 = 42;
-  [: r11 :] v10 = &e;
-  [: r12 :] v11 = &s;
-  [: r13 :] v12 = &i;
-  [: r14 :] v13;
-  [: r15 :] v14;
-  [: r16 :] v15;
-  [: r17 :] v16 = 42;
-  [: r18 :] v17 = {nullptr};
-  [: r19 :] v18;
-  [: r20 :] v19;
-  [: r21 :] v20;
+  typename [: r2 :] v1 = nullptr;
+  typename [: r3 :] v2 = i;
+  typename [: r4 :] v3 = 42;
+  typename [: r5 :] v4 = 0U;
+  typename [: r6 :] v5 = &e;
+  typename [: r7 :] v6 = &s;
+  typename [: r8 :] v7 = &i;
+  typename [: r9 :] v8 = nullptr;
+  typename [: r10 :] v9 = 42;
+  typename [: r11 :] v10 = &e;
+  typename [: r12 :] v11 = &s;
+  typename [: r13 :] v12 = &i;
+  typename [: r14 :] v13;
+  typename [: r15 :] v14;
+  typename [: r16 :] v15;
+  typename [: r17 :] v16 = 42;
+  typename [: r18 :] v17 = {nullptr};
+  typename [: r19 :] v18;
+  typename [: r20 :] v19;
+  typename [: r21 :] v20;
 
   // type-specifier -> elaborated-type-specifier
   constexpr auto r22 = ^^struct S;
@@ -88,24 +88,24 @@ f1 ()
   constexpr auto r38 = ^^const enum E;
   constexpr auto r39 = ^^const enum ::E;
 
-  [: r22 :] s1;
-  [: r23 :] s2;
-  [: r31 :] s3;
-  [: r32 :] s4;
-  [: r24 :] c1;
-  [: r25 :] c2;
-  [: r26 :] c3;
-  [: r33 :] c4;
-  [: r34 :] c5;
-  [: r35 :] c6;
-  [: r27 :] u1;
-  [: r28 :] u2;
-  [: r36 :] u3{1};
-  [: r37 :] u4{1};
-  [: r29 :] e1;
-  [: r30 :] e2;
-  [: r38 :] e3 = E1;
-  [: r39 :] e4 = E1;
+  typename [: r22 :] s1;
+  typename [: r23 :] s2;
+  typename [: r31 :] s3;
+  typename [: r32 :] s4;
+  typename [: r24 :] c1;
+  typename [: r25 :] c2;
+  typename [: r26 :] c3;
+  typename [: r33 :] c4;
+  typename [: r34 :] c5;
+  typename [: r35 :] c6;
+  typename [: r27 :] u1;
+  typename [: r28 :] u2;
+  typename [: r36 :] u3{1};
+  typename [: r37 :] u4{1};
+  typename [: r29 :] e1;
+  typename [: r30 :] e2;
+  typename [: r38 :] e3 = E1;
+  typename [: r39 :] e4 = E1;
 
   // type-specifier -> typename-specifier
   constexpr auto r40 = ^^typename ::E;
@@ -115,12 +115,12 @@ f1 ()
   constexpr auto r44 = ^^typename ::T;
   constexpr auto r45 = ^^typename ::U;
 
-  [: r40 :] e5;
-  [: r41 :] c7;
-  [: r42 :] c8;
-  [: r43 :] s5;
-  [: r44 :] i1;
-  [: r45 :] u5;
+  typename [: r40 :] e5;
+  typename [: r41 :] c7;
+  typename [: r42 :] c8;
+  typename [: r43 :] s5;
+  typename [: r44 :] i1;
+  typename [: r45 :] u5;
 
   constexpr auto r46 = ^^AT<int>;
   constexpr auto r47 = ^^::AT<int>;
@@ -128,9 +128,9 @@ f1 ()
   constexpr auto r49 = ^^typename ::AT<int>;
   constexpr auto r50 = ^^typename ::template AT<int>;
 
-  [: r46 :] c9;
-  [: r47 :] c10;
-  [: r48 :] c11;
-  [: r49 :] c12;
-  [: r50 :] c13;
+  typename [: r46 :] c9;
+  typename [: r47 :] c10;
+  typename [: r48 :] c11;
+  typename [: r49 :] c12;
+  typename [: r50 :] c13;
 }

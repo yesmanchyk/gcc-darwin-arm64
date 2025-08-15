@@ -22894,7 +22894,13 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (SPLICE_EXPR_EXPRESSION_P (t) && !valid_splice_expr_p (op))
 	  {
 	    if (complain & tf_error)
-	      error ("%qE is not usable in a splice expression", op);
+	      {
+		auto_diagnostic_group d;
+		error ("%qE is not usable in a splice expression", op);
+		if (TYPE_P (op))
+		  inform (input_location, "add %<typename%> to denote a "
+			  "type outside a type-only context");
+	      }
 	    RETURN (error_mark_node);
 	  }
 	if (outer_automatic_var_p (op))

@@ -139,46 +139,46 @@ f1 (S s)
 
   [: r1 :] = 42;
   ++[: r2 :];
-  [: r3 :] v1 = 3;
-  [: r4 :] v2 = 2;
-  [: r5 :] v3 = 1;
+  typename [: r3 :] v1 = 3;
+  typename [: r4 :] v2 = 2;
+  typename [: r5 :] v3 = 1;
   int n = [: r6 :];
   n += [: r7 :];
-  [: r8 :] v5 = 1;
+  typename [: r8 :] v5 = 1;
   n += [: r9 :];
-  [: r10 :] v6 = 4;
+  typename [: r10 :] v6 = 4;
   n += [: r11 :];
-  [: r12 :] v7 = 4;
+  typename [: r12 :] v7 = 4;
   n += [: r13 :];
-  [: r14 :] v8 = 4;
+  typename [: r14 :] v8 = 4;
   [: r15 :]++;
-  [: r16 :] v9 = 4;
+  typename [: r16 :] v9 = 4;
   --[: r17 :];
-  [: r18 :] v10 = 4;
+  typename [: r18 :] v10 = 4;
   n *= [: r19 :];
-  [: r20 :] v11 = 4;
-  [: r21 :] v12 = 4;
-  [: r22 :] v13 = 4;
-  [: r23 :] v14 = 4;
-  [: r24 :] v15 = 4;
+  typename [: r20 :] v11 = 4;
+  typename [: r21 :] v12 = 4;
+  typename [: r22 :] v13 = 4;
+  typename [: r23 :] v14 = 4;
+  typename [: r24 :] v15 = 4;
   [: r25 :]--;
-  [: r26 :] v16 = 7;
+  typename [: r26 :] v16 = 7;
   [: r27 :] = 1;
-  [: r28 :] v17 = 7;
-  [: r29 :] v18;
+  typename [: r28 :] v17 = 7;
+  typename [: r29 :] v18;
   v18 = [: r30 :];
   v18 = [: r31 :];
-  [: r32 :] v19 = 7;
-  [: r33 :] v20 = 7;
-  [: r34 :] v21 = 7;
-  [: r35 :] v22 = 7;
-  [: r36 :] v23 = 7;
-  [: r37 :] v24 = 7;
-  [: r38 :] v25 = 7;
-  [: r39 :] v26 = 7;
-  [: r40 :] v27 = 7;
-  [: r41 :] v28 = 7;
-  [: r42 :] v29 = 7;
+  typename [: r32 :] v19 = 7;
+  typename [: r33 :] v20 = 7;
+  typename [: r34 :] v21 = 7;
+  typename [: r35 :] v22 = 7;
+  typename [: r36 :] v23 = 7;
+  typename [: r37 :] v24 = 7;
+  typename [: r38 :] v25 = 7;
+  typename [: r39 :] v26 = 7;
+  typename [: r40 :] v27 = 7;
+  typename [: r41 :] v28 = 7;
+  typename [: r42 :] v29 = 7;
 
   constexpr auto r46 = ^^::F;
   constexpr auto r47 = ^^::F;
@@ -194,9 +194,9 @@ f1 (S s)
   constexpr auto r56 = ^^::C<int>;
   constexpr auto r57 = ^^::template C<int>;
 
-  [: r53 :] c1;
-  [: r56 :] c2;
-  [: r57 :] c3;
+  typename [: r53 :] c1;
+  typename [: r56 :] c2;
+  typename [: r57 :] c3;
 
   constexpr auto r58 = ^^foo;
   constexpr auto r59 = ^^::foo;
@@ -234,10 +234,10 @@ f2 ()
   //constexpr auto r15 = ^^::template UC;
   constexpr auto r16 = ^^::template UC::type;
 
-  [: r2 :] v1 = 7;
-  [: r3 :] v2 = 7;
+  typename [: r2 :] v1 = 7;
+  typename [: r3 :] v2 = 7;
   int n = [: r4 :];
-  [: r6 :] v3 = 1;
+  typename [: r6 :] v3 = 1;
   n += [: r7 :];
 }
 

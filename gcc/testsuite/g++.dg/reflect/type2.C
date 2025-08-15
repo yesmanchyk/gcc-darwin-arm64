@@ -22,7 +22,7 @@ f1 ()
   constexpr auto d = ^^decltype(auto);  // { dg-error "cannot be applied to" }
 
   constexpr auto r3 = ^^A;
-  [: r3 :] inc;	// { dg-error "incomplete type" }
+  [: r3 :] inc;	// { dg-error "expected a reflection of an expression" }
 }
 
 constexpr void
