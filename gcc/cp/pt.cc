@@ -21038,6 +21038,20 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 					   /*entering_scope=*/false);
 	    if (TREE_CODE (r) == TYPE_DECL)
 	      r = TREE_TYPE (r);
+	    if (SPLICE_EXPR_EXPRESSION_P (TREE_OPERAND (t, 0))
+		&& !valid_splice_expr_p (r))
+	      {
+		if (complain & tf_error)
+		  {
+		    auto_diagnostic_group d;
+		    error_at (cp_expr_loc_or_input_loc (t),
+			      "%qE is not usable in a splice expression", r);
+		    if (TYPE_P (r))
+		      inform (input_location, "add %<typename%> to denote a "
+			      "type outside a type-only context");
+		  }
+		RETURN (error_mark_node);
+	      }
 	    RETURN (r);
 	  }
 
