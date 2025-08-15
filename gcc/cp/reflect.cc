@@ -102,12 +102,31 @@ get_info (tree call)
 	   true if N is not _|_.  Otherwise, false.  */
 
 static tree
-eval_has_identifier (tree t)
+eval_has_identifier (tree r)
 {
-  if (TREE_CODE (t) == TYPE_DECL)
-    t = TREE_TYPE (t);
+  if (TREE_CODE (r) == TYPE_DECL)
+    r = TREE_TYPE (r);
   // TODO
-  if (CLASS_TYPE_P (t) && TYPE_NAME (t))
+  if (CLASS_TYPE_P (r) && TYPE_NAME (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_variable.
+   Returns: true if r represents a variable.  Otherwise, false.  */
+
+static tree
+eval_is_variable (tree r)
+{
+  /* A parameter is a variable because it is an object or a reference
+     introduced by a declaration.  */
+  if (TREE_CODE (r) == PARM_DECL
+      || (VAR_P (r)
+	  /* The definition of a variable excludes non-static data members.  */
+	  && !DECL_ANON_UNION_VAR_P (r)
+	  /* A structured binding is not a variable.  */
+	  && !DECL_DECOMPOSITION_P (r)))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -122,14 +141,35 @@ process_metafunction (tree call)
   /* Mapping name -> value would be a perfect use for a trie.  prime-paths.cc
      implements a trie.  */
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
+  const char *ident = IDENTIFIER_POINTER (name);
+  tree h = REFLECT_EXPR_HANDLE (info);
 
-  if (id_equal (name, "has_identifier"))
-    return eval_has_identifier (REFLECT_EXPR_HANDLE (info));
-  else
+  /* Handle is_*.  */
+  if (startswith (ident, "is_"))
     {
-      sorry ("%qE", name);
-      return NULL_TREE;
+      ident += 3;
+      if (!strcmp (ident, "variable"))
+	return eval_is_variable (h);
+      goto not_found;
     }
+
+  /* Handle has_*.  */
+  if (startswith (ident, "has_"))
+    {
+      ident += 4;
+      if (!strcmp (ident, "identifier"))
+	return eval_has_identifier (h);
+      goto not_found;
+    }
+
+  if (id_equal (name, "dealias"))
+    {
+      /* TODO */
+    }
+
+not_found:
+  sorry ("%qE", name);
+  return NULL_TREE;
 }
 
 /* Create a REFLECT_EXPR expression around T.  */

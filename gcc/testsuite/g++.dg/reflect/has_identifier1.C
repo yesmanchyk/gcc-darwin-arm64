@@ -4,10 +4,13 @@
 
 #include <meta>
 
+constexpr std::meta::info null_reflection;
+
 struct S { };
 using T = int;
 using U = S;
 
+static_assert (!std::meta::has_identifier (null_reflection));
 static_assert (!std::meta::has_identifier (^^int));
 static_assert (!std::meta::has_identifier (^^T));
 static_assert (!std::meta::has_identifier (^^::));
