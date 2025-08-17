@@ -56,6 +56,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.queries], reflection queries
 
     consteval bool is_variable (info);
+    consteval bool is_type (info);
 
     //consteval string_view identifier_of (info);
     //consteval u8string_view u8identifier_of (info);
