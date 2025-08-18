@@ -252,6 +252,18 @@ eval_is_alias_template (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_concept.
+   Returns: true if r represents a concept.  Otherwise, false.  */
+
+static tree
+eval_is_concept (tree r)
+{
+  if (concept_definition_p (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -288,6 +300,8 @@ process_metafunction (tree call)
 	return eval_is_class_template (h);
       if (!strcmp (ident, "alias_template"))
 	return eval_is_alias_template (h);
+      if (!strcmp (ident, "concept"))
+	return eval_is_concept (h);
       goto not_found;
     }
 
