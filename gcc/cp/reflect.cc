@@ -426,6 +426,12 @@ get_reflection (location_t loc, tree t)
       error_at (loc, "%<^^%> cannot be applied to a using-declarator");
       return error_mark_node;
     }
+  /* A concept is fine, but not Concept<arg>.  */
+  else if (concept_check_p (t))
+    {
+      error_at (loc, "%<^^%> cannot be applied to a concept check");
+      return error_mark_node;
+    }
 
   /* Otherwise, if the template-name names a function template F,
      then the template-name interpreted as an id-expression shall
