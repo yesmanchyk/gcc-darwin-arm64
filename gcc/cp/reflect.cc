@@ -146,6 +146,18 @@ eval_is_type (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_type_alias.
+   Returns: true if r represents a type alias.  Otherwise, false.  */
+
+static tree
+eval_is_type_alias (tree r)
+{
+  if (TYPE_ALIAS_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_namespace.
    Returns: true if r represents an entity whose underlying entity is
    a namespace.  Otherwise, false.  */
@@ -181,6 +193,8 @@ process_metafunction (tree call)
 	return eval_is_type (h);
       if (!strcmp (ident, "namespace"))
 	return eval_is_namespace (h);
+      if (!strcmp (ident, "type_alias"))
+	return eval_is_type_alias (h);
       goto not_found;
     }
 
