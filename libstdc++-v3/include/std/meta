@@ -63,6 +63,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     consteval bool is_function (info);
 
+    consteval bool is_template (info);
     consteval bool is_function_template (info);
     consteval bool is_variable_template (info);
     consteval bool is_class_template (info);

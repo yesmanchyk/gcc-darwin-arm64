@@ -264,6 +264,23 @@ eval_is_concept (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_template.
+   Returns: true if r represents a function template, class template, variable
+   template, alias template, or concept.  Otherwise, false.  */
+
+static tree
+eval_is_template (tree r)
+{
+  if (eval_is_function_template (r) == boolean_true_node
+      || eval_is_class_template (r) == boolean_true_node
+      || eval_is_variable_template (r) == boolean_true_node
+      || eval_is_alias_template (r) == boolean_true_node
+      || eval_is_concept (r) == boolean_true_node)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -302,6 +319,8 @@ process_metafunction (tree call)
 	return eval_is_alias_template (h);
       if (!strcmp (ident, "concept"))
 	return eval_is_concept (h);
+      if (!strcmp (ident, "template"))
+	return eval_is_template (h);
       goto not_found;
     }
 
