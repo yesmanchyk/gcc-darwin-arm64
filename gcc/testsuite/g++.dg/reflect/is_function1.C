@@ -93,13 +93,13 @@ f ()
   static_assert (!is_function (^^T));
   static_assert (!is_function (R));
   static_assert (!is_function (R2));
-  static_assert (!is_function (R3));
+  static_assert (is_function (R3));
 }
 
 void
 g (int p, cls c)
 {
-  f<int, ^^var, ^^ns, ^^ns_alias>();
+  f<int, ^^var, ^^ns, ^^fun>();
   static_assert (!is_function (^^p));
   static_assert (!is_function (^^c));
 }

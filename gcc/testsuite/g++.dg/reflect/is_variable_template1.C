@@ -93,13 +93,13 @@ f ()
   static_assert (!is_variable_template (^^T));
   static_assert (!is_variable_template (R));
   static_assert (!is_variable_template (R2));
-  static_assert (!is_variable_template (R3));
+  static_assert (is_variable_template (R3));
 }
 
 void
 g (int p, cls c)
 {
-  f<int, ^^var, ^^ns, ^^ns_alias>();
+  f<int, ^^var, ^^ns, ^^var_tmpl>();
   static_assert (!is_variable_template (^^p));
   static_assert (!is_variable_template (^^c));
 }
