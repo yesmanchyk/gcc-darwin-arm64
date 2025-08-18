@@ -146,6 +146,19 @@ eval_is_type (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_namespace.
+   Returns: true if r represents an entity whose underlying entity is
+   a namespace.  Otherwise, false.  */
+
+static tree
+eval_is_namespace (tree r)
+{
+  if (TREE_CODE (r) == NAMESPACE_DECL)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -166,6 +179,8 @@ process_metafunction (tree call)
 	return eval_is_variable (h);
       if (!strcmp (ident, "type"))
 	return eval_is_type (h);
+      if (!strcmp (ident, "namespace"))
+	return eval_is_namespace (h);
       goto not_found;
     }
 
