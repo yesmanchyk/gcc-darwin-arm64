@@ -183,6 +183,24 @@ eval_is_namespace_alias (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_function.
+   Returns: true if r represents a function.  Otherwise, false.  */
+
+static tree
+eval_is_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+
+  /* This check will hold for ordinary functions, static member functions,
+     and non-static member functions.  */
+  if (TREE_CODE (r) == FUNCTION_DECL
+      /* And this one will be true for 'tmpl_fn<args>' but not 'tmpl_fn'.  */
+      || (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0))))
+    return boolean_true_node;
+
+  return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -209,6 +227,8 @@ process_metafunction (tree call)
 	return eval_is_namespace (h);
       if (!strcmp (ident, "namespace_alias"))
 	return eval_is_namespace_alias (h);
+      if (!strcmp (ident, "function"))
+	return eval_is_function (h);
       goto not_found;
     }
 
