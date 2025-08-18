@@ -201,6 +201,21 @@ eval_is_function (tree r)
   return boolean_false_node;
 }
 
+/* Process std::meta::is_function_template.
+   Returns: true if r represents a function template.  Otherwise, false.  */
+
+static tree
+eval_is_function_template (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+
+  if (DECL_FUNCTION_TEMPLATE_P (r))
+    return boolean_true_node;
+
+  return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -229,6 +244,8 @@ process_metafunction (tree call)
 	return eval_is_namespace_alias (h);
       if (!strcmp (ident, "function"))
 	return eval_is_function (h);
+      if (!strcmp (ident, "function_template"))
+	return eval_is_function_template (h);
       goto not_found;
     }
 
