@@ -59,6 +59,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_type (info);
     consteval bool is_namespace (info);
     consteval bool is_type_alias (info);
+    consteval bool is_namespace_alias (info);
 
     //consteval string_view identifier_of (info);
     //consteval u8string_view u8identifier_of (info);
