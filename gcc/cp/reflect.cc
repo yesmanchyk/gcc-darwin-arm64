@@ -216,6 +216,18 @@ eval_is_function_template (tree r)
   return boolean_false_node;
 }
 
+/* Process std::meta::is_variable_template.
+   Returns: true if r represents a variable template.  Otherwise, false.  */
+
+static tree
+eval_is_variable_template (tree r)
+{
+  if (variable_template_p (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -246,6 +258,8 @@ process_metafunction (tree call)
 	return eval_is_function (h);
       if (!strcmp (ident, "function_template"))
 	return eval_is_function_template (h);
+      if (!strcmp (ident, "variable_template"))
+	return eval_is_variable_template (h);
       goto not_found;
     }
 
