@@ -42,413 +42,6 @@ init_reflection ()
   record_builtin_type (RID_MAX, "decltype(^^int)", meta_info_type_node);
 }
 
-/* Returns true if FNDECL, a FUNCTION_DECL, is a call to a metafunction
-   declared in namespace std::meta.  */
-
-bool
-metafunction_p (tree fndecl)
-{
-  if (!flag_reflection)
-    return false;
-
-  /* Metafunctions are expected to be marked consteval.  */
-  if (!DECL_IMMEDIATE_FUNCTION_P (fndecl))
-    return false;
-
-  /* Is the call from std::meta?  */
-  fndecl = decl_namespace_context (fndecl);
-  return DECL_NAMESPACE_STD_META_P (fndecl);
-}
-
-/* Extract the reflection argument from a metafunction call CALL.  */
-
-static tree
-get_info (tree call)
-{
-  gcc_checking_assert (call_expr_nargs (call) > 0);
-  tree info = CALL_EXPR_ARG (call, 0);
-  gcc_checking_assert (REFLECTION_TYPE_P (TREE_TYPE (info)));
-  info = cxx_constant_value (info);
-  return info;
-}
-
-/* Process std::meta::has_identifier.  Returns:
-
-    (1.1) If r represents an entity that has a typedef name for linkage
-	  purposes, then true.
-    (1.2) Otherwise, if r represents an unnamed entity, then false.
-    (1.3) Otherwise, if r represents a class type, then
-	  !has_template_arguments(r).
-    (1.4) Otherwise, if r represents a function, then true if
-	  !has_template_arguments(r) and the function is not a constructor,
-	  destructor, operator function, or conversion function.  Otherwise,
-	  false.
-    (1.5) Otherwise, if r represents a template, then true if r does not
-	  represent a constructor template, operator function template, or
-	  conversion function template.  Otherwise, false.
-    (1.6) Otherwise, if r represents a variable, then false if the declaration
-	  of that variable was instantiated from a function parameter pack.
-	  Otherwise, !has_template_arguments(r).
-    (1.7) Otherwise, if r represents a structured binding, then false if the
-	  declaration of that structured binding was instantiated from
-	  a structured binding pack.  Otherwise, true.
-    (1.8) Otherwise, if r represents a type alias, then
-	  !has_template_arguments(r).
-    (1.9) Otherwise, if r represents a enumerator, non-static data member,
-	  namespace, or namespace alias, then true.
-    (1.10) Otherwise, if r represents a direct base class relationship, then
-	   has_identifier(type_of(r)).
-    (1.11) Otherwise, r represents a data member description (T, N, A, W, NUA);
-	   true if N is not _|_.  Otherwise, false.  */
-
-static tree
-eval_has_identifier (tree r)
-{
-  if (TREE_CODE (r) == TYPE_DECL)
-    r = TREE_TYPE (r);
-  // TODO
-  if (CLASS_TYPE_P (r) && TYPE_NAME (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_variable.
-   Returns: true if r represents a variable.  Otherwise, false.  */
-
-static tree
-eval_is_variable (tree r)
-{
-  /* A parameter is a variable because it is an object or a reference
-     introduced by a declaration.  */
-  if (TREE_CODE (r) == PARM_DECL
-      || (VAR_P (r)
-	  /* The definition of a variable excludes non-static data members.  */
-	  && !DECL_ANON_UNION_VAR_P (r)
-	  /* A structured binding is not a variable.  */
-	  && !DECL_DECOMPOSITION_P (r)))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_type.
-   Returns: true if r represents an entity whose underlying entity is
-   a type.  Otherwise, false.  */
-
-static tree
-eval_is_type (tree r)
-{
-  /* Null reflection isn't a type.  */
-  if (TYPE_P (r) && r != unknown_type_node)
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_type_alias.
-   Returns: true if r represents a type alias.  Otherwise, false.  */
-
-static tree
-eval_is_type_alias (tree r)
-{
-  if (TYPE_ALIAS_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_namespace.
-   Returns: true if r represents an entity whose underlying entity is
-   a namespace.  Otherwise, false.  */
-
-static tree
-eval_is_namespace (tree r)
-{
-  if (TREE_CODE (r) == NAMESPACE_DECL)
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_namespace_alias.
-   Returns: true if r represents a namespace alias.  Otherwise, false.  */
-
-static tree
-eval_is_namespace_alias (tree r)
-{
-  if (TREE_CODE (r) == NAMESPACE_DECL && DECL_NAMESPACE_ALIAS (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_function.
-   Returns: true if r represents a function.  Otherwise, false.  */
-
-static tree
-eval_is_function (tree r)
-{
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-
-  /* This check will hold for ordinary functions, static member functions,
-     and non-static member functions.  */
-  if (TREE_CODE (r) == FUNCTION_DECL
-      /* And this one will be true for 'tmpl_fn<args>' but not 'tmpl_fn'.  */
-      || (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0))))
-    return boolean_true_node;
-
-  return boolean_false_node;
-}
-
-/* Process std::meta::is_function_template.
-   Returns: true if r represents a function template.  Otherwise, false.  */
-
-static tree
-eval_is_function_template (tree r)
-{
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
-
-  if (DECL_FUNCTION_TEMPLATE_P (r))
-    return boolean_true_node;
-
-  return boolean_false_node;
-}
-
-/* Process std::meta::is_variable_template.
-   Returns: true if r represents a variable template.  Otherwise, false.  */
-
-static tree
-eval_is_variable_template (tree r)
-{
-  if (variable_template_p (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_class_template.
-   Returns: true if r represents a class template.  Otherwise, false.  */
-
-static tree
-eval_is_class_template (tree r)
-{
-  if (DECL_CLASS_TEMPLATE_P (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_alias_template.
-   Returns: true if r represents an alias template.  Otherwise, false.  */
-
-static tree
-eval_is_alias_template (tree r)
-{
-  if (DECL_ALIAS_TEMPLATE_P (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_concept.
-   Returns: true if r represents a concept.  Otherwise, false.  */
-
-static tree
-eval_is_concept (tree r)
-{
-  if (concept_definition_p (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_template.
-   Returns: true if r represents a function template, class template, variable
-   template, alias template, or concept.  Otherwise, false.  */
-
-static tree
-eval_is_template (tree r)
-{
-  if (eval_is_function_template (r) == boolean_true_node
-      || eval_is_class_template (r) == boolean_true_node
-      || eval_is_variable_template (r) == boolean_true_node
-      || eval_is_alias_template (r) == boolean_true_node
-      || eval_is_concept (r) == boolean_true_node)
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_function_parameter.
-   Returns: true if r represents a function parameter.  Otherwise, false.  */
-
-static tree
-eval_is_function_parameter (tree r)
-{
-  if (TREE_CODE (r) == PARM_DECL)
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_enumerator.
-   Returns: true if r represents an enumerator.  Otherwise, false.  */
-
-static tree
-eval_is_enumerator (tree r)
-{
-  /* This doesn't check !DECL_TEMPLATE_PARM_P because such CONST_DECLs
-     would already have been rejected.  */
-  if (TREE_CODE (r) == CONST_DECL)
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_conversion_function.
-   Returns: true if r represents a function that is a conversion function.
-   Otherwise, false.  */
-
-static tree
-eval_is_conversion_function (tree r)
-{
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == FUNCTION_DECL && DECL_CONV_FN_P (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_operator_function.
-   Returns: true if r represents a function that is an operator function.
-   Otherwise, false.  */
-
-static tree
-eval_is_operator_function (tree r)
-{
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-
-  if (TREE_CODE (r) == FUNCTION_DECL)
-    /* Leave as-is.  */;
-  /* A specialization of an operator function template is also an operator
-     function.  So return true for '^^S::operator-<int>'...  */
-  else if (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0)))
-    r = TREE_OPERAND (r, 0);
-  /* ...but false for '^^S::operator-'.  */
-  else
-    return boolean_false_node;
-
-  r = OVL_FIRST (r);
-  r = STRIP_TEMPLATE (r);
-
-  if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_literal_operator.
-   Returns: true if r represents a function that is a literal operator.
-   Otherwise, false.  */
-
-static tree
-eval_is_literal_operator (tree r)
-{
-  /* No MAYBE_BASELINK_FUNCTIONS here because a literal operator
-     must be a non-member function.  */
-  if (TREE_CODE (r) == FUNCTION_DECL && UDLIT_OPER_P (DECL_NAME (r)))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_conversion_function_template.
-   Returns: true if r represents a conversion function template.
-   Otherwise, false.  */
-
-static tree
-eval_is_conversion_function_template (tree)
-{
-  // Need members_of to test this.
-  gcc_assert (!"TODO");
-}
-
-/* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
-
-tree
-process_metafunction (tree call)
-{
-  tree info = get_info (call);
-  /* Mapping name -> value would be a perfect use for a trie.  prime-paths.cc
-     implements a trie.  */
-  tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
-  const char *ident = IDENTIFIER_POINTER (name);
-  tree h = REFLECT_EXPR_HANDLE (info);
-
-  /* Handle is_*.  */
-  if (startswith (ident, "is_"))
-    {
-      ident += 3;
-      if (!strcmp (ident, "variable"))
-	return eval_is_variable (h);
-      if (!strcmp (ident, "type"))
-	return eval_is_type (h);
-      if (!strcmp (ident, "type_alias"))
-	return eval_is_type_alias (h);
-      if (!strcmp (ident, "namespace"))
-	return eval_is_namespace (h);
-      if (!strcmp (ident, "namespace_alias"))
-	return eval_is_namespace_alias (h);
-      if (!strcmp (ident, "function"))
-	return eval_is_function (h);
-      if (!strcmp (ident, "function_template"))
-	return eval_is_function_template (h);
-      if (!strcmp (ident, "variable_template"))
-	return eval_is_variable_template (h);
-      if (!strcmp (ident, "class_template"))
-	return eval_is_class_template (h);
-      if (!strcmp (ident, "alias_template"))
-	return eval_is_alias_template (h);
-      if (!strcmp (ident, "concept"))
-	return eval_is_concept (h);
-      if (!strcmp (ident, "template"))
-	return eval_is_template (h);
-      if (!strcmp (ident, "function_parameter"))
-	return eval_is_function_parameter (h);
-      if (!strcmp (ident, "enumerator"))
-	return eval_is_enumerator (h);
-      if (!strcmp (ident, "conversion_function"))
-	return eval_is_conversion_function (h);
-      if (!strcmp (ident, "operator_function"))
-	return eval_is_operator_function (h);
-      if (!strcmp (ident, "literal_operator"))
-	return eval_is_literal_operator (h);
-      if (!strcmp (ident, "conversion_function_template"))
-	return eval_is_conversion_function_template (h);
-      goto not_found;
-    }
-
-  /* Handle has_*.  */
-  if (startswith (ident, "has_"))
-    {
-      ident += 4;
-      if (!strcmp (ident, "identifier"))
-	return eval_has_identifier (h);
-      goto not_found;
-    }
-
-  if (id_equal (name, "dealias"))
-    {
-      /* TODO */
-    }
-
-not_found:
-  sorry ("%qE", name);
-  return NULL_TREE;
-}
-
 /* Create a REFLECT_EXPR expression around T.  */
 
 static tree
@@ -605,6 +198,429 @@ tree
 get_null_reflection ()
 {
   return get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
+}
+
+/* Returns true if FNDECL, a FUNCTION_DECL, is a call to a metafunction
+   declared in namespace std::meta.  */
+
+bool
+metafunction_p (tree fndecl)
+{
+  if (!flag_reflection)
+    return false;
+
+  /* Metafunctions are expected to be marked consteval.  */
+  if (!DECL_IMMEDIATE_FUNCTION_P (fndecl))
+    return false;
+
+  /* Is the call from std::meta?  */
+  fndecl = decl_namespace_context (fndecl);
+  return DECL_NAMESPACE_STD_META_P (fndecl);
+}
+
+/* Extract the reflection argument from a metafunction call CALL.  */
+
+static tree
+get_info (tree call)
+{
+  gcc_checking_assert (call_expr_nargs (call) > 0);
+  tree info = CALL_EXPR_ARG (call, 0);
+  gcc_checking_assert (REFLECTION_TYPE_P (TREE_TYPE (info)));
+  info = cxx_constant_value (info);
+  return info;
+}
+
+/* Process std::meta::has_identifier.  Returns:
+
+    (1.1) If r represents an entity that has a typedef name for linkage
+	  purposes, then true.
+    (1.2) Otherwise, if r represents an unnamed entity, then false.
+    (1.3) Otherwise, if r represents a class type, then
+	  !has_template_arguments(r).
+    (1.4) Otherwise, if r represents a function, then true if
+	  !has_template_arguments(r) and the function is not a constructor,
+	  destructor, operator function, or conversion function.  Otherwise,
+	  false.
+    (1.5) Otherwise, if r represents a template, then true if r does not
+	  represent a constructor template, operator function template, or
+	  conversion function template.  Otherwise, false.
+    (1.6) Otherwise, if r represents a variable, then false if the declaration
+	  of that variable was instantiated from a function parameter pack.
+	  Otherwise, !has_template_arguments(r).
+    (1.7) Otherwise, if r represents a structured binding, then false if the
+	  declaration of that structured binding was instantiated from
+	  a structured binding pack.  Otherwise, true.
+    (1.8) Otherwise, if r represents a type alias, then
+	  !has_template_arguments(r).
+    (1.9) Otherwise, if r represents a enumerator, non-static data member,
+	  namespace, or namespace alias, then true.
+    (1.10) Otherwise, if r represents a direct base class relationship, then
+	   has_identifier(type_of(r)).
+    (1.11) Otherwise, r represents a data member description (T, N, A, W, NUA);
+	   true if N is not _|_.  Otherwise, false.  */
+
+static tree
+eval_has_identifier (const_tree r)
+{
+  if (TREE_CODE (r) == TYPE_DECL)
+    r = TREE_TYPE (r);
+  // TODO
+  if (CLASS_TYPE_P (r) && TYPE_NAME (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_variable.
+   Returns: true if r represents a variable.  Otherwise, false.  */
+
+static tree
+eval_is_variable (const_tree r)
+{
+  /* A parameter is a variable because it is an object or a reference
+     introduced by a declaration.  */
+  if (TREE_CODE (r) == PARM_DECL
+      || (VAR_P (r)
+	  /* The definition of a variable excludes non-static data members.  */
+	  && !DECL_ANON_UNION_VAR_P (r)
+	  /* A structured binding is not a variable.  */
+	  && !DECL_DECOMPOSITION_P (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_type.
+   Returns: true if r represents an entity whose underlying entity is
+   a type.  Otherwise, false.  */
+
+static tree
+eval_is_type (const_tree r)
+{
+  /* Null reflection isn't a type.  */
+  if (TYPE_P (r) && r != unknown_type_node)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_type_alias.
+   Returns: true if r represents a type alias.  Otherwise, false.  */
+
+static tree
+eval_is_type_alias (const_tree r)
+{
+  if (TYPE_ALIAS_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_namespace.
+   Returns: true if r represents an entity whose underlying entity is
+   a namespace.  Otherwise, false.  */
+
+static tree
+eval_is_namespace (const_tree r)
+{
+  if (TREE_CODE (r) == NAMESPACE_DECL)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_namespace_alias.
+   Returns: true if r represents a namespace alias.  Otherwise, false.  */
+
+static tree
+eval_is_namespace_alias (const_tree r)
+{
+  if (TREE_CODE (r) == NAMESPACE_DECL && DECL_NAMESPACE_ALIAS (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_function.
+   Returns: true if r represents a function.  Otherwise, false.  */
+
+static tree
+eval_is_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+
+  /* This check will hold for ordinary functions, static member functions,
+     and non-static member functions.  */
+  if (TREE_CODE (r) == FUNCTION_DECL
+      /* And this one will be true for 'tmpl_fn<args>' but not 'tmpl_fn'.  */
+      || (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0))))
+    return boolean_true_node;
+
+  return boolean_false_node;
+}
+
+/* Process std::meta::is_function_template.
+   Returns: true if r represents a function template.  Otherwise, false.  */
+
+static tree
+eval_is_function_template (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+
+  if (DECL_FUNCTION_TEMPLATE_P (r))
+    return boolean_true_node;
+
+  return boolean_false_node;
+}
+
+/* Process std::meta::is_variable_template.
+   Returns: true if r represents a variable template.  Otherwise, false.  */
+
+static tree
+eval_is_variable_template (tree r)
+{
+  if (variable_template_p (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_class_template.
+   Returns: true if r represents a class template.  Otherwise, false.  */
+
+static tree
+eval_is_class_template (const_tree r)
+{
+  if (DECL_CLASS_TEMPLATE_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_alias_template.
+   Returns: true if r represents an alias template.  Otherwise, false.  */
+
+static tree
+eval_is_alias_template (const_tree r)
+{
+  if (DECL_ALIAS_TEMPLATE_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_concept.
+   Returns: true if r represents a concept.  Otherwise, false.  */
+
+static tree
+eval_is_concept (const_tree r)
+{
+  if (concept_definition_p (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_template.
+   Returns: true if r represents a function template, class template, variable
+   template, alias template, or concept.  Otherwise, false.  */
+
+static tree
+eval_is_template (tree r)
+{
+  if (eval_is_function_template (r) == boolean_true_node
+      || eval_is_class_template (r) == boolean_true_node
+      || eval_is_variable_template (r) == boolean_true_node
+      || eval_is_alias_template (r) == boolean_true_node
+      || eval_is_concept (r) == boolean_true_node)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_function_parameter.
+   Returns: true if r represents a function parameter.  Otherwise, false.  */
+
+static tree
+eval_is_function_parameter (const_tree r)
+{
+  if (TREE_CODE (r) == PARM_DECL)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_enumerator.
+   Returns: true if r represents an enumerator.  Otherwise, false.  */
+
+static tree
+eval_is_enumerator (const_tree r)
+{
+  /* This doesn't check !DECL_TEMPLATE_PARM_P because such CONST_DECLs
+     would already have been rejected.  */
+  if (TREE_CODE (r) == CONST_DECL)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_conversion_function.
+   Returns: true if r represents a function that is a conversion function.
+   Otherwise, false.  */
+
+static tree
+eval_is_conversion_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_CONV_FN_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_operator_function.
+   Returns: true if r represents a function that is an operator function.
+   Otherwise, false.  */
+
+static tree
+eval_is_operator_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+
+  if (TREE_CODE (r) == FUNCTION_DECL)
+    /* Leave as-is.  */;
+  /* A specialization of an operator function template is also an operator
+     function.  So return true for '^^S::operator-<int>'...  */
+  else if (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0)))
+    r = TREE_OPERAND (r, 0);
+  /* ...but false for '^^S::operator-'.  */
+  else
+    return boolean_false_node;
+
+  r = OVL_FIRST (r);
+  r = STRIP_TEMPLATE (r);
+
+  if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_literal_operator.
+   Returns: true if r represents a function that is a literal operator.
+   Otherwise, false.  */
+
+static tree
+eval_is_literal_operator (const_tree r)
+{
+  /* No MAYBE_BASELINK_FUNCTIONS here because a literal operator
+     must be a non-member function.  */
+  if (TREE_CODE (r) == FUNCTION_DECL && UDLIT_OPER_P (DECL_NAME (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_conversion_function_template.
+   Returns: true if r represents a conversion function template.
+   Otherwise, false.  */
+
+static tree
+eval_is_conversion_function_template (const_tree)
+{
+  // Need members_of to test this.
+  gcc_assert (!"TODO");
+}
+
+/* Process std::meta::dealias.
+   Returns: A reflection representing the underlying entity of what r
+   represents.
+   Throws: meta::exception unless r represents an entity.  */
+
+static tree
+eval_dealias (location_t loc, tree r)
+{
+  if (TYPE_ALIAS_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
+    r = strip_typedefs (r);
+  else if (TREE_CODE (r) == NAMESPACE_DECL)
+    r = ORIGINAL_NAMESPACE (r);
+
+  // TODO Throw if R is not an entity [basic.pre]/8.
+
+  return get_reflection_raw (loc, r);
+}
+
+/* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
+
+tree
+process_metafunction (tree call)
+{
+  tree info = get_info (call);
+  /* Mapping name -> value would be a perfect use for a trie.  prime-paths.cc
+     implements a trie.  */
+  tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
+  const char *ident = IDENTIFIER_POINTER (name);
+  tree h = REFLECT_EXPR_HANDLE (info);
+
+  /* Handle is_*.  */
+  if (startswith (ident, "is_"))
+    {
+      ident += 3;
+      if (!strcmp (ident, "variable"))
+	return eval_is_variable (h);
+      if (!strcmp (ident, "type"))
+	return eval_is_type (h);
+      if (!strcmp (ident, "type_alias"))
+	return eval_is_type_alias (h);
+      if (!strcmp (ident, "namespace"))
+	return eval_is_namespace (h);
+      if (!strcmp (ident, "namespace_alias"))
+	return eval_is_namespace_alias (h);
+      if (!strcmp (ident, "function"))
+	return eval_is_function (h);
+      if (!strcmp (ident, "function_template"))
+	return eval_is_function_template (h);
+      if (!strcmp (ident, "variable_template"))
+	return eval_is_variable_template (h);
+      if (!strcmp (ident, "class_template"))
+	return eval_is_class_template (h);
+      if (!strcmp (ident, "alias_template"))
+	return eval_is_alias_template (h);
+      if (!strcmp (ident, "concept"))
+	return eval_is_concept (h);
+      if (!strcmp (ident, "template"))
+	return eval_is_template (h);
+      if (!strcmp (ident, "function_parameter"))
+	return eval_is_function_parameter (h);
+      if (!strcmp (ident, "enumerator"))
+	return eval_is_enumerator (h);
+      if (!strcmp (ident, "conversion_function"))
+	return eval_is_conversion_function (h);
+      if (!strcmp (ident, "operator_function"))
+	return eval_is_operator_function (h);
+      if (!strcmp (ident, "literal_operator"))
+	return eval_is_literal_operator (h);
+      if (!strcmp (ident, "conversion_function_template"))
+	return eval_is_conversion_function_template (h);
+      goto not_found;
+    }
+
+  /* Handle has_*.  */
+  if (startswith (ident, "has_"))
+    {
+      ident += 4;
+      if (!strcmp (ident, "identifier"))
+	return eval_has_identifier (h);
+      goto not_found;
+    }
+
+  if (id_equal (name, "dealias"))
+    return eval_dealias (cp_expr_loc_or_input_loc (info), h);
+
+not_found:
+  sorry ("%qE", name);
+  return NULL_TREE;
 }
 
 /* Splice reflection REFL; i.e., return its entity.  */

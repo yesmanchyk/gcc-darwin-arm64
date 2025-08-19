@@ -2,6 +2,8 @@
 // { dg-additional-options "-freflection" }
 // Test comparison of reflections.  Valid uses.
 
+#include <meta>
+
 namespace N {
   namespace M {
   }
@@ -29,7 +31,7 @@ static_assert(^^N::M != ^^NM);
 
 using Alias = int;
 static_assert(^^int != ^^Alias);
-//static_assert(^^int == dealias(^^Alias));
+static_assert(^^int == std::meta::dealias (^^Alias));
 
 namespace AliasNS = ::std;
 static_assert(^^::std != ^^AliasNS);
