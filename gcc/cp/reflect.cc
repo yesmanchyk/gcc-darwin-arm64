@@ -321,6 +321,34 @@ eval_is_conversion_function (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_operator_function.
+   Returns: true if r represents a function that is an operator function.
+   Otherwise, false.  */
+
+static tree
+eval_is_operator_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+
+  if (TREE_CODE (r) == FUNCTION_DECL)
+    /* Leave as-is.  */;
+  /* A specialization of an operator function template is also an operator
+     function.  So return true for '^^S::operator-<int>'...  */
+  else if (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0)))
+    r = TREE_OPERAND (r, 0);
+  /* ...but false for '^^S::operator-'.  */
+  else
+    return boolean_false_node;
+
+  r = OVL_FIRST (r);
+  r = STRIP_TEMPLATE (r);
+
+  if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -367,6 +395,8 @@ process_metafunction (tree call)
 	return eval_is_enumerator (h);
       if (!strcmp (ident, "conversion_function"))
 	return eval_is_conversion_function (h);
+      if (!strcmp (ident, "operator_function"))
+	return eval_is_operator_function (h);
       goto not_found;
     }
 
