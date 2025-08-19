@@ -66,6 +66,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_function (info);
     consteval bool is_conversion_function (info);
     consteval bool is_operator_function (info);
+    consteval bool is_literal_operator (info);
 
     consteval bool is_function_parameter (info);
 

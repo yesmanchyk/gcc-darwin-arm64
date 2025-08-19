@@ -349,6 +349,21 @@ eval_is_operator_function (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_literal_operator.
+   Returns: true if r represents a function that is a literal operator.
+   Otherwise, false.  */
+
+static tree
+eval_is_literal_operator (tree r)
+{
+  /* No MAYBE_BASELINK_FUNCTIONS here because a literal operator
+     must be a non-member function.  */
+  if (TREE_CODE (r) == FUNCTION_DECL && UDLIT_OPER_P (DECL_NAME (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -397,6 +412,8 @@ process_metafunction (tree call)
 	return eval_is_conversion_function (h);
       if (!strcmp (ident, "operator_function"))
 	return eval_is_operator_function (h);
+      if (!strcmp (ident, "literal_operator"))
+	return eval_is_literal_operator (h);
       goto not_found;
     }
 
