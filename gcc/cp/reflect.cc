@@ -281,6 +281,18 @@ eval_is_template (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_function_parameter.
+   Returns: true if r represents a function parameter.  Otherwise, false.  */
+
+static tree
+eval_is_function_parameter (tree r)
+{
+  if (TREE_CODE (r) == PARM_DECL)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -321,6 +333,8 @@ process_metafunction (tree call)
 	return eval_is_concept (h);
       if (!strcmp (ident, "template"))
 	return eval_is_template (h);
+      if (!strcmp (ident, "function_parameter"))
+	return eval_is_function_parameter (h);
       goto not_found;
     }
 
