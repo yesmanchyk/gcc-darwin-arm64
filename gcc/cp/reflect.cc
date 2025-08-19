@@ -293,6 +293,20 @@ eval_is_function_parameter (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_enumerator.
+   Returns: true if r represents an enumerator.  Otherwise, false.  */
+
+static tree
+eval_is_enumerator (tree r)
+{
+  /* This doesn't check !DECL_TEMPLATE_PARM_P because such CONST_DECLs
+     would already have been rejected.  */
+  if (TREE_CODE (r) == CONST_DECL)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -335,6 +349,8 @@ process_metafunction (tree call)
 	return eval_is_template (h);
       if (!strcmp (ident, "function_parameter"))
 	return eval_is_function_parameter (h);
+      if (!strcmp (ident, "enumerator"))
+	return eval_is_enumerator (h);
       goto not_found;
     }
 
