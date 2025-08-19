@@ -364,6 +364,17 @@ eval_is_literal_operator (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_conversion_function_template.
+   Returns: true if r represents a conversion function template.
+   Otherwise, false.  */
+
+static tree
+eval_is_conversion_function_template (tree)
+{
+  // Need members_of to test this.
+  gcc_assert (!"TODO");
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -414,6 +425,8 @@ process_metafunction (tree call)
 	return eval_is_operator_function (h);
       if (!strcmp (ident, "literal_operator"))
 	return eval_is_literal_operator (h);
+      if (!strcmp (ident, "conversion_function_template"))
+	return eval_is_conversion_function_template (h);
       goto not_found;
     }
 
