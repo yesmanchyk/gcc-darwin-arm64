@@ -64,6 +64,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_namespace_alias (info);
 
     consteval bool is_function (info);
+    consteval bool is_conversion_function (info);
 
     consteval bool is_function_parameter (info);
 

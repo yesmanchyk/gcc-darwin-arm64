@@ -307,6 +307,20 @@ eval_is_enumerator (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_conversion_function.
+   Returns: true if r represents a function that is a conversion function.
+   Otherwise, false.  */
+
+static tree
+eval_is_conversion_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_CONV_FN_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -351,6 +365,8 @@ process_metafunction (tree call)
 	return eval_is_function_parameter (h);
       if (!strcmp (ident, "enumerator"))
 	return eval_is_enumerator (h);
+      if (!strcmp (ident, "conversion_function"))
+	return eval_is_conversion_function (h);
       goto not_found;
     }
 
