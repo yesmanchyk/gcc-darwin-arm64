@@ -16,10 +16,10 @@ struct B {
 
 struct C {
   info i;
-  constexpr C() : i{} {}  // { dg-error "consteval-only expressions" }
+  constexpr C() : i{} {}
 };
 
 struct D {
   info i;
-  D() : i{} {}  // { dg-error "consteval-only expressions" }
+  D() : i{} {}
 };

@@ -997,6 +997,9 @@ perform_member_init (tree member, tree init, hash_set<tree> &uninitialized)
   if (init == error_mark_node)
     return;
 
+  if (check_out_of_consteval_use (init))
+    return;
+
   /* Effective C++ rule 12 requires that all data members be
      initialized.  */
   if (warn_ecpp && init == NULL_TREE && TREE_CODE (type) != ARRAY_TYPE)
