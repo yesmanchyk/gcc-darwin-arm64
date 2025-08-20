@@ -118,9 +118,7 @@ get_reflection (location_t loc, tree t)
   /* If the id-expression denotes a local entity E for which there is
      a lambda scope that intervenes between R and the point at which E
      was introduced, R is ill-formed.  */
-  else if (current_function_decl
-	   && LAMBDA_FUNCTION_P (current_function_decl)
-	   && outer_automatic_var_p (t))
+  else if (outer_automatic_var_p (t))
     {
       auto_diagnostic_group d;
       error_at (loc, "%<^^%> cannot be applied a local entity for which "

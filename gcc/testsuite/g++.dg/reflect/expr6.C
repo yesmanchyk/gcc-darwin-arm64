@@ -12,9 +12,8 @@ f ()
   int l1;
   static int s2;
   constexpr auto rl1 = ^^l1;
-  [] -> decltype(^^s1,
-		 ^^l1,	  // { dg-error "intervening lambda expression" "" { xfail *-*-* } }
-		 s2) {
+  [] -> decltype(^^l1) { return {}; }; // { dg-error "intervening lambda expression" }
+  [] -> decltype(^^s1, s2) {
     int l2;
 
     constexpr auto rl1_2 = ^^l1;  // { dg-error "intervening lambda expression" }

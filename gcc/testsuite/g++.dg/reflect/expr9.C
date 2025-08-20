@@ -7,7 +7,11 @@ fn1 ()
   int x = 1;	    // { dg-message ".x. declared here" }
   constexpr auto r = ^^x;
 
-  [] -> decltype([:r:]) {
+  [] -> decltype([:r:]) { // { dg-error "cannot splice local entity .x." }
+    return {};
+  };
+
+  [] -> decltype(x) {
     return [:r:];   // { dg-error "cannot splice local entity .x." }
   };
 }
@@ -50,7 +54,11 @@ fn5 (int x)   // { dg-message ".x. declared here" }
 {
   constexpr auto r = ^^x;
 
-  [] -> decltype([:r:]) {
+  [] -> decltype([:r:]) {  // { dg-error "cannot splice local entity .x." }
+    return {};
+  };
+
+  [] -> decltype(x) {
     return [:r:];   // { dg-error "cannot splice local entity .x." }
   };
 }

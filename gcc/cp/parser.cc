@@ -6282,9 +6282,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
      designated by splice-specifier] is
      -- a local entity such that there is a lambda scope that intervenes
      between the expression and the point at which S was introduced"  */
-  if (current_function_decl
-      && LAMBDA_FUNCTION_P (current_function_decl)
-      && outer_automatic_var_p (t))
+  if (outer_automatic_var_p (t))
     {
       auto_diagnostic_group d;
       error_at (loc, "cannot splice local entity %qD for which there is an "
