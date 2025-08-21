@@ -308,7 +308,7 @@ eval_is_type (const_tree r)
 static tree
 eval_is_type_alias (const_tree r)
 {
-  if (TYPE_ALIAS_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
+  if (TYPE_P (r) && typedef_variant_p (r))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -539,7 +539,7 @@ eval_is_conversion_function_template (const_tree)
 static tree
 eval_dealias (location_t loc, tree r)
 {
-  if (TYPE_ALIAS_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
+  if (TYPE_P (r) && typedef_variant_p (r))
     r = strip_typedefs (r);
   else if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
@@ -547,6 +547,28 @@ eval_dealias (location_t loc, tree r)
   // TODO Throw if R is not an entity [basic.pre]/8.
 
   return get_reflection_raw (loc, r);
+}
+
+/* Process std::meta::has_template_arguments.
+   Returns: true if r represents a specialization of a function template,
+   variable template, class template, or an alias template.  Otherwise,
+   false.  */
+
+static tree
+eval_has_template_arguments (tree r)
+{
+  /* Presumably for
+       typedef cls_tmpl<int> TYPE;
+     'has_template_arguments (^^TYPE)' should be false?  */
+  if (TYPE_P (r) && typedef_variant_p (r) && !TYPE_ALIAS_P (r))
+    return boolean_false_node;
+  /* For 'fun_tmpl<int>' we'll get a TEMPLATE_ID_EXPR.  */
+  if (TREE_CODE (r) == TEMPLATE_ID_EXPR
+      || primary_template_specialization_p (r)
+      || variable_template_specialization_p (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
@@ -610,6 +632,8 @@ process_metafunction (tree call)
       ident += 4;
       if (!strcmp (ident, "identifier"))
 	return eval_has_identifier (h);
+      if (!strcmp (ident, "template_arguments"))
+	return eval_has_template_arguments (h);
       goto not_found;
     }
 
