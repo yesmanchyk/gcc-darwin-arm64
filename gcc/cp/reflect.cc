@@ -347,14 +347,10 @@ eval_is_function (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
 
-  /* This check will hold for ordinary functions, static member functions,
-     and non-static member functions.  */
-  if (TREE_CODE (r) == FUNCTION_DECL
-      /* And this one will be true for 'tmpl_fn<args>' but not 'tmpl_fn'.  */
-      || (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0))))
+  if (TREE_CODE (r) == FUNCTION_DECL)
     return boolean_true_node;
-
-  return boolean_false_node;
+  else
+    return boolean_false_node;
 }
 
 /* Process std::meta::is_function_template.
@@ -487,22 +483,14 @@ eval_is_operator_function (tree r)
   r = MAYBE_BASELINK_FUNCTIONS (r);
 
   if (TREE_CODE (r) == FUNCTION_DECL)
-    /* Leave as-is.  */;
-  /* A specialization of an operator function template is also an operator
-     function.  So return true for '^^S::operator-<int>'...  */
-  else if (TREE_CODE (r) == TEMPLATE_ID_EXPR && OVL_P (TREE_OPERAND (r, 0)))
-    r = TREE_OPERAND (r, 0);
-  /* ...but false for '^^S::operator-'.  */
-  else
-    return boolean_false_node;
+    {
+      r = OVL_FIRST (r);
+      r = STRIP_TEMPLATE (r);
+      if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
+	return boolean_true_node;
+    }
 
-  r = OVL_FIRST (r);
-  r = STRIP_TEMPLATE (r);
-
-  if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
+  return boolean_false_node;
 }
 
 /* Process std::meta::is_literal_operator.
@@ -557,18 +545,43 @@ eval_dealias (location_t loc, tree r)
 static tree
 eval_has_template_arguments (tree r)
 {
+  r = MAYBE_BASELINK_FUNCTIONS (r);
   /* Presumably for
        typedef cls_tmpl<int> TYPE;
      'has_template_arguments (^^TYPE)' should be false?  */
   if (TYPE_P (r) && typedef_variant_p (r) && !TYPE_ALIAS_P (r))
     return boolean_false_node;
-  /* For 'fun_tmpl<int>' we'll get a TEMPLATE_ID_EXPR.  */
-  if (TREE_CODE (r) == TEMPLATE_ID_EXPR
-      || primary_template_specialization_p (r)
+  if (primary_template_specialization_p (r)
       || variable_template_specialization_p (r))
     return boolean_true_node;
   else
     return boolean_false_node;
+}
+
+/* Process std::meta::template_of.
+   Returns: A reflection of the template of the specialization represented
+   by r.
+   Throws: meta::exception unless has_template_arguments(r) is true.  */
+
+static tree
+eval_template_of (location_t loc, tree r)
+{
+  if (eval_has_template_arguments (r) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = TI_TEMPLATE (TYPE_ALIAS_TEMPLATE_INFO (r));
+  else if (CLASS_TYPE_P (r) && CLASSTYPE_TEMPLATE_INFO (r))
+    r = CLASSTYPE_TI_TEMPLATE (r);
+  else if (VAR_OR_FUNCTION_DECL_P (r) && DECL_TEMPLATE_INFO (r))
+    r = DECL_TI_TEMPLATE (r);
+  else
+    gcc_assert (false);
+
+  gcc_assert (TREE_CODE (r) == TEMPLATE_DECL);
+  return get_reflection_raw (loc, r);
 }
 
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
@@ -582,6 +595,10 @@ process_metafunction (tree call)
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
   const char *ident = IDENTIFIER_POINTER (name);
   tree h = REFLECT_EXPR_HANDLE (info);
+  const location_t loc = cp_expr_loc_or_input_loc (info);
+
+  /* There still could be a TEMPLATE_ID_EXPR denoting a function template.  */
+  h = resolve_nondeduced_context (h, tf_warning_or_error);
 
   /* Handle is_*.  */
   if (startswith (ident, "is_"))
@@ -638,7 +655,9 @@ process_metafunction (tree call)
     }
 
   if (id_equal (name, "dealias"))
-    return eval_dealias (cp_expr_loc_or_input_loc (info), h);
+    return eval_dealias (loc, h);
+  if (id_equal (name, "template_of"))
+    return eval_template_of (loc, h);
 
 not_found:
   sorry ("%qE", name);
@@ -647,7 +666,6 @@ not_found:
 
 /* Splice reflection REFL; i.e., return its entity.  */
 
-// XXX The errors may be emitted multiple times.  Add tentative_p?
 tree
 splice (tree refl)
 {
@@ -820,7 +838,20 @@ check_out_of_consteval_use (tree expr)
 bool
 compare_reflections (const_tree lhs, const_tree rhs)
 {
-  return REFLECT_EXPR_HANDLE (lhs) == REFLECT_EXPR_HANDLE (rhs);
+  tree l = REFLECT_EXPR_HANDLE (lhs);
+  tree r = REFLECT_EXPR_HANDLE (rhs);
+
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  l = MAYBE_BASELINK_FUNCTIONS (l);
+
+  /* TEMPLATE_DECLs are wrapped in an OVERLOAD.  When we have
+
+       template_of (^^fun_tmpl<int>) == ^^fun_tmpl
+
+     the RHS will be OVERLOAD<TEMPLATE_DECL> but the LHS will
+     only be TEMPLATE_DECL.  They should compare equal, though.  */
+  // ??? Can we do something better?
+  return OVL_FIRST (l) == OVL_FIRST (r);
 }
 
 /* Return true if T is a valid splice-type-specifier.

@@ -43,7 +43,6 @@ static_assert (has_template_arguments (^^B<>));
 struct C {
   using Alias = A<int>;
 };
-struct D : private C { using C::Alias; };
 
 static_assert (has_template_arguments (dealias (^^C::Alias)));
 static_assert (!has_template_arguments (^^C::Alias));

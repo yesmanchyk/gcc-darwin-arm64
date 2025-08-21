@@ -81,6 +81,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval info dealias (info);
 
     consteval bool has_template_arguments (info);
+    consteval info template_of (info);
 
     //consteval string_view identifier_of (info);
     //consteval u8string_view u8identifier_of (info);
