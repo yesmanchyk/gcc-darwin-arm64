@@ -26,6 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "stringpool.h" // for get_identifier
 
+static tree eval_is_function_type (tree);
+
 static GTY(()) tree vector_identifier;
 
 /* Initialize state for reflection; e.g., initialize meta_info_type_node.  */
@@ -185,7 +187,9 @@ get_reflection (location_t loc, tree t)
 
   /* For injected-class-name, use the main variant so that comparing
      reflections works (cf. compare3.C).  */
-  if (RECORD_OR_UNION_TYPE_P (t) && DECL_SELF_REFERENCE_P (TYPE_NAME (t)))
+  if (RECORD_OR_UNION_TYPE_P (t)
+      && TYPE_NAME (t)
+      && DECL_SELF_REFERENCE_P (TYPE_NAME (t)))
     t = TYPE_MAIN_VARIANT (t);
 
   if (t == error_mark_node)
@@ -625,8 +629,7 @@ static tree
 eval_parameters_of (tree r)
 {
   if (!(eval_is_function (r) == boolean_true_node
-	// TODO
-	|| false/*eval_is_function_type (r) == boolean_true_node*/))
+	|| eval_is_function_type (r) == boolean_true_node))
     // TODO throw
     return NULL_TREE;
 
@@ -637,6 +640,7 @@ eval_parameters_of (tree r)
   for (tree arg = args; arg; arg = TREE_CHAIN (arg))
     CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
 			    get_reflection_raw (location_of (arg), arg));
+  // XXX build_vector_info?
   tree ctor = build_constructor (init_list_type_node, elts);
   CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
   TREE_CONSTANT (ctor) = true;
@@ -646,6 +650,50 @@ eval_parameters_of (tree r)
   if (TREE_CODE (r) == TARGET_EXPR)
     r = TARGET_EXPR_INITIAL (r);
   return r;
+}
+
+/* Reflection type traits [meta.reflection.traits].
+
+   Every function and function template declared in this subclause throws
+   an exception of type meta::exception unless the following conditions are
+   met:
+   -- For every parameter p of type info, is_type(p) is true.
+   -- For every parameter r whose type is constrained on reflection_range,
+      ranges::all_of(r, is_type) is true.  */
+
+/* Evaluate reflection type traits for which we have corresponding built-in
+   traits.  KIND says which trait we are interested in; TYPE is argument to
+   the trait.  */
+
+static tree
+eval_type_trait (tree type, cp_trait_kind kind)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  return finish_trait_expr (input_location, kind, type, NULL_TREE);
+}
+
+/* Process std::meta::is_function_type.  */
+
+static tree
+eval_is_function_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_FUNCTION);
+}
+
+/* Process std::meta::is_void_type.  */
+
+static tree
+eval_is_void_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (VOID_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
@@ -704,6 +752,10 @@ process_metafunction (tree call)
 	return eval_is_literal_operator (h);
       if (!strcmp (ident, "conversion_function_template"))
 	return eval_is_conversion_function_template (h);
+      if (!strcmp (ident, "function_type"))
+	return eval_is_function_type (h);
+      if (!strcmp (ident, "void_type"))
+	return eval_is_void_type (h);
       goto not_found;
     }
 
