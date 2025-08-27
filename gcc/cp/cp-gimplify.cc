@@ -477,7 +477,7 @@ lvalue_has_side_effects (tree e)
 
 /* Return true if FN is an immediate-escalating function.  */
 
-static bool
+bool
 immediate_escalating_function_p (tree fn)
 {
   if (!fn || !flag_immediate_escalation)
@@ -515,7 +515,7 @@ unchecked_immediate_escalating_function_p (tree fn)
 
 /* Promote FN to an immediate function, including its clones.  */
 
-static void
+void
 promote_function_to_consteval (tree fn)
 {
   SET_DECL_IMMEDIATE_FUNCTION_P (fn);

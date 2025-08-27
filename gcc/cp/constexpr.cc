@@ -3181,12 +3181,14 @@ is_std_class (tree ctx, const char *name)
 bool
 is_std_allocator (tree ctx)
 {
-  return is_std_class (ctx, "allocator");
+  return (is_std_class (ctx, "allocator")
+	  || (flag_reflection
+	      && is_std_class (ctx, "__new_allocator")));
 }
 
 /* Return true if FNDECL is std::allocator<T>::{,de}allocate.  */
 
-static inline bool
+bool
 is_std_allocator_allocate (tree fndecl)
 {
   tree name = DECL_NAME (fndecl);
@@ -3750,8 +3752,14 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     return cxx_eval_thunk_call (ctx, t, fun, lval, non_constant_p, overflow_p,
 				jump_target);
   if (metafunction_p (fun))
-    // TODO: cache -- in outermost_ ?, set non_constant_p, etc.
-    return process_metafunction (t);
+    {
+      tree e = process_metafunction (t);
+      e = cxx_eval_constant_expression (ctx, e, vc_prvalue,
+					non_constant_p, overflow_p,
+					jump_target);
+      // XXX Handle errors?
+      return e;
+    }
   bool non_constexpr_call = false;
   if (!maybe_constexpr_fn (fun))
     {
@@ -9818,7 +9826,13 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 
 	/* Detect consteval-only smuggling: turning a consteval-only object
 	   into one that is not consteval-only.  */
-	if (consteval_only_p (op) && !consteval_only_p (type))
+	if (consteval_only_p (op)
+	    && !consteval_only_p (type)
+	    /* Like below, don't diagnose inside a call to std::construct_at,
+	       std::allocator<T>::{,de}allocate, because that is
+	       compiler-generated code.  */
+	    && !is_std_construct_at (ctx->call)
+	    && !is_std_allocator_allocate (ctx->call))
 	  {
 	    if (!ctx->quiet)
 	       error_at (loc, "conversion from consteval-only type %qT to "

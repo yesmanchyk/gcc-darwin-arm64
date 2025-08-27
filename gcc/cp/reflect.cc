@@ -26,6 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "stringpool.h" // for get_identifier
 
+static GTY(()) tree vector_identifier;
+
 /* Initialize state for reflection; e.g., initialize meta_info_type_node.  */
 
 void
@@ -40,6 +42,8 @@ init_reflection ()
   TYPE_SIZE_UNIT (meta_info_type_node) = size_int (GET_MODE_SIZE (ptr_mode));
   /* Name it.  */
   record_builtin_type (RID_MAX, "decltype(^^int)", meta_info_type_node);
+
+  vector_identifier = get_identifier ("vector");
 }
 
 /* Create a REFLECT_EXPR expression around T.  */
@@ -192,6 +196,7 @@ get_reflection (location_t loc, tree t)
 
 /* Return a null reflection value.  */
 
+// XXX why not just one static tree?
 tree
 get_null_reflection ()
 {
@@ -222,10 +227,30 @@ static tree
 get_info (tree call)
 {
   gcc_checking_assert (call_expr_nargs (call) > 0);
-  tree info = CALL_EXPR_ARG (call, 0);
+  tree info = get_nth_callarg (call, 0);
   gcc_checking_assert (REFLECTION_TYPE_P (TREE_TYPE (info)));
   info = cxx_constant_value (info);
   return info;
+}
+
+/* Return std::vector<info>.  */
+
+static tree
+get_vector_info ()
+{
+  tree args = make_tree_vec (1);
+  TREE_VEC_ELT (args, 0) = meta_info_type_node;
+  tree inst = lookup_template_class (vector_identifier, args,
+				     /*in_decl*/NULL_TREE,
+				     /*context*/std_node, tf_none);
+  inst = complete_type (inst);
+  if (inst == error_mark_node || !COMPLETE_TYPE_P (inst))
+    {
+      error ("couldn%'t look up %qs", "std::vector");
+      return NULL_TREE;
+    }
+
+  return inst;
 }
 
 /* Process std::meta::has_identifier.  Returns:
@@ -584,6 +609,45 @@ eval_template_of (location_t loc, tree r)
   return get_reflection_raw (loc, r);
 }
 
+/* Process std::meta::parameters_of.
+   Returns:
+   -- If r represents a function F, then a vector containing reflections of
+      the parameters of F, in the order in which they appear in a declaration
+      of F.
+   -- Otherwise, r represents a function type T; a vector containing
+      reflections of the types in parameter-type-list of T, in the order in
+      which they appear in the parameter-type-list.
+
+   Throws: meta::exception unless r represents a function or a function
+   type.  */
+
+static tree
+eval_parameters_of (tree r)
+{
+  if (!(eval_is_function (r) == boolean_true_node
+	// TODO
+	|| false/*eval_is_function_type (r) == boolean_true_node*/))
+    // TODO throw
+    return NULL_TREE;
+
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  tree args = (TREE_CODE (r) == FUNCTION_DECL
+	       ? DECL_ARGUMENTS (r)
+	       : TYPE_ARG_TYPES (r));
+  for (tree arg = args; arg; arg = TREE_CHAIN (arg))
+    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+			    get_reflection_raw (location_of (arg), arg));
+  tree ctor = build_constructor (init_list_type_node, elts);
+  CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
+  TREE_CONSTANT (ctor) = true;
+  TREE_STATIC (ctor) = true;
+  tree type = get_vector_info ();
+  r = finish_compound_literal (type, ctor, tf_warning_or_error, fcl_functional);
+  if (TREE_CODE (r) == TARGET_EXPR)
+    r = TARGET_EXPR_INITIAL (r);
+  return r;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -658,6 +722,8 @@ process_metafunction (tree call)
     return eval_dealias (loc, h);
   if (id_equal (name, "template_of"))
     return eval_template_of (loc, h);
+  if (id_equal (name, "parameters_of"))
+    return eval_parameters_of (h);
 
 not_found:
   sorry ("%qE", name);
@@ -726,6 +792,12 @@ bool
 consteval_only_p (tree t)
 {
   if (!flag_reflection)
+    return false;
+
+  /* cp_walk_tree walks template arguments, but
+     std::initializer_list<std::meta::info>::size_type should be fine,
+     or a nullptr constant, and similar.  */
+  if (TREE_CODE (t) == INTEGER_CST)
     return false;
 
   if (!TYPE_P (t))
@@ -807,6 +879,25 @@ check_out_of_consteval_use (tree expr)
 	 expression.  */
       if (!consteval_only_p (t))
 	return NULL_TREE;
+
+      if (current_function_decl
+	  /* Already escalated.  */
+	  && (DECL_IMMEDIATE_FUNCTION_P (current_function_decl)
+	      /* These functions are magic.  */
+	      || is_std_allocator_allocate (current_function_decl)))
+	{
+	  *walk_subtrees = false;
+	  return NULL_TREE;
+	}
+
+      /* We might have to escalate if we are in an immediate-escalating
+	 function.  */
+      if (immediate_escalating_function_p (current_function_decl))
+	{
+	  promote_function_to_consteval (current_function_decl);
+	  *walk_subtrees = false;
+	  return NULL_TREE;
+	}
 
       /* Yep, gotta complain.  */
       if (VAR_P (t))

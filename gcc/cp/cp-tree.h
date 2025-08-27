@@ -8890,6 +8890,8 @@ extern tree process_stmt_assume_attribute	(tree, tree, location_t);
 extern bool simple_empty_class_p		(tree, tree, tree_code);
 extern tree fold_builtin_source_location	(const_tree);
 extern tree get_source_location_impl_type	();
+extern bool immediate_escalating_function_p	(tree);
+extern void promote_function_to_consteval	(tree);
 extern tree cp_fold_immediate			(tree *, mce_value,
 						 tree = current_function_decl);
 extern void process_and_check_pending_immediate_escalating_fns ();
@@ -9046,6 +9048,7 @@ extern bool is_nondependent_static_init_expression (tree);
 extern bool is_static_init_expression    (tree);
 extern bool is_std_class (tree, const char *);
 extern bool is_std_allocator (tree);
+extern bool is_std_allocator_allocate (tree);
 extern bool potential_rvalue_constant_expression (tree);
 extern bool require_potential_constant_expression (tree);
 extern bool require_constant_expression (tree);

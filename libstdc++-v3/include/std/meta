@@ -36,6 +36,7 @@
 #include <initializer_list>
 //#include <string>
 #include <string_view>
+#include <vector>
 //#include <type_traits>
 
 #include <bits/version.h>
@@ -49,6 +50,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   namespace meta
   {
     using info = decltype(^^int);
+    using std::vector;
 
     // [meta.reflection.names], reflection names and locations
     consteval bool has_identifier (info);
@@ -82,6 +84,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     consteval bool has_template_arguments (info);
     consteval info template_of (info);
+    consteval vector<info> parameters_of (info);
 
     //consteval string_view identifier_of (info);
     //consteval u8string_view u8identifier_of (info);
