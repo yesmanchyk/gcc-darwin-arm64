@@ -3753,6 +3753,14 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 				jump_target);
   if (metafunction_p (fun))
     {
+      /* To be able to evaluate a metafunction, we may have to instantiate
+	 constexpr functions.  If we're not allowed to instantiate, leave
+	 this for later.  */
+      if (uid_sensitive_constexpr_evaluation_p ())
+	{
+	  *non_constant_p = true;
+	  return t;
+	}
       tree e = process_metafunction (t);
       e = cxx_eval_constant_expression (ctx, e, vc_prvalue,
 					non_constant_p, overflow_p,

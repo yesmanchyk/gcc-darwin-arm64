@@ -649,7 +649,7 @@ eval_parameters_of (tree r)
   tree args = (TREE_CODE (r) == FUNCTION_DECL
 	       ? DECL_ARGUMENTS (r)
 	       : TYPE_ARG_TYPES (r));
-  for (tree arg = args; arg; arg = TREE_CHAIN (arg))
+  for (tree arg = args; arg && arg != void_list_node; arg = TREE_CHAIN (arg))
     CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
 			    get_reflection_raw (location_of (arg), arg));
   // XXX build_vector_info?
@@ -683,7 +683,9 @@ eval_type_trait (tree type, cp_trait_kind kind)
   if (eval_is_type (type) != boolean_true_node)
     // TODO throw
     return NULL_TREE;
-  return finish_trait_expr (input_location, kind, type, NULL_TREE);
+  tree r = finish_trait_expr (input_location, kind, type, NULL_TREE);
+  STRIP_ANY_LOCATION_WRAPPER (r);
+  return r;
 }
 
 /* Process std::meta::is_function_type.  */
@@ -721,7 +723,6 @@ eval_is_null_pointer_type (const_tree type)
   else
     return boolean_false_node;
 }
-
 
 /* Process std::meta::is_integral_type.  */
 
