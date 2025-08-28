@@ -445,6 +445,19 @@ eval_is_concept (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_structured_binding.
+   Returns: true if r represents a structured binding.  Otherwise, false. */
+
+static tree
+eval_is_structured_binding (tree t)
+{
+  if (DECL_DECOMPOSITION_P (t))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+
 /* Process std::meta::is_template.
    Returns: true if r represents a function template, class template, variable
    template, alias template, or concept.  Otherwise, false.  */
@@ -879,6 +892,8 @@ process_metafunction (tree call)
 	return eval_is_alias_template (h);
       if (!strcmp (ident, "concept"))
 	return eval_is_concept (h);
+      if (!strcmp (ident, "structured_binding"))
+  return eval_is_structured_binding (h);
       if (!strcmp (ident, "template"))
 	return eval_is_template (h);
       if (!strcmp (ident, "function_parameter"))
