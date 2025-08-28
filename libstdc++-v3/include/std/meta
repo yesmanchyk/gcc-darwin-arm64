@@ -88,7 +88,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     // associated with [meta.unary.cat], primary type categories
     consteval bool is_void_type (info);
+    consteval bool is_null_pointer_type (info);
+    consteval bool is_integral_type (info);
+    consteval bool is_floating_point_type (info);
+    consteval bool is_array_type (info);
+    consteval bool is_pointer_type (info);
+    consteval bool is_lvalue_reference_type (info);
+    consteval bool is_rvalue_reference_type (info);
+    consteval bool is_member_object_pointer_type (info);
+    consteval bool is_member_function_pointer_type (info);
+    consteval bool is_enum_type (info);
+    consteval bool is_union_type (info);
+    consteval bool is_class_type (info);
     consteval bool is_function_type (info);
+    consteval bool is_reflection_type (info);
 
     //consteval string_view identifier_of (info);
     //consteval u8string_view u8identifier_of (info);

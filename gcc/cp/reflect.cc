@@ -696,6 +696,147 @@ eval_is_void_type (const_tree type)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_null_pointer_type.  */
+
+static tree
+eval_is_null_pointer_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (NULLPTR_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+
+/* Process std::meta::is_integral_type.  */
+
+static tree
+eval_is_integral_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (CP_INTEGRAL_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_floating_point_type.  */
+
+static tree
+eval_is_floating_point_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (FLOAT_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_array_type.  */
+
+static tree
+eval_is_array_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_ARRAY);
+}
+
+/* Process std::meta::is_pointer_type.  */
+
+static tree
+eval_is_pointer_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_POINTER);
+}
+
+/* Process std::meta::is_lvalue_reference_type.  */
+
+static tree
+eval_is_lvalue_reference_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (TYPE_REF_P (type) && !TYPE_REF_IS_RVALUE (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_rvalue_reference_type.  */
+
+static tree
+eval_is_rvalue_reference_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (TYPE_REF_P (type) && TYPE_REF_IS_RVALUE (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_member_object_pointer_type.  */
+
+static tree
+eval_is_member_object_pointer_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_MEMBER_OBJECT_POINTER);
+}
+
+/* Process std::meta::is_member_function_pointer_type.  */
+
+static tree
+eval_is_member_function_pointer_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_MEMBER_FUNCTION_POINTER);
+}
+
+/* Process std::meta::is_enum_type.  */
+
+static tree
+eval_is_enum_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_ENUM);
+}
+
+/* Process std::meta::is_union_type.  */
+
+static tree
+eval_is_union_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_UNION);
+}
+
+/* Process std::meta::is_class_type.  */
+
+static tree
+eval_is_class_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_CLASS);
+}
+
+/* Process std::meta::is_reflection_type.  */
+
+static tree
+eval_is_reflection_type (const_tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  if (REFLECTION_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -756,6 +897,32 @@ process_metafunction (tree call)
 	return eval_is_function_type (h);
       if (!strcmp (ident, "void_type"))
 	return eval_is_void_type (h);
+      if (!strcmp (ident, "null_pointer_type"))
+	return eval_is_null_pointer_type (h);
+      if (!strcmp (ident, "integral_type"))
+	return eval_is_integral_type (h);
+      if (!strcmp (ident, "floating_point_type"))
+	return eval_is_floating_point_type (h);
+      if (!strcmp (ident, "array_type"))
+	return eval_is_array_type (h);
+      if (!strcmp (ident, "pointer_type"))
+	return eval_is_pointer_type (h);
+      if (!strcmp (ident, "lvalue_reference_type"))
+	return eval_is_lvalue_reference_type (h);
+      if (!strcmp (ident, "rvalue_reference_type"))
+	return eval_is_rvalue_reference_type (h);
+      if (!strcmp (ident, "member_object_pointer_type"))
+	return eval_is_member_object_pointer_type (h);
+      if (!strcmp (ident, "member_function_pointer_type"))
+	return eval_is_member_function_pointer_type (h);
+      if (!strcmp (ident, "enum_type"))
+	return eval_is_enum_type (h);
+      if (!strcmp (ident, "union_type"))
+	return eval_is_union_type (h);
+      if (!strcmp (ident, "class_type"))
+	return eval_is_class_type (h);
+      if (!strcmp (ident, "reflection_type"))
+	return eval_is_reflection_type (h);
       goto not_found;
     }
 
