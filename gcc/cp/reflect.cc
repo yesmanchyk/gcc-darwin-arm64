@@ -645,14 +645,14 @@ eval_parameters_of (tree r)
     // TODO throw
     return NULL_TREE;
 
+  r = MAYBE_BASELINK_FUNCTIONS (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   tree args = (TREE_CODE (r) == FUNCTION_DECL
-	       ? DECL_ARGUMENTS (r)
+	       ? FUNCTION_FIRST_USER_PARM (r)
 	       : TYPE_ARG_TYPES (r));
   for (tree arg = args; arg && arg != void_list_node; arg = TREE_CHAIN (arg))
     CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
 			    get_reflection_raw (location_of (arg), arg));
-  // XXX build_vector_info?
   tree ctor = build_constructor (init_list_type_node, elts);
   CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
   TREE_CONSTANT (ctor) = true;

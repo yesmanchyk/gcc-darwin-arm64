@@ -23,3 +23,7 @@ static_assert (is_type_alias (^^V<int>));
 static_assert (is_type_alias (^^T));
 static_assert (!is_type_alias (^^wchar_t));
 static_assert (is_type_alias (^^size_t));
+
+using A = void(int, int);
+static_assert (is_type_alias (^^A));
+static_assert (!is_type_alias (dealias(^^A)));
