@@ -105,6 +105,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_function_type (info);
     consteval bool is_reflection_type (info);
 
+    // associated with [meta.trans.cv], const-volatile modifications
+    consteval info remove_const (info);
+    consteval info remove_volatile (info);
+    consteval info remove_cv (info);
+    consteval info add_const (info);
+    consteval info add_volatile (info);
+    consteval info add_cv (info);
+
     //consteval string_view identifier_of (info);
     //consteval u8string_view u8identifier_of (info);
   } // namespace meta

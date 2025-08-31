@@ -850,6 +850,106 @@ eval_is_reflection_type (const_tree type)
     return boolean_false_node;
 }
 
+/* Process std::meta::remove_const.
+   Returns: a reflection representing the type denoted by
+   std::remove_const_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_const (location_t loc, tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  int quals = cp_type_quals (type);
+  quals &= ~TYPE_QUAL_CONST;
+  type = cp_build_qualified_type (type, quals);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::remove_volatile.
+   Returns: a reflection representing the type denoted by
+   std::remove_volatile_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_volatile (location_t loc, tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  int quals = cp_type_quals (type);
+  quals &= ~TYPE_QUAL_VOLATILE;
+  type = cp_build_qualified_type (type, quals);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::remove_cv.
+   Returns: a reflection representing the type denoted by
+   std::remove_cv_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_cv (location_t loc, tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  type = finish_trait_type (CPTK_REMOVE_CV, type, NULL_TREE, tf_none);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::add_const.
+   Returns: a reflection representing the type denoted by
+   std::add_const_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_add_const (location_t loc, tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  int quals = cp_type_quals (type);
+  quals |= TYPE_QUAL_CONST;
+  type = cp_build_qualified_type (type, quals);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::add_volatile.
+   Returns: a reflection representing the type denoted by
+   std::add_volatile_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_add_volatile (location_t loc, tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  int quals = cp_type_quals (type);
+  quals |= TYPE_QUAL_VOLATILE;
+  type = cp_build_qualified_type (type, quals);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::add_cv.
+   Returns: a reflection representing the type denoted by
+   std::add_cv_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_add_cv (location_t loc, tree type)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    // TODO throw
+    return NULL_TREE;
+  int quals = cp_type_quals (type);
+  quals |= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+  type = cp_build_qualified_type (type, quals);
+  return get_reflection_raw (loc, type);
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
 
 tree
@@ -958,6 +1058,18 @@ process_metafunction (tree call)
     return eval_template_of (loc, h);
   if (id_equal (name, "parameters_of"))
     return eval_parameters_of (h);
+  if (id_equal (name, "remove_const"))
+    return eval_remove_const (loc, h);
+  if (id_equal (name, "remove_volatile"))
+    return eval_remove_volatile (loc, h);
+  if (id_equal (name, "remove_cv"))
+    return eval_remove_cv (loc, h);
+  if (id_equal (name, "add_const"))
+    return eval_add_const (loc, h);
+  if (id_equal (name, "add_volatile"))
+    return eval_add_volatile (loc, h);
+  if (id_equal (name, "add_cv"))
+    return eval_add_cv (loc, h);
 
 not_found:
   sorry ("%qE", name);
