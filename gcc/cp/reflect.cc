@@ -46,6 +46,8 @@ init_reflection ()
   record_builtin_type (RID_MAX, "decltype(^^int)", meta_info_type_node);
 
   vector_identifier = get_identifier ("vector");
+
+  TREE_TYPE (std_meta_node) = void_type_node;
 }
 
 /* Create a REFLECT_EXPR expression around T.  */

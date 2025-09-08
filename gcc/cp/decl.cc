@@ -5530,6 +5530,9 @@ cxx_init_decl_processing (void)
   std_node = current_namespace;
   if (flag_reflection)
     {
+      /* Note that we haven't initialized void_type_node yet, so
+	 std_meta_node will be initially typeless; its type will be
+	 set a little later in init_reflection.  */
       push_namespace (get_identifier ("meta"), /*inline*/false);
       std_meta_node = current_namespace;
       pop_namespace ();
