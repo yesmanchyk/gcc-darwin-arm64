@@ -105,6 +105,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_function_type (info);
     consteval bool is_reflection_type (info);
 
+    // associated with [meta.unary.comp], composite type categories
+    consteval bool is_reference_type (info);
+
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const (info);
     consteval info remove_volatile (info);

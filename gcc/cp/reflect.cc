@@ -852,6 +852,14 @@ eval_is_reflection_type (const_tree type)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_reference_type.  */
+
+static tree
+eval_is_reference_type (tree type)
+{
+  return eval_type_trait (type, CPTK_IS_REFERENCE);
+}
+
 /* Process std::meta::remove_const.
    Returns: a reflection representing the type denoted by
    std::remove_const_t<T>, where T is the type or type alias
@@ -1040,6 +1048,8 @@ process_metafunction (tree call)
 	return eval_is_class_type (h);
       if (!strcmp (ident, "reflection_type"))
 	return eval_is_reflection_type (h);
+      if (!strcmp (ident, "reference_type"))
+	return eval_is_reference_type (h);
       goto not_found;
     }
 
