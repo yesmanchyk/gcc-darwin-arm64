@@ -9090,6 +9090,8 @@ extern tree find_failing_clause			(const constexpr_ctx *ctx, tree);
 extern void diagnose_failing_condition		(tree, location_t, bool,
 						 const constexpr_ctx * = nullptr);
 extern bool replace_decl			(tree *, tree, tree);
+extern tree cxa_allocate_and_throw_exception	(location_t, const constexpr_ctx *,
+						 tree);
 
 /* An RAII sentinel used to restrict constexpr evaluation so that it
    doesn't do anything that causes extra DECL_UID generation.  */
@@ -9137,7 +9139,7 @@ extern tree co_await_get_resume_call		(tree await_expr);
 /* In reflect.cc */
 extern void init_reflection ();
 extern bool metafunction_p (tree) ATTRIBUTE_PURE;
-extern tree process_metafunction (tree);
+extern tree process_metafunction (const constexpr_ctx *, tree, tree *);
 extern tree get_reflection (location_t, tree) ATTRIBUTE_PURE;
 extern tree get_null_reflection () ATTRIBUTE_PURE;
 extern tree splice (tree);

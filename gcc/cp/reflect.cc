@@ -25,8 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "cp-tree.h"
 #include "stringpool.h" // for get_identifier
+#include "intl.h"
 
-static tree eval_is_function_type (tree);
+static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
+				   tree *);
+struct constexpr_ctx;
 
 static GTY(()) tree vector_identifier;
 
@@ -222,6 +225,9 @@ metafunction_p (tree fndecl)
   if (!DECL_IMMEDIATE_FUNCTION_P (fndecl))
     return false;
 
+  if (special_function_p (fndecl))
+    return false;
+
   /* Is the call from std::meta?  */
   fndecl = decl_namespace_context (fndecl);
   return DECL_NAMESPACE_STD_META_P (fndecl);
@@ -257,6 +263,92 @@ get_vector_info ()
     }
 
   return inst;
+}
+
+/* Create std::meta::exception{ what, refl }.  WHAT is the string for what(),
+   and REFL is the info for from().  */
+
+static tree
+get_meta_exception_object (location_t loc, const char *what, tree refl)
+{
+  tree type = lookup_qualified_name (std_meta_node, "exception",
+				     LOOK_want::TYPE, /*complain*/true);
+  if (TREE_CODE (type) != TYPE_DECL || !CLASS_TYPE_P (TREE_TYPE (type)))
+    {
+      error_at (loc, "couldn%'t throw %qs", "std::meta::exception");
+      return NULL_TREE;
+    }
+  type = TREE_TYPE (type);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  tree string_lit = build_string (strlen (what) + 1, what);
+  TREE_TYPE (string_lit) = char_array_type_node;
+  string_lit = fix_string_type (string_lit);
+  CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, string_lit);
+  CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, get_reflection_raw (loc, refl));
+  tree ctor = build_constructor (init_list_type_node, elts);
+  CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
+  TREE_CONSTANT (ctor) = true;
+  TREE_STATIC (ctor) = true;
+  return finish_compound_literal (type, ctor, tf_warning_or_error,
+				  fcl_functional);
+}
+
+/* Perform 'throw std::meta::exception{...}'.  WHAT is the string for what(),
+   REFL is the reflection for from().  */
+
+static tree
+throw_exception (location_t loc, const constexpr_ctx *ctx, const char *what,
+		 tree refl, tree *jump_target)
+{
+  if (tree obj = get_meta_exception_object (loc, what, refl))
+    *jump_target = cxa_allocate_and_throw_exception (loc, ctx, obj);
+  return NULL_TREE;
+}
+
+/* Wrapper around throw_exception, generic case.  */
+
+static tree
+throw_exception_generic (location_t loc, const constexpr_ctx *ctx,
+			 tree refl, tree *jump_target)
+{
+  return throw_exception (loc, ctx, N_("Oy vey!"), refl, jump_target);
+}
+
+/* Wrapper around throw_exception to complain that the reflection does not
+   represent a type.  */
+
+static tree
+throw_exception_nontype (location_t loc, const constexpr_ctx *ctx,
+			 tree refl, tree *jump_target)
+{
+  return throw_exception (loc, ctx,
+			  N_("reflection does not represent a type"),
+			  refl, jump_target);
+}
+
+/* Wrapper around throw_exception to complain that the reflection does not
+   represent something that satisfies has_template_arguments.  */
+
+static tree
+throw_exception_notargs (location_t loc, const constexpr_ctx *ctx,
+			 tree refl, tree *jump_target)
+{
+  return throw_exception (loc, ctx,
+			  N_("reflection does not have template arguments"),
+			  refl, jump_target);
+}
+
+/* Wrapper around throw_exception to complain that the reflection does not
+   represent a function or a function type.  */
+
+static tree
+throw_exception_nofn (location_t loc, const constexpr_ctx *ctx,
+		      tree refl, tree *jump_target)
+{
+  return throw_exception
+    (loc, ctx,
+     N_("reflection does not represent a function/function type"),
+     refl, jump_target);
 }
 
 /* Process std::meta::has_identifier.  Returns:
@@ -568,14 +660,15 @@ eval_is_conversion_function_template (const_tree)
    Throws: meta::exception unless r represents an entity.  */
 
 static tree
-eval_dealias (location_t loc, tree r)
+eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
+	      tree *jump_target)
 {
   if (TYPE_P (r) && typedef_variant_p (r))
     r = strip_typedefs (r);
   else if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
-
-  // TODO Throw if R is not an entity [basic.pre]/8.
+  else if (0)
+    return throw_exception_generic (loc, ctx, r, jump_target);
 
   return get_reflection_raw (loc, r);
 }
@@ -607,11 +700,11 @@ eval_has_template_arguments (tree r)
    Throws: meta::exception unless has_template_arguments(r) is true.  */
 
 static tree
-eval_template_of (location_t loc, tree r)
+eval_template_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		  tree *jump_target)
 {
   if (eval_has_template_arguments (r) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_notargs (loc, ctx, r, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TYPE_P (r) && typedef_variant_p (r))
@@ -640,12 +733,13 @@ eval_template_of (location_t loc, tree r)
    type.  */
 
 static tree
-eval_parameters_of (tree r)
+eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		    tree *jump_target)
 {
   if (!(eval_is_function (r) == boolean_true_node
-	|| eval_is_function_type (r) == boolean_true_node))
-    // TODO throw
-    return NULL_TREE;
+	|| eval_is_function_type (loc, ctx, r, jump_target)
+	    == boolean_true_node))
+    return throw_exception_nofn (loc, ctx, r, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
@@ -660,6 +754,8 @@ eval_parameters_of (tree r)
   TREE_CONSTANT (ctor) = true;
   TREE_STATIC (ctor) = true;
   tree type = get_vector_info ();
+  if (!type)
+    return error_mark_node;
   r = finish_compound_literal (type, ctor, tf_warning_or_error, fcl_functional);
   if (TREE_CODE (r) == TARGET_EXPR)
     r = TARGET_EXPR_INITIAL (r);
@@ -680,11 +776,11 @@ eval_parameters_of (tree r)
    the trait.  */
 
 static tree
-eval_type_trait (tree type, cp_trait_kind kind)
+eval_type_trait (location_t loc, const constexpr_ctx *ctx, tree type,
+		 cp_trait_kind kind, tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree r = finish_trait_expr (input_location, kind, type, NULL_TREE);
   STRIP_ANY_LOCATION_WRAPPER (r);
   return r;
@@ -693,19 +789,20 @@ eval_type_trait (tree type, cp_trait_kind kind)
 /* Process std::meta::is_function_type.  */
 
 static tree
-eval_is_function_type (tree type)
+eval_is_function_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_FUNCTION);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_FUNCTION, jump_target);
 }
 
 /* Process std::meta::is_void_type.  */
 
 static tree
-eval_is_void_type (const_tree type)
+eval_is_void_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		   tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (VOID_TYPE_P (type))
     return boolean_true_node;
   else
@@ -715,11 +812,11 @@ eval_is_void_type (const_tree type)
 /* Process std::meta::is_null_pointer_type.  */
 
 static tree
-eval_is_null_pointer_type (const_tree type)
+eval_is_null_pointer_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			   tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (NULLPTR_TYPE_P (type))
     return boolean_true_node;
   else
@@ -729,11 +826,11 @@ eval_is_null_pointer_type (const_tree type)
 /* Process std::meta::is_integral_type.  */
 
 static tree
-eval_is_integral_type (const_tree type)
+eval_is_integral_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (CP_INTEGRAL_TYPE_P (type))
     return boolean_true_node;
   else
@@ -743,11 +840,11 @@ eval_is_integral_type (const_tree type)
 /* Process std::meta::is_floating_point_type.  */
 
 static tree
-eval_is_floating_point_type (const_tree type)
+eval_is_floating_point_type (location_t loc, const constexpr_ctx *ctx,
+			     tree type, tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (FLOAT_TYPE_P (type))
     return boolean_true_node;
   else
@@ -757,27 +854,29 @@ eval_is_floating_point_type (const_tree type)
 /* Process std::meta::is_array_type.  */
 
 static tree
-eval_is_array_type (tree type)
+eval_is_array_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_ARRAY);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_ARRAY, jump_target);
 }
 
 /* Process std::meta::is_pointer_type.  */
 
 static tree
-eval_is_pointer_type (tree type)
+eval_is_pointer_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		      tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_POINTER);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_POINTER, jump_target);
 }
 
 /* Process std::meta::is_lvalue_reference_type.  */
 
 static tree
-eval_is_lvalue_reference_type (const_tree type)
+eval_is_lvalue_reference_type (location_t loc, const constexpr_ctx *ctx,
+			       tree type, tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type) && !TYPE_REF_IS_RVALUE (type))
     return boolean_true_node;
   else
@@ -787,11 +886,11 @@ eval_is_lvalue_reference_type (const_tree type)
 /* Process std::meta::is_rvalue_reference_type.  */
 
 static tree
-eval_is_rvalue_reference_type (const_tree type)
+eval_is_rvalue_reference_type (location_t loc, const constexpr_ctx *ctx,
+			       tree type, tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type) && TYPE_REF_IS_RVALUE (type))
     return boolean_true_node;
   else
@@ -801,51 +900,58 @@ eval_is_rvalue_reference_type (const_tree type)
 /* Process std::meta::is_member_object_pointer_type.  */
 
 static tree
-eval_is_member_object_pointer_type (tree type)
+eval_is_member_object_pointer_type (location_t loc, const constexpr_ctx *ctx,
+				    tree type, tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_MEMBER_OBJECT_POINTER);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_MEMBER_OBJECT_POINTER,
+			  jump_target);
 }
 
 /* Process std::meta::is_member_function_pointer_type.  */
 
 static tree
-eval_is_member_function_pointer_type (tree type)
+eval_is_member_function_pointer_type (location_t loc, const constexpr_ctx *ctx,
+				      tree type, tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_MEMBER_FUNCTION_POINTER);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_MEMBER_FUNCTION_POINTER,
+			  jump_target);
 }
 
 /* Process std::meta::is_enum_type.  */
 
 static tree
-eval_is_enum_type (tree type)
+eval_is_enum_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		   tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_ENUM);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_ENUM, jump_target);
 }
 
 /* Process std::meta::is_union_type.  */
 
 static tree
-eval_is_union_type (tree type)
+eval_is_union_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_UNION);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_UNION, jump_target);
 }
 
 /* Process std::meta::is_class_type.  */
 
 static tree
-eval_is_class_type (tree type)
+eval_is_class_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_CLASS);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_CLASS, jump_target);
 }
 
 /* Process std::meta::is_reflection_type.  */
 
 static tree
-eval_is_reflection_type (const_tree type)
+eval_is_reflection_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			 tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (REFLECTION_TYPE_P (type))
     return boolean_true_node;
   else
@@ -855,9 +961,10 @@ eval_is_reflection_type (const_tree type)
 /* Process std::meta::is_reference_type.  */
 
 static tree
-eval_is_reference_type (tree type)
+eval_is_reference_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			tree *jump_target)
 {
-  return eval_type_trait (type, CPTK_IS_REFERENCE);
+  return eval_type_trait (loc, ctx, type, CPTK_IS_REFERENCE, jump_target);
 }
 
 /* Process std::meta::remove_const.
@@ -866,11 +973,11 @@ eval_is_reference_type (tree type)
    represented by type.  */
 
 static tree
-eval_remove_const (location_t loc, tree type)
+eval_remove_const (location_t loc, const constexpr_ctx *ctx, tree type,
+		   tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   int quals = cp_type_quals (type);
   quals &= ~TYPE_QUAL_CONST;
   type = cp_build_qualified_type (type, quals);
@@ -883,11 +990,11 @@ eval_remove_const (location_t loc, tree type)
    represented by type.  */
 
 static tree
-eval_remove_volatile (location_t loc, tree type)
+eval_remove_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
+		      tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   int quals = cp_type_quals (type);
   quals &= ~TYPE_QUAL_VOLATILE;
   type = cp_build_qualified_type (type, quals);
@@ -900,11 +1007,11 @@ eval_remove_volatile (location_t loc, tree type)
    represented by type.  */
 
 static tree
-eval_remove_cv (location_t loc, tree type)
+eval_remove_cv (location_t loc, const constexpr_ctx *ctx, tree type,
+		tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_REMOVE_CV, type, NULL_TREE, tf_none);
   return get_reflection_raw (loc, type);
 }
@@ -915,11 +1022,11 @@ eval_remove_cv (location_t loc, tree type)
    represented by type.  */
 
 static tree
-eval_add_const (location_t loc, tree type)
+eval_add_const (location_t loc, const constexpr_ctx *ctx, tree type,
+		tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   int quals = cp_type_quals (type);
   quals |= TYPE_QUAL_CONST;
   type = cp_build_qualified_type (type, quals);
@@ -932,11 +1039,11 @@ eval_add_const (location_t loc, tree type)
    represented by type.  */
 
 static tree
-eval_add_volatile (location_t loc, tree type)
+eval_add_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
+		   tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   int quals = cp_type_quals (type);
   quals |= TYPE_QUAL_VOLATILE;
   type = cp_build_qualified_type (type, quals);
@@ -949,21 +1056,22 @@ eval_add_volatile (location_t loc, tree type)
    represented by type.  */
 
 static tree
-eval_add_cv (location_t loc, tree type)
+eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
+	     tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
-    // TODO throw
-    return NULL_TREE;
+    return throw_exception_nontype (loc, ctx, type, jump_target);
   int quals = cp_type_quals (type);
   quals |= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
   type = cp_build_qualified_type (type, quals);
   return get_reflection_raw (loc, type);
 }
 
-/* Expand a call to a metafunction.  CALL is the CALL_EXPR.  */
+/* Expand a call to a metafunction.  CALL is the CALL_EXPR.
+   JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
 tree
-process_metafunction (tree call)
+process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 {
   tree info = get_info (call);
   /* Mapping name -> value would be a perfect use for a trie.  prime-paths.cc
@@ -1019,37 +1127,37 @@ process_metafunction (tree call)
       if (!strcmp (ident, "conversion_function_template"))
 	return eval_is_conversion_function_template (h);
       if (!strcmp (ident, "function_type"))
-	return eval_is_function_type (h);
+	return eval_is_function_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "void_type"))
-	return eval_is_void_type (h);
+	return eval_is_void_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "null_pointer_type"))
-	return eval_is_null_pointer_type (h);
+	return eval_is_null_pointer_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "integral_type"))
-	return eval_is_integral_type (h);
+	return eval_is_integral_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "floating_point_type"))
-	return eval_is_floating_point_type (h);
+	return eval_is_floating_point_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "array_type"))
-	return eval_is_array_type (h);
+	return eval_is_array_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "pointer_type"))
-	return eval_is_pointer_type (h);
+	return eval_is_pointer_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "lvalue_reference_type"))
-	return eval_is_lvalue_reference_type (h);
+	return eval_is_lvalue_reference_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "rvalue_reference_type"))
-	return eval_is_rvalue_reference_type (h);
+	return eval_is_rvalue_reference_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "member_object_pointer_type"))
-	return eval_is_member_object_pointer_type (h);
+	return eval_is_member_object_pointer_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "member_function_pointer_type"))
-	return eval_is_member_function_pointer_type (h);
+	return eval_is_member_function_pointer_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "enum_type"))
-	return eval_is_enum_type (h);
+	return eval_is_enum_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "union_type"))
-	return eval_is_union_type (h);
+	return eval_is_union_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "class_type"))
-	return eval_is_class_type (h);
+	return eval_is_class_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "reflection_type"))
-	return eval_is_reflection_type (h);
+	return eval_is_reflection_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "reference_type"))
-	return eval_is_reference_type (h);
+	return eval_is_reference_type (loc, ctx, h, jump_target);
       goto not_found;
     }
 
@@ -1065,23 +1173,23 @@ process_metafunction (tree call)
     }
 
   if (id_equal (name, "dealias"))
-    return eval_dealias (loc, h);
+    return eval_dealias (loc, ctx, h, jump_target);
   if (id_equal (name, "template_of"))
-    return eval_template_of (loc, h);
+    return eval_template_of (loc, ctx, h, jump_target);
   if (id_equal (name, "parameters_of"))
-    return eval_parameters_of (h);
+    return eval_parameters_of (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_const"))
-    return eval_remove_const (loc, h);
+    return eval_remove_const (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_volatile"))
-    return eval_remove_volatile (loc, h);
+    return eval_remove_volatile (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_cv"))
-    return eval_remove_cv (loc, h);
+    return eval_remove_cv (loc, ctx, h, jump_target);
   if (id_equal (name, "add_const"))
-    return eval_add_const (loc, h);
+    return eval_add_const (loc, ctx, h, jump_target);
   if (id_equal (name, "add_volatile"))
-    return eval_add_volatile (loc, h);
+    return eval_add_volatile (loc, ctx, h, jump_target);
   if (id_equal (name, "add_cv"))
-    return eval_add_cv (loc, h);
+    return eval_add_cv (loc, ctx, h, jump_target);
 
 not_found:
   sorry ("%qE", name);
@@ -1192,10 +1300,15 @@ check_out_of_consteval_use (tree expr)
     return false;
 
   /* Don't complain if we're generating the body for a synthesized method.  */
-  if (current_function_decl
-      && DECL_CONSTRUCTOR_P (current_function_decl)
-      && DECL_ARTIFICIAL (current_function_decl))
-    return false;
+  if (current_function_decl)
+    {
+      if (DECL_CONSTRUCTOR_P (current_function_decl)
+	  && DECL_ARTIFICIAL (current_function_decl))
+	return false;
+      tree ctx = decl_namespace_context (current_function_decl);
+      if (DECL_NAMESPACE_STD_META_P (ctx))
+	return false;
+    }
 
   auto walker = [](tree *tp, int *walk_subtrees, void *) -> tree
     {

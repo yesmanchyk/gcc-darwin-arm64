@@ -34,9 +34,11 @@
 #endif
 
 #include <initializer_list>
-//#include <string>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
+#include <source_location>
 //#include <type_traits>
 
 #include <bits/version.h>
@@ -51,6 +53,36 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
     using info = decltype(^^int);
     using std::vector;
+
+    // [meta.reflection.exception], class exception
+    class exception : public std::exception {
+    private:
+      //optional<string> what_;     // exposition only
+      std::string_view what_;
+      u8string u8what_;           // exposition only
+      info from_;                 // exposition only
+      source_location where_;     // exposition only
+
+    public:
+      consteval exception(u8string_view what, info from,
+			  source_location where = source_location::current()) noexcept
+	: u8what_{what}, from_{from}, where_{where} { }
+
+      consteval exception(string_view what, info from,
+			  source_location where = source_location::current()) noexcept
+	: what_{what}, from_{from}, where_{where} { }
+
+      exception(const exception&) = default;
+      exception(exception&&) = default;
+
+      exception& operator=(const exception&) = default;
+      exception& operator=(exception&&) = default;
+
+      constexpr const char *what() const noexcept override { return what_.data (); }
+      consteval u8string_view u8what() const noexcept { return u8what_; }
+      consteval info from() const noexcept { return from_; }
+      consteval source_location where() const noexcept { return where_; }
+    };
 
     // [meta.reflection.names], reflection names and locations
     consteval bool has_identifier (info);

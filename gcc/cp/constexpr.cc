@@ -2031,6 +2031,10 @@ cxx_eval_cxa_builtin_fn (const constexpr_ctx *ctx, tree call,
 	    {
 	      if (type_build_dtor_call (TREE_TYPE (arg)))
 		{
+		  /* So that we don't complain about out-of-consteval use.  */
+		  temp_override<tree> ovr (current_function_decl);
+		  if (ctx->call && ctx->call->fundef)
+		    current_function_decl = ctx->call->fundef->decl;
 		  tree cleanup
 		    = cxx_maybe_build_cleanup (arg, (ctx->quiet ? tf_none
 						     : tf_warning_or_error));
@@ -3669,6 +3673,44 @@ cxx_set_object_constness (const constexpr_ctx *ctx, tree object,
     }
 }
 
+/* Allocate an exception for OBJECT and throw it.  */
+
+tree
+cxa_allocate_and_throw_exception (location_t loc, const constexpr_ctx *ctx,
+				  tree object)
+{
+  tree type = TREE_TYPE (object);
+  /* This simulates a call to __cxa_allocate_exception.  We need
+     (struct exception *) &heap -- memory on the heap so that
+     it can survive the stack being unwound.  */
+  tree arr = build_array_type_nelts (type, 1);
+  tree var = cxa_allocate_exception (loc, ctx, arr, size_zero_node);
+  DECL_NAME (var) = heap_identifier;
+  ctx->global->put_value (var, NULL_TREE);
+
+  /* *(struct exception *) &heap  = exc{ ... }  */
+  var = build_nop (build_pointer_type (type), build_address (var));
+  object = cp_build_init_expr (cp_build_fold_indirect_ref (var), object);
+  bool non_constant_p = false, overflow_p = false;
+  tree jump_target = NULL_TREE;
+  cxx_eval_constant_expression (ctx, object, vc_prvalue, &non_constant_p,
+				&overflow_p, &jump_target);
+  if (non_constant_p)
+    {
+      if (!ctx->quiet)
+	error_at (loc, "couldn%'t throw %qT", type);
+      return NULL_TREE;
+    }
+
+  /* Now we can __cxa_throw.  */
+  var = cxa_check_throw_arg (var, /*free_exc=*/false);
+  DECL_EXCEPTION_REFCOUNT (var)
+    = size_binop (PLUS_EXPR, DECL_EXCEPTION_REFCOUNT (var), size_one_node);
+  ++ctx->global->uncaught_exceptions;
+
+  return var;
+}
+
 /* Subroutine of cxx_eval_constant_expression.
    Evaluate the call expression tree T in the context of OLD_CALL expression
    evaluation.  */
@@ -3761,7 +3803,9 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  *non_constant_p = true;
 	  return t;
 	}
-      tree e = process_metafunction (t);
+      tree e = process_metafunction (ctx, t, jump_target);
+      if (throws (jump_target))
+	return NULL_TREE;
       e = cxx_eval_constant_expression (ctx, e, vc_prvalue,
 					non_constant_p, overflow_p,
 					jump_target);
