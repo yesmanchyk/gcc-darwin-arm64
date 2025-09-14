@@ -2747,9 +2747,11 @@ strip_using_decl (tree decl)
   if (decl == NULL_TREE)
     return NULL_TREE;
 
-  if (LIKELY (!cp_preserve_using_decl))
-    while (TREE_CODE (decl) == USING_DECL && !DECL_DEPENDENT_P (decl))
-      decl = USING_DECL_DECLS (decl);
+  while (TREE_CODE (decl) == USING_DECL
+	 && !DECL_DEPENDENT_P (decl)
+	 && (LIKELY (!cp_preserve_using_decl)
+	     || TREE_CODE (USING_DECL_DECLS (decl)) == NAMESPACE_DECL))
+    decl = USING_DECL_DECLS (decl);
 
   if (TREE_CODE (decl) == USING_DECL && DECL_DEPENDENT_P (decl)
       && USING_DECL_TYPENAME_P (decl))
