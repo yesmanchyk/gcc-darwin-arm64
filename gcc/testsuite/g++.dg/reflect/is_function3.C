@@ -12,5 +12,4 @@ struct S {
 };
 
 static_assert (is_function (^^S::S)); // { dg-error "cannot take the reflection of an overload set" }
-// FIXME
-//static_assert (is_function (^^S::~S));
+static_assert (is_function (^^S::~S));
