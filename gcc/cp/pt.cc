@@ -22195,7 +22195,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    /* Assume access of this FIELD_DECL has already been checked; we
 	       don't recheck it to avoid bogus access errors when substituting
 	       a reduced constant initializer (97740).  */
-	    gcc_checking_assert (TREE_CODE (TREE_OPERAND (t, 1)) == FIELD_DECL);
+	    gcc_checking_assert (TREE_CODE (TREE_OPERAND (t, 1)) == FIELD_DECL
+				 || dependent_splice_p (TREE_OPERAND (t, 1)));
 	    push_deferring_access_checks (dk_deferred);
 	    r = finish_non_static_data_member (member, object, NULL_TREE,
 					       complain);
