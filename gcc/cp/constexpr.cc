@@ -3689,8 +3689,8 @@ cxa_allocate_and_throw_exception (location_t loc, const constexpr_ctx *ctx,
   ctx->global->put_value (var, NULL_TREE);
 
   /* *(struct exception *) &heap  = exc{ ... }  */
-  var = build_nop (build_pointer_type (type), build_address (var));
-  object = cp_build_init_expr (cp_build_fold_indirect_ref (var), object);
+  tree ptr = build_nop (build_pointer_type (type), build_address (var));
+  object = cp_build_init_expr (cp_build_fold_indirect_ref (ptr), object);
   bool non_constant_p = false, overflow_p = false;
   tree jump_target = NULL_TREE;
   cxx_eval_constant_expression (ctx, object, vc_prvalue, &non_constant_p,
@@ -3703,7 +3703,6 @@ cxa_allocate_and_throw_exception (location_t loc, const constexpr_ctx *ctx,
     }
 
   /* Now we can __cxa_throw.  */
-  var = cxa_check_throw_arg (var, /*free_exc=*/false);
   DECL_EXCEPTION_REFCOUNT (var)
     = size_binop (PLUS_EXPR, DECL_EXCEPTION_REFCOUNT (var), size_one_node);
   ++ctx->global->uncaught_exceptions;
