@@ -5346,6 +5346,7 @@ initialize_predefined_identifiers (void)
     {"heap []", &heap_vec_identifier, cik_normal},
     {"omp", &omp_identifier, cik_normal},
     {"internal ", &internal_identifier, cik_normal},
+    {"annotation ", &annotation_identifier, cik_normal},
     {NULL, NULL, cik_normal}
   };
 

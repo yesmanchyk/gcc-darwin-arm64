@@ -48,6 +48,7 @@ static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
 static tree handle_abi_tag_attribute (tree *, tree, tree, int, bool *);
 static tree handle_contract_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_dangling_attribute (tree *, tree, tree, int, bool *);
+static tree handle_annotation_attribute (tree *, tree, tree, int, bool *);
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  */
@@ -5427,7 +5428,9 @@ const scoped_attribute_specs std_attribute_table =
 static const attribute_spec internal_attributes[] =
 {
   { "aligned", 0, 1, false, false, false, false,
-    handle_alignas_attribute, attr_aligned_exclusions }
+    handle_alignas_attribute, attr_aligned_exclusions },
+  { "annotation ", 1, 1, false, false, false, false,
+    handle_annotation_attribute, NULL }
 };
 
 const scoped_attribute_specs internal_attribute_table =
@@ -5712,6 +5715,53 @@ handle_no_dangling_attribute (tree *node, tree name, tree args, int,
       *no_add_attrs = true;
     }
 
+  return NULL_TREE;
+}
+
+/* Perform checking for annotations.  */
+
+tree
+handle_annotation_attribute (tree *node, tree ARG_UNUSED (name),
+			     tree args, int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  if (TYPE_P (*node)
+      && TREE_CODE (*node) != ENUMERAL_TYPE
+      && TREE_CODE (*node) != RECORD_TYPE
+      && TREE_CODE (*node) != UNION_TYPE)
+    {
+      error ("annotation on a type other than class or enumeration "
+	     "definition");
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  if (TREE_CODE (*node) == LABEL_DECL)
+    {
+      error ("annotation applied to a label");
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  if (TREE_CODE (*node) == FIELD_DECL && DECL_UNNAMED_BIT_FIELD (*node))
+    {
+      error ("annotation on unnamed bit-field");
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  if (!type_dependent_expression_p (TREE_VALUE (args))
+      && !structural_type_p (TREE_TYPE (TREE_VALUE (args))))
+    {
+      auto_diagnostic_group d;
+      error ("annotation does not have structural type");
+      structural_type_p (TREE_TYPE (TREE_VALUE (args)), true);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  if (!processing_template_decl)
+    {
+      TREE_VALUE (args) = cxx_constant_value (TREE_VALUE (args));
+      if (TREE_VALUE (args) == error_mark_node)
+        *no_add_attrs = true;
+    }
   return NULL_TREE;
 }
 

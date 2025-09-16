@@ -1490,6 +1490,11 @@ is_late_template_attribute (tree attr, tree decl)
   if (is_attribute_p ("tls_model", name))
     return true;
 
+  /* Handle all annotations as late, so that they aren't incorrectly
+     reordered if some have dependent expressions and others don't.  */
+  if (is_attribute_p ("annotation ", name))
+    return true;
+
   /* #pragma omp declare simd attribute needs to be always deferred.  */
   if (flag_openmp
       && is_attribute_p ("omp declare simd", name))

@@ -175,6 +175,7 @@ enum cp_tree_index
     CPTI_FOR_END_IDENTIFIER,
     CPTI_ABI_TAG_IDENTIFIER,
     CPTI_ALIGNED_IDENTIFIER,
+    CPTI_ANNOTATION_IDENTIFIER,
     CPTI_BEGIN_IDENTIFIER,
     CPTI_END_IDENTIFIER,
     CPTI_GET_IDENTIFIER,
@@ -333,6 +334,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define for_end_identifier		cp_global_trees[CPTI_FOR_END_IDENTIFIER]
 #define abi_tag_identifier		cp_global_trees[CPTI_ABI_TAG_IDENTIFIER]
 #define aligned_identifier		cp_global_trees[CPTI_ALIGNED_IDENTIFIER]
+#define annotation_identifier		cp_global_trees[CPTI_ANNOTATION_IDENTIFIER]
 #define begin_identifier		cp_global_trees[CPTI_BEGIN_IDENTIFIER]
 #define end_identifier			cp_global_trees[CPTI_END_IDENTIFIER]
 #define get__identifier			cp_global_trees[CPTI_GET_IDENTIFIER]

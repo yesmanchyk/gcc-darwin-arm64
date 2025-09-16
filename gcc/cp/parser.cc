@@ -18157,6 +18157,8 @@ cp_parser_decomposition_declaration (cp_parser *parser,
 	      attr = NULL_TREE;
 	    if (attr && first_attr == -1)
 	      first_attr = v.length ();
+	    if (lookup_attribute ("internal ", "annotation ", attr))
+	      error ("annotation on structured binding");
 	  }
 	v.safe_push (e);
 	++cnt;
@@ -32741,7 +32743,27 @@ cp_parser_std_attribute_list (cp_parser *parser, tree attr_ns)
 
   while (true)
     {
-      location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+      token = cp_lexer_peek_token (parser->lexer);
+      location_t loc = token->location;
+      if (token->type == CPP_EQ)
+	{
+	  error_at (loc, "mixing annotations and attributes in the same list");
+	  cp_lexer_consume_token (parser->lexer);
+	  tree annotation
+	    = cp_parser_constant_expression (parser,
+					     /*allow_non_constant_p=*/false,
+					     /*non_constant_p=*/nullptr,
+					     /*strict_p=*/true);
+	  if (annotation == error_mark_node)
+	    break;
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	    cp_lexer_consume_token (parser->lexer);
+	  token = cp_lexer_peek_token (parser->lexer);
+	  if (token->type != CPP_COMMA)
+	    break;
+	  cp_lexer_consume_token (parser->lexer);
+	  continue;
+	}
       attribute = cp_parser_std_attribute (parser, attr_ns);
       if (attribute == error_mark_node)
 	break;
@@ -33133,10 +33155,73 @@ void cp_parser_late_contract_condition (cp_parser *parser,
     }
 }
 
+/* Parse a C++-26 annotation list.
+
+   annotation-list:
+     annotation ... [opt]
+     annotation-list , annotation ... [opt]
+
+   annotation:
+     = constant-expression  */
+
+static tree
+cp_parser_annotation_list (cp_parser *parser)
+{
+  tree attributes = NULL_TREE;
+
+  while (true)
+    {
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+      location_t loc = token->location;
+      if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  tree annotation
+	    = cp_parser_constant_expression (parser,
+					     /*allow_non_constant_p=*/false,
+					     /*non_constant_p=*/nullptr,
+					     /*strict_p=*/true);
+	  if (annotation == error_mark_node)
+	    break;
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      annotation = make_pack_expansion (annotation);
+	    }
+	  attributes = tree_cons (build_tree_list (internal_identifier,
+						   annotation_identifier),
+				  build_tree_list (NULL_TREE, annotation),
+				  attributes);
+	}
+      else if (token->type == CPP_NAME
+	       || token->type == CPP_KEYWORD
+	       || (token->flags & NAMED_OP))
+	{
+	  error_at (loc, "mixing annotations and attributes in the same list");
+	  if (cp_parser_std_attribute (parser, NULL_TREE) == error_mark_node)
+	    break;
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	    cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	{
+	  cp_parser_require (parser, CPP_EQ, RT_EQ);
+	  break;
+	}
+      token = cp_lexer_peek_token (parser->lexer);
+      if (token->type != CPP_COMMA)
+	break;
+      cp_lexer_consume_token (parser->lexer);
+    }
+  attributes = nreverse (attributes);
+  return attributes;
+}
+
 /* Parse a standard C++-11 attribute specifier.
 
    attribute-specifier:
      [ [ attribute-using-prefix [opt] attribute-list ] ]
+     [ [ annotation-list ]]
      contract-attribute-specifier
      alignment-specifier
 
@@ -33175,6 +33260,20 @@ cp_parser_std_attribute_spec (cp_parser *parser)
       cp_lexer_consume_token (parser->lexer);
 
       token = cp_lexer_peek_token (parser->lexer);
+      if (token->type == CPP_EQ)
+	{
+	  if (cxx_dialect < cxx26)
+	    pedwarn (token->location, OPT_Wc__26_extensions,
+		     "annotations only available with %<-std=c++2c%> "
+		     "or %<-std=gnu++2c%>");
+	  attributes = cp_parser_annotation_list (parser);
+	  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE)
+	      || !cp_parser_require (parser, CPP_CLOSE_SQUARE,
+				     RT_CLOSE_SQUARE))
+	    cp_parser_skip_to_end_of_statement (parser);
+	  return attributes;
+	}
+
       if (token->type == CPP_NAME)
 	{
 	  attr_name = token->u.value;
