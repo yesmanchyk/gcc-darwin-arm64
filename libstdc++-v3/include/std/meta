@@ -148,8 +148,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval info add_volatile (info);
     consteval info add_cv (info);
 
-    //consteval string_view identifier_of (info);
-    //consteval u8string_view u8identifier_of (info);
+    // associated with [meta.rel], type relations
+    consteval bool is_same_type (info, info);
+
   } // namespace meta
 
 _GLIBCXX_END_NAMESPACE_VERSION

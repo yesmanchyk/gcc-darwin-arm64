@@ -233,13 +233,13 @@ metafunction_p (tree fndecl)
   return DECL_NAMESPACE_STD_META_P (fndecl);
 }
 
-/* Extract the reflection argument from a metafunction call CALL.  */
+/* Extract the N-th reflection argument from a metafunction call CALL.  */
 
 static tree
-get_info (tree call)
+get_info (tree call, int n)
 {
-  gcc_checking_assert (call_expr_nargs (call) > 0);
-  tree info = get_nth_callarg (call, 0);
+  gcc_checking_assert (call_expr_nargs (call) > n);
+  tree info = get_nth_callarg (call, n);
   gcc_checking_assert (REFLECTION_TYPE_P (TREE_TYPE (info)));
   info = cxx_constant_value (info);
   return info;
@@ -774,18 +774,29 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
       ranges::all_of(r, is_type) is true.  */
 
 /* Evaluate reflection type traits for which we have corresponding built-in
-   traits.  KIND says which trait we are interested in; TYPE is argument to
-   the trait.  */
+   traits.  KIND says which trait we are interested in; TYPE1 and TYPE2 are
+   arguments to the trait.  */
+
+static tree
+eval_type_trait (location_t loc, const constexpr_ctx *ctx, tree type1,
+		 tree type2, cp_trait_kind kind, tree *jump_target)
+{
+  if (eval_is_type (type1) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type1, jump_target);
+  else if (type2 && eval_is_type (type2) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type2, jump_target);
+  tree r = finish_trait_expr (input_location, kind, type1, type2);
+  STRIP_ANY_LOCATION_WRAPPER (r);
+  return r;
+}
+
+/* Like above, but for type traits that take only one type.  */
 
 static tree
 eval_type_trait (location_t loc, const constexpr_ctx *ctx, tree type,
 		 cp_trait_kind kind, tree *jump_target)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-  tree r = finish_trait_expr (input_location, kind, type, NULL_TREE);
-  STRIP_ANY_LOCATION_WRAPPER (r);
-  return r;
+  return eval_type_trait (loc, ctx, type, NULL_TREE, kind, jump_target);
 }
 
 /* Process std::meta::is_function_type.  */
@@ -969,6 +980,15 @@ eval_is_reference_type (location_t loc, const constexpr_ctx *ctx, tree type,
   return eval_type_trait (loc, ctx, type, CPTK_IS_REFERENCE, jump_target);
 }
 
+/* Process std::meta::is_same_type.  */
+
+static tree
+eval_is_same_type (location_t loc, const constexpr_ctx *ctx, tree type1,
+		   tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_SAME, jump_target);
+}
+
 /* Process std::meta::remove_const.
    Returns: a reflection representing the type denoted by
    std::remove_const_t<T>, where T is the type or type alias
@@ -1072,12 +1092,11 @@ eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
+// TODO Use gperf?
 tree
 process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 {
-  tree info = get_info (call);
-  /* Mapping name -> value would be a perfect use for a trie.  prime-paths.cc
-     implements a trie.  */
+  tree info = get_info (call, 0);
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
   const char *ident = IDENTIFIER_POINTER (name);
   tree h = REFLECT_EXPR_HANDLE (info);
@@ -1160,6 +1179,11 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	return eval_is_reflection_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "reference_type"))
 	return eval_is_reference_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "same_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_same_type (loc, ctx, h, h1, jump_target);
+	}
       goto not_found;
     }
 
