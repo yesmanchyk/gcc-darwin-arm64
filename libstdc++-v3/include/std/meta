@@ -150,6 +150,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     // associated with [meta.rel], type relations
     consteval bool is_same_type (info, info);
+    consteval bool is_base_of_type (info, info);
+    consteval bool is_virtual_base_of_type (info, info);
+    consteval bool is_convertible_type (info, info);
+    consteval bool is_nothrow_convertible_type (info, info);
+    consteval bool is_layout_compatible_type (info, info);
+    consteval bool is_pointer_interconvertible_base_of_type (info, info);
 
   } // namespace meta
 

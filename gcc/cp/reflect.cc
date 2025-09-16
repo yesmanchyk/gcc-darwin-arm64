@@ -989,6 +989,68 @@ eval_is_same_type (location_t loc, const constexpr_ctx *ctx, tree type1,
   return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_SAME, jump_target);
 }
 
+/* Process std::meta::is_base_of_type.  */
+
+static tree
+eval_is_base_of_type (location_t loc, const constexpr_ctx *ctx, tree type1,
+		      tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_BASE_OF, jump_target);
+}
+
+/* Process std::meta::is_virtual_base_of_type.  */
+
+static tree
+eval_is_virtual_base_of_type (location_t loc, const constexpr_ctx *ctx,
+			      tree type1, tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_VIRTUAL_BASE_OF,
+			  jump_target);
+}
+
+/* Process std::meta::is_convertible_type.  */
+
+static tree
+eval_is_convertible_type (location_t loc, const constexpr_ctx *ctx,
+			  tree type1, tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_CONVERTIBLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_nothrow_convertible_type.  */
+
+static tree
+eval_is_nothrow_convertible_type (location_t loc, const constexpr_ctx *ctx,
+				  tree type1, tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_NOTHROW_CONVERTIBLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_layout_compatible_type.  */
+
+static tree
+eval_is_layout_compatible_type (location_t loc, const constexpr_ctx *ctx,
+				tree type1, tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_LAYOUT_COMPATIBLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_pointer_interconvertible_base_of_type.  */
+
+static tree
+eval_is_pointer_interconvertible_base_of_type (location_t loc,
+					       const constexpr_ctx *ctx,
+					       tree type1, tree type2,
+					       tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2,
+			  CPTK_IS_POINTER_INTERCONVERTIBLE_BASE_OF,
+			  jump_target);
+}
+
 /* Process std::meta::remove_const.
    Returns: a reflection representing the type denoted by
    std::remove_const_t<T>, where T is the type or type alias
@@ -1183,6 +1245,38 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	{
 	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
 	  return eval_is_same_type (loc, ctx, h, h1, jump_target);
+	}
+      if (!strcmp (ident, "base_of_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_base_of_type (loc, ctx, h, h1, jump_target);
+	}
+      if (!strcmp (ident, "virtual_base_of_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_virtual_base_of_type (loc, ctx, h, h1, jump_target);
+	}
+      if (!strcmp (ident, "convertible_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_convertible_type (loc, ctx, h, h1, jump_target);
+	}
+      if (!strcmp (ident, "nothrow_convertible_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_nothrow_convertible_type (loc, ctx, h, h1,
+						   jump_target);
+	}
+      if (!strcmp (ident, "layout_compatible_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_layout_compatible_type (loc, ctx, h, h1, jump_target);
+	}
+      if (!strcmp (ident, "pointer_interconvertible_base_of_type"))
+	{
+	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h, h1,
+								jump_target);
 	}
       goto not_found;
     }
