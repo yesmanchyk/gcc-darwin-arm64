@@ -980,6 +980,20 @@ eval_is_reference_type (location_t loc, const constexpr_ctx *ctx, tree type,
   return eval_type_trait (loc, ctx, type, CPTK_IS_REFERENCE, jump_target);
 }
 
+/* Process std::meta::is_arithmetic_type.  */
+
+static tree
+eval_is_arithmetic_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (ARITHMETIC_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_same_type.  */
 
 static tree
@@ -1241,6 +1255,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	return eval_is_reflection_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "reference_type"))
 	return eval_is_reference_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "arithmetic_type"))
+	return eval_is_arithmetic_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "same_type"))
 	{
 	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
