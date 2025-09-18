@@ -9,7 +9,7 @@ using namespace std::meta;
 constexpr info null_reflection;
 void foo ();
 
-static_assert (!is_enumerable_type (^^null_reflection));
+static_assert (!is_enumerable_type (null_reflection));
 static_assert (!is_enumerable_type (^^int));
 static_assert (!is_enumerable_type (^^::));
 static_assert (!is_enumerable_type (^^foo));

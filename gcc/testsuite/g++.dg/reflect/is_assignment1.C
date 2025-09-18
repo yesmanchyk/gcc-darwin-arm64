@@ -24,7 +24,7 @@ struct U {
   U &operator = (U &&);
 };
 
-static_assert (!is_assignment (^^null_reflection));
+static_assert (!is_assignment (null_reflection));
 static_assert (!is_assignment (^^int));
 static_assert (!is_assignment (^^::));
 static_assert (!is_assignment (^^foo));

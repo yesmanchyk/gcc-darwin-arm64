@@ -38,7 +38,7 @@ int operator""_b();
 //constexpr auto conversion_template =
 //    (members_of(^^T, ctx) | std::views::filter(std::meta::is_template)).front();
 
-static_assert (!is_operator_function (^^null_reflection));
+static_assert (!is_operator_function (null_reflection));
 static_assert (!is_operator_function (^^int));
 static_assert (!is_operator_function (^^::));
 static_assert (!is_operator_function (^^foo));
