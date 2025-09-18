@@ -28826,6 +28826,8 @@ tsubst_enum (tree tag, tree newtag, tree args)
   if (SCOPED_ENUM_P (newtag))
     begin_scope (sk_scoped_enum, newtag);
 
+  ENUM_BEING_DEFINED_P (newtag) = 1;
+
   for (e = TYPE_VALUES (tag); e; e = TREE_CHAIN (e))
     {
       tree value;

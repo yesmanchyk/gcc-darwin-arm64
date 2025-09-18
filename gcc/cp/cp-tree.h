@@ -547,6 +547,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    1: TYPE_HAS_USER_CONSTRUCTOR.
    2: TYPE_HAS_LATE_RETURN_TYPE (in FUNCTION_TYPE, METHOD_TYPE)
       TYPE_PTRMEMFUNC_FLAG (in RECORD_TYPE)
+      ENUM_BEING_DEFINED_P (in ENUMERAL_TYPE)
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
    5: CLASS_TYPE_P (in RECORD_TYPE and UNION_TYPE)
       ENUM_FIXED_UNDERLYING_TYPE_P (in ENUMERAL_TYPE)
@@ -4823,6 +4824,11 @@ get_vec_init_expr (tree t)
 
 #define OPAQUE_ENUM_P(TYPE)				\
   (TREE_CODE (TYPE) == ENUMERAL_TYPE && ENUM_IS_OPAQUE (TYPE))
+
+/* Nonzero when the ENUMERAL_TYPE is being defined (enumerators parsed
+   or instantiated).  */
+#define ENUM_BEING_DEFINED_P(NODE) \
+  (TYPE_LANG_FLAG_2 (ENUMERAL_TYPE_CHECK (NODE)))
 
 /* [dcl.init.aggr]
 

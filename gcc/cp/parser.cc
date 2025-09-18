@@ -23855,6 +23855,7 @@ cp_parser_enum_specifier (cp_parser* parser)
 	{
 	  new_value_list = true;
 	  SET_OPAQUE_ENUM_P (type, false);
+	  ENUM_BEING_DEFINED_P (type) = 1;
 	  DECL_SOURCE_LOCATION (TYPE_NAME (type)) = type_start_token->location;
 	}
       else

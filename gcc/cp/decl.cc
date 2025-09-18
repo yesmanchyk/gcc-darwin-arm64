@@ -18805,6 +18805,8 @@ finish_enum_value_list (tree enumtype)
   tree minnode, maxnode;
   tree t;
 
+  ENUM_BEING_DEFINED_P (enumtype) = 0;
+
   bool fixed_underlying_type_p
     = ENUM_UNDERLYING_TYPE (enumtype) != NULL_TREE;
 
