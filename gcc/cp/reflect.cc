@@ -685,6 +685,7 @@ eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
     r = strip_typedefs (r);
   else if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
+  // TODO what's not an entity?
   else if (0)
     return throw_exception_generic (loc, ctx, r, jump_target);
 
@@ -738,6 +739,25 @@ eval_template_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_reflection_raw (loc, r);
 }
 
+/* Build std::vector<info>{ ELTS }.  */
+
+static tree
+get_vector_of_info_elts (vec<constructor_elt, va_gc> *elts)
+{
+  tree ctor = build_constructor (init_list_type_node, elts);
+  CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
+  TREE_CONSTANT (ctor) = true;
+  TREE_STATIC (ctor) = true;
+  tree type = get_vector_info ();
+  if (!type)
+    return error_mark_node;
+  tree r = finish_compound_literal (type, ctor, tf_warning_or_error,
+				    fcl_functional);
+  if (TREE_CODE (r) == TARGET_EXPR)
+    r = TARGET_EXPR_INITIAL (r);
+  return r;
+}
+
 /* Process std::meta::parameters_of.
    Returns:
    -- If r represents a function F, then a vector containing reflections of
@@ -767,17 +787,72 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
   for (tree arg = args; arg && arg != void_list_node; arg = TREE_CHAIN (arg))
     CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
 			    get_reflection_raw (location_of (arg), arg));
-  tree ctor = build_constructor (init_list_type_node, elts);
-  CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
-  TREE_CONSTANT (ctor) = true;
-  TREE_STATIC (ctor) = true;
-  tree type = get_vector_info ();
-  if (!type)
-    return error_mark_node;
-  r = finish_compound_literal (type, ctor, tf_warning_or_error, fcl_functional);
-  if (TREE_CODE (r) == TARGET_EXPR)
-    r = TARGET_EXPR_INITIAL (r);
-  return r;
+  return get_vector_of_info_elts (elts);
+}
+
+/* Get the reflection of template argument ARG as per
+   std::meta::template_arguments_of.  */
+
+static tree
+get_reflection_of_targ (tree arg)
+{
+  const location_t loc = location_of (arg);
+  /* canonicalize_type_argument already strip_typedefs.  */
+  arg = STRIP_REFERENCE_REF (arg);
+  return get_reflection_raw (loc, arg);
+}
+
+/* Process std::meta::template_arguments_of.
+   Returns: A vector containing reflections of the template arguments of the
+   template specialization represented by r, in the order in which they appear
+   in the corresponding template argument list.
+   For a given template argument A, its corresponding reflection R is
+   determined as follows:
+
+   -- If A denotes a type or type alias, then R is a reflection representing
+      the underlying entity of A.
+   -- Otherwise, if A denotes a class template, variable template, concept,
+      or alias template, then R is a reflection representing A.
+   -- Otherwise, A is a constant template argument.  Let P be the
+      corresponding template parameter.
+      -- If P has reference type, then R is a reflection representing the
+	 object or function referred to by A.
+      -- Otherwise, if P has class type, then R represents the corresponding
+	 template parameter object.
+      -- Otherwise, R is a reflection representing the value of A.
+
+   Throws: meta::exception unless has_template_arguments(r) is true.  */
+
+static tree
+eval_template_arguments_of (location_t loc, const constexpr_ctx *ctx, tree r,
+			    tree *jump_target)
+{
+  if (eval_has_template_arguments (r) != boolean_true_node)
+    return throw_exception_notargs (loc, ctx, r, jump_target);
+
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  tree args = NULL_TREE;
+  if (TYPE_P (r) && typedef_variant_p (r))
+    {
+      if (tree tinfo = TYPE_ALIAS_TEMPLATE_INFO (r))
+	args = INNERMOST_TEMPLATE_ARGS (TI_ARGS (tinfo));
+    }
+  else
+    args = get_template_innermost_arguments (r);
+  gcc_assert (args);
+  for (tree arg : tree_vec_range (args))
+    {
+      if (ARGUMENT_PACK_P (arg))
+	{
+	  tree pargs = ARGUMENT_PACK_ARGS (arg);
+	  for (tree a : tree_vec_range (pargs))
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_of_targ (a));
+	}
+      else
+	CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, get_reflection_of_targ (arg));
+    }
+  return get_vector_of_info_elts (elts);
 }
 
 /* Reflection type traits [meta.reflection.traits].
@@ -1000,7 +1075,7 @@ eval_is_reference_type (location_t loc, const constexpr_ctx *ctx, tree type,
 
 static tree
 eval_is_arithmetic_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			tree *jump_target)
+			 tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
@@ -1330,6 +1405,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
     return eval_dealias (loc, ctx, h, jump_target);
   if (id_equal (name, "template_of"))
     return eval_template_of (loc, ctx, h, jump_target);
+  if (id_equal (name, "template_arguments_of"))
+    return eval_template_arguments_of (loc, ctx, h, jump_target);
   if (id_equal (name, "parameters_of"))
     return eval_parameters_of (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_const"))

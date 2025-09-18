@@ -120,6 +120,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     consteval bool has_template_arguments (info);
     consteval info template_of (info);
+    consteval vector<info> template_arguments_of (info);
     consteval vector<info> parameters_of (info);
 
     // associated with [meta.unary.cat], primary type categories
