@@ -1117,11 +1117,11 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_constexpr_virtual_inheritance=202506L");
 	  cpp_define (pfile, "__cpp_expansion_statements=202506L");
 	  if (flag_reflection)
-	    {
-	      // TODO uncomment, add a feat* test
-	      // TODO __cpp_lib_reflection
-	      // cpp_define (pfile, "__cpp_impl_reflection=2025XXL");
-	    }
+	    // TODO As support is still incomplete, defined to 202500L
+	    // rather than 202506L.
+	    cpp_define (pfile, "__cpp_impl_reflection=202500L");
+	  else
+	    cpp_warn (pfile, "__cpp_impl_reflection");
 	}
       if (flag_concepts && cxx_dialect > cxx14)
 	cpp_define (pfile, "__cpp_concepts=202002L");

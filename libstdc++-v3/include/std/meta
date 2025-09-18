@@ -41,9 +41,10 @@
 #include <source_location>
 //#include <type_traits>
 
+#define __glibcxx_want_reflection
 #include <bits/version.h>
 
-#if __cplusplus > 202302L
+#if __glibcxx_reflection >= 1 // C++ >= 26 && __cpp_impl_reflection
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
