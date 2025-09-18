@@ -645,6 +645,22 @@ eval_is_literal_operator (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_assignment.
+   Returns: true if r represents a function that is an assignment operator.
+   Otherwise, false.  */
+
+static tree
+eval_is_assignment (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL
+      && DECL_ASSIGNMENT_OPERATOR_P (r)
+      && DECL_OVERLOADED_OPERATOR_IS (r, NOP_EXPR))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_conversion_function_template.
    Returns: true if r represents a conversion function template.
    Otherwise, false.  */
@@ -1221,6 +1237,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	return eval_is_operator_function (h);
       if (!strcmp (ident, "literal_operator"))
 	return eval_is_literal_operator (h);
+      if (!strcmp (ident, "assignment"))
+	return eval_is_assignment (h);
       if (!strcmp (ident, "conversion_function_template"))
 	return eval_is_conversion_function_template (h);
       if (!strcmp (ident, "function_type"))
