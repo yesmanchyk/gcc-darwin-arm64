@@ -43,7 +43,7 @@ static_assert (!is_function (null_reflection));
 static_assert (!is_function (^^::));
 static_assert (!is_function (^^ns));
 static_assert (!is_function (^^ns_alias));
-//static_assert (!is_function (reflect_constant (3)));
+static_assert (!is_function (reflect_constant (3)));
 static_assert (!is_function (^^cls));
 static_assert (!is_function (^^cls::dm));
 static_assert (!is_function (^^cls::ref_dm));

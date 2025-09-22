@@ -43,7 +43,7 @@ static_assert (!is_enumerator (null_reflection));
 static_assert (!is_enumerator (^^::));
 static_assert (!is_enumerator (^^ns));
 static_assert (!is_enumerator (^^ns_alias));
-//static_assert (!is_enumerator (reflect_constant (3)));
+static_assert (!is_enumerator (reflect_constant (3)));
 static_assert (!is_enumerator (^^cls));
 static_assert (!is_enumerator (^^cls::dm));
 static_assert (!is_enumerator (^^cls::ref_dm));

@@ -43,7 +43,7 @@ static_assert (!is_variable (null_reflection));
 static_assert (!is_variable (^^::));
 static_assert (!is_variable (^^ns));
 static_assert (!is_variable (^^ns_alias));
-//static_assert (!is_variable (reflect_constant (3)));
+static_assert (!is_variable (reflect_constant (3)));
 static_assert (!is_variable (^^cls));
 static_assert (!is_variable (^^cls::dm));
 static_assert (!is_variable (^^cls::ref_dm));

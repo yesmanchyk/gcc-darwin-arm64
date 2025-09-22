@@ -47,7 +47,7 @@ static_assert (!has_template_arguments (null_reflection));
 static_assert (!has_template_arguments (^^::));
 static_assert (!has_template_arguments (^^ns));
 static_assert (!has_template_arguments (^^ns_alias));
-//static_assert (!has_template_arguments (reflect_constant (3)));
+static_assert (!has_template_arguments (reflect_constant (3)));
 static_assert (!has_template_arguments (^^cls));
 static_assert (!has_template_arguments (^^cls::dm));
 static_assert (!has_template_arguments (^^cls::ref_dm));

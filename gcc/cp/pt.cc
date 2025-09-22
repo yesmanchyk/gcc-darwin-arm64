@@ -33228,6 +33228,24 @@ finish_expansion_stmt (tree expansion_stmt, tree args,
     }
 }
 
+/* Perform the appropriate conversion of the argument of
+   std::meta::reflect_constant.   EXPR is the argument, TYPE is its type.
+   Mainly, the point is to check that the type is valid in this context
+   and maybe replace the argument with a reference to the corresponding
+   template parameter object.  */
+
+tree
+convert_reflect_constant_arg (tree type, tree expr)
+{
+  if (invalid_nontype_parm_type_p (type, tf_none))
+    return error_mark_node;
+
+  expr = convert_nontype_argument (type, expr, tf_none);
+  if (!expr)
+    return error_mark_node;
+  return expr;
+}
+
 /* Set up the hash tables for template instantiations.  */
 
 void

@@ -8042,6 +8042,7 @@ extern tree add_outermost_template_args		(tree, tree);
 extern tree add_extra_args			(tree, tree, tsubst_flags_t, tree);
 extern tree build_extra_args			(tree, tree, tsubst_flags_t);
 extern void finish_expansion_stmt		(tree, tree, tsubst_flags_t, tree);
+extern tree convert_reflect_constant_arg	(tree, tree);
 
 /* in rtti.cc */
 /* A vector of all tinfo decls that haven't been emitted yet.  */
@@ -9153,7 +9154,7 @@ extern tree get_null_reflection () ATTRIBUTE_PURE;
 extern tree splice (tree);
 extern bool check_out_of_consteval_use (tree);
 extern bool consteval_only_p (tree) ATTRIBUTE_PURE;
-extern bool compare_reflections (const_tree, const_tree) ATTRIBUTE_PURE;
+extern bool compare_reflections (tree, tree) ATTRIBUTE_PURE;
 extern bool valid_splice_type_p (const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_scope_p (const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_expr_p (const_tree) ATTRIBUTE_PURE;

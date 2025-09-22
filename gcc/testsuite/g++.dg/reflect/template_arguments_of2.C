@@ -91,9 +91,8 @@ static_assert(template_arguments_of(dealias(^^T)).size() == 1);
 static_assert([:template_arguments_of(^^WithRef<I>)[0]:] == I);
 
 static_assert(template_arguments_of(^^WithReflection<^^int>).size() == 1);
-// TODO
-//static_assert(template_arguments_of(^^WithReflection<^^int>)[0]
-//	      == std::meta::reflect_constant(^^int));
+static_assert(template_arguments_of(^^WithReflection<^^int>)[0]
+	      == std::meta::reflect_constant(^^int));
 
 template <int &> void fn();
 int p[2];

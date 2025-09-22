@@ -43,7 +43,7 @@ static_assert (!is_concept (null_reflection));
 static_assert (!is_concept (^^::));
 static_assert (!is_concept (^^ns));
 static_assert (!is_concept (^^ns_alias));
-//static_assert (!is_concept (reflect_constant (3)));
+static_assert (!is_concept (reflect_constant (3)));
 static_assert (!is_concept (^^cls));
 static_assert (!is_concept (^^cls::dm));
 static_assert (!is_concept (^^cls::ref_dm));

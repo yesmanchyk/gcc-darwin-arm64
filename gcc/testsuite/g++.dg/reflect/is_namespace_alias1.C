@@ -43,7 +43,7 @@ static_assert (!is_namespace_alias (null_reflection));
 static_assert (!is_namespace_alias (^^::));
 static_assert (!is_namespace_alias (^^ns));
 static_assert (is_namespace_alias (^^ns_alias));
-//static_assert (!is_namespace_alias (reflect_constant (3)));
+static_assert (!is_namespace_alias (reflect_constant (3)));
 static_assert (!is_namespace_alias (^^cls));
 static_assert (!is_namespace_alias (^^cls::dm));
 static_assert (!is_namespace_alias (^^cls::ref_dm));

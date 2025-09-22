@@ -125,6 +125,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval vector<info> template_arguments_of(info);
     consteval vector<info> parameters_of(info);
 
+    // [meta.reflection.result], expression result reflection
+    template<typename _Tp>
+      requires (is_copy_constructible_v<_Tp>)
+    consteval info reflect_constant(_Tp);
+
     // associated with [meta.unary.cat], primary type categories
     consteval bool is_void_type(info);
     consteval bool is_null_pointer_type(info);

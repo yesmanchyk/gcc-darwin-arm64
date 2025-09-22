@@ -877,6 +877,38 @@ eval_template_arguments_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_vector_of_info_elts (elts);
 }
 
+/* Process std::meta::reflect_constant.
+   Mandates: is_copy_constructible_v<T> is true and T is a cv-unqualified
+   structural type that is not a reference type.
+   Let V be:
+   -- if T is a class type, then an object that is template-argument-equivalent
+      to the value of expr;
+   -- otherwise, the value of expr.
+   Returns: template_arguments_of(^^TCls<V>)[0], with TCls as defined below.
+   Throws: meta::exception unless the template-id TCls<V> would be valid given
+   the invented template
+     template<T P> struct TCls;  */
+
+static tree
+eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree expr,
+		       tree *jump_target)
+{
+  tree type = TREE_TYPE (expr);
+  if (!structural_type_p (type)
+      || CP_TYPE_VOLATILE_P (type)
+      || CP_TYPE_CONST_P (type)
+      || TYPE_REF_P (type))
+    {
+      error_at (loc, "%qT must be a cv-unqualified structural type that is "
+		"not a reference type", type);
+      return error_mark_node;
+    }
+  expr = convert_reflect_constant_arg (type, expr);
+  if (expr == error_mark_node)
+    throw_exception_generic (loc, ctx, type, jump_target);
+  return get_reflection_raw (loc, expr);
+}
+
 /* Reflection type traits [meta.reflection.traits].
 
    Every function and function template declared in this subclause throws
@@ -1285,9 +1317,17 @@ eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
 tree
 process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 {
-  tree info = get_info (call, 0);
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
   const char *ident = IDENTIFIER_POINTER (name);
+
+  if (id_equal (name, "reflect_constant"))
+    {
+      tree expr = get_nth_callarg (call, 0);
+      location_t loc = cp_expr_loc_or_input_loc (expr);
+      return eval_reflect_constant (loc, ctx, expr, jump_target);
+    }
+
+  tree info = get_info (call, 0);
   tree h = REFLECT_EXPR_HANDLE (info);
   const location_t loc = cp_expr_loc_or_input_loc (info);
 
@@ -1653,13 +1693,14 @@ check_out_of_consteval_use (tree expr)
 /* Return true if the reflections LHS and RHS are equal.  */
 
 bool
-compare_reflections (const_tree lhs, const_tree rhs)
+compare_reflections (tree lhs, tree rhs)
 {
-  tree l = REFLECT_EXPR_HANDLE (lhs);
-  tree r = REFLECT_EXPR_HANDLE (rhs);
-
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  l = MAYBE_BASELINK_FUNCTIONS (l);
+  do
+    {
+      lhs = REFLECT_EXPR_HANDLE (lhs);
+      rhs = REFLECT_EXPR_HANDLE (rhs);
+    }
+  while (REFLECT_EXPR_P (lhs) && REFLECT_EXPR_P (rhs));
 
   /* TEMPLATE_DECLs are wrapped in an OVERLOAD.  When we have
 
@@ -1668,7 +1709,10 @@ compare_reflections (const_tree lhs, const_tree rhs)
      the RHS will be OVERLOAD<TEMPLATE_DECL> but the LHS will
      only be TEMPLATE_DECL.  They should compare equal, though.  */
   // ??? Can we do something better?
-  return OVL_FIRST (l) == OVL_FIRST (r);
+  rhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (rhs));
+  lhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (lhs));
+
+  return lhs == rhs;
 }
 
 /* Return true if T is a valid splice-type-specifier.
