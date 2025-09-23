@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "stringpool.h" // for get_identifier
 #include "intl.h"
+#include "attribs.h"
 
 static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
 				   tree *);
@@ -618,6 +619,21 @@ eval_is_enumerable_type (const_tree r)
   return boolean_false_node;
 }
 
+/* Process std::meta::is_annotation.
+   Returns: true if r represents an annotation.  Otherwise, false.  */
+
+static tree
+eval_is_annotation (const_tree r)
+{
+  if (TREE_CODE (r) == TREE_LIST
+      && TREE_PURPOSE (r)
+      && get_attribute_namespace (r) == internal_identifier
+      && get_attribute_name (r) == annotation_identifier)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_conversion_function.
    Returns: true if r represents a function that is a conversion function.
    Otherwise, false.  */
@@ -873,6 +889,93 @@ eval_template_arguments_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	}
       else
 	CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, get_reflection_of_targ (arg));
+    }
+  return get_vector_of_info_elts (elts);
+}
+
+/* Helper for eval_remove_const to build non-const type.  */
+
+static tree
+remove_const (tree type)
+{
+  return cp_build_qualified_type (type,
+				  cp_type_quals (type) & ~TYPE_QUAL_CONST);
+}
+
+/* Process std::meta::annotations_of and annotations_of_with_type.
+   Let E be
+   -- the corresponding base-specifier if item represents a direct base class
+      relationship,
+   -- otherwise, the entity represented by item.
+   Returns: A vector containing all of the reflections R representing each
+   annotation applying to each declaration of E that precedes either some
+   point in the evaluation context or a point immediately following the
+   class-specifier of the outermost class for which such a point is in a
+   complete-class context.
+   For any two reflections R1 and R2 in the returned vector, if the annotation
+   represented by R1 precedes the annotation represented by R2, then R1
+   appears before R2.
+   If R1 and R2 represent annotations from the same translation unit T, any
+   element in the returned vector between R1 and R2 represents an annotation
+   from T.
+
+   Throws: meta::exception unless item represents a type, type alias,
+   variable, function, namespace, enumerator, direct base class relationship,
+   or non-static data member.  */
+
+static tree
+eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		     tree type, tree *jump_target)
+{
+  if (!(eval_is_type (r) == boolean_true_node
+	|| eval_is_type_alias (r) == boolean_true_node
+	|| eval_is_variable (r) == boolean_true_node
+	|| eval_is_function (r) == boolean_true_node
+	|| eval_is_namespace (r) == boolean_true_node
+	|| eval_is_enumerator (r) == boolean_true_node
+	/* || eval_is_base (r) == boolean_true_node */
+	/* || eval_is_nonstatic_data_member (r) == boolean_true_node */))
+    return throw_exception (loc, ctx,
+			    N_("reflection does not represent a type,"
+			       " type alias, variable, function, namespace,"
+			       " enumerator, direct base class relationship,"
+			       " or non-static data member"),
+			    r, jump_target);
+
+  if (type)
+    {
+      if (TYPE_P (type) && typedef_variant_p (type))
+	type = strip_typedefs (type);
+      if (!TYPE_P (type) || !COMPLETE_TYPE_P (type))
+	return throw_exception (loc, ctx,
+				N_("reflection does not represent a complete"
+				   " type or type alias"),
+				type, jump_target);
+      type = remove_const (type);
+    }
+
+  if (TYPE_P (r))
+    r = TYPE_ATTRIBUTES (r);
+  else if (DECL_P (r))
+    r = DECL_ATTRIBUTES (r);
+  else
+    gcc_unreachable (); // TODO: Handle eval_is_base?
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  for (tree a = r; (a = lookup_attribute ("internal ", "annotation ", a));
+       a = TREE_CHAIN (a))
+    {
+      gcc_checking_assert (TREE_CODE (TREE_VALUE (a)) == TREE_LIST);
+      tree val = TREE_VALUE (TREE_VALUE (a));
+      if (type)
+	{
+	  tree at = TREE_TYPE (val);
+	  if (at == error_mark_node)
+	    continue;
+	  if (at != type && !same_type_p (remove_const (at), type))
+	    continue;
+	}
+      CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+			      get_reflection_raw (location_of (val), a));
     }
   return get_vector_of_info_elts (elts);
 }
@@ -1221,10 +1324,7 @@ eval_remove_const (location_t loc, const constexpr_ctx *ctx, tree type,
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
-  int quals = cp_type_quals (type);
-  quals &= ~TYPE_QUAL_CONST;
-  type = cp_build_qualified_type (type, quals);
-  return get_reflection_raw (loc, type);
+  return get_reflection_raw (loc, remove_const (type));
 }
 
 /* Process std::meta::remove_volatile.
@@ -1370,6 +1470,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	return eval_is_enumerator (h);
       if (!strcmp (ident, "enumerable_type"))
 	return eval_is_enumerable_type (h);
+      if (!strcmp (ident, "annotation"))
+	return eval_is_annotation (h);
       if (!strcmp (ident, "conversion_function"))
 	return eval_is_conversion_function (h);
       if (!strcmp (ident, "operator_function"))
@@ -1485,6 +1587,13 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
     return eval_add_volatile (loc, ctx, h, jump_target);
   if (id_equal (name, "add_cv"))
     return eval_add_cv (loc, ctx, h, jump_target);
+  if (id_equal (name, "annotations_of"))
+    return eval_annotations_of (loc, ctx, h, NULL_TREE, jump_target);
+  if (id_equal (name, "annotations_of_with_type"))
+    {
+      tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+      return eval_annotations_of (loc, ctx, h, h1, jump_target);
+    }
 
 not_found:
   sorry ("%qE", name);
