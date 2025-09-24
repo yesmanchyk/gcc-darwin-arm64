@@ -116,6 +116,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.names], reflection names and locations
     consteval bool has_identifier(info);
 
+    consteval source_location source_location_of(info);
+
     // [meta.reflection.queries], reflection queries
     consteval info type_of(info);
 
