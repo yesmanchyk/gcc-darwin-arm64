@@ -402,7 +402,7 @@ build_call_a (tree function, int n, tree *argarray)
   /* Don't pass empty class objects by value.  This is useful
      for tags in STL, which are used to control overload resolution.
      We don't need to handle other cases of copying empty classes.  */
-  if (!decl || !fndecl_built_in_p (decl))
+  if (!decl || (!fndecl_built_in_p (decl) && !metafunction_p (decl)))
     for (i = 0; i < n; i++)
       {
 	tree arg = CALL_EXPR_ARG (function, i);
