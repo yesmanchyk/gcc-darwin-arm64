@@ -597,6 +597,24 @@ eval_is_enumerator (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_complete_type.
+   Returns: true if is_type(r) is true and there is some point in the
+   evaluation context from which the type represented by dealias(r) is
+   not an incomplete type.  Otherwise, false.  */
+
+static tree
+eval_is_complete_type (const_tree r)
+{
+  if (eval_is_type (r) == boolean_true_node)
+    {
+      r = strip_typedefs (const_cast<tree> (r));
+      complete_type (const_cast<tree> (r));
+      if (COMPLETE_TYPE_P (r))
+	return boolean_true_node;
+    }
+  return boolean_false_node;
+}
+
 /* Process std::meta::is_enumerable_type.
    A type T is enumerable from a point P if either
    -- T is a class type complete at point P or
@@ -608,9 +626,13 @@ eval_is_enumerator (const_tree r)
 static tree
 eval_is_enumerable_type (const_tree r)
 {
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
-    return boolean_true_node;
-  if (TREE_CODE (r) == ENUMERAL_TYPE)
+  if (CLASS_TYPE_P (r))
+    {
+      complete_type (const_cast<tree> (r));
+      if (COMPLETE_TYPE_P (r))
+	return boolean_true_node;
+     }
+  else if (TREE_CODE (r) == ENUMERAL_TYPE)
     {
       r = TYPE_MAIN_VARIANT (r);
       if (!ENUM_IS_OPAQUE (r) && !ENUM_BEING_DEFINED_P (r))
@@ -1468,6 +1490,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	return eval_is_function_parameter (h);
       if (!strcmp (ident, "enumerator"))
 	return eval_is_enumerator (h);
+      if (!strcmp (ident, "complete_type"))
+	return eval_is_complete_type (h);
       if (!strcmp (ident, "enumerable_type"))
 	return eval_is_enumerable_type (h);
       if (!strcmp (ident, "annotation"))

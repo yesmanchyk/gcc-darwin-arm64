@@ -21,6 +21,13 @@ static_assert (!is_enumerable_type (^^S));
 static_assert (!is_enumerable_type (^^E));
 static_assert (!is_enumerable_type (^^TE));
 
+template<typename> struct cls_tmpl {};
+template<typename T> using cls_tmpl_alias = cls_tmpl<T>;
+static_assert (!is_enumerable_type (^^cls_tmpl));
+static_assert (is_enumerable_type (^^cls_tmpl<int>));
+static_assert (!is_enumerable_type (^^cls_tmpl_alias));
+static_assert (is_enumerable_type (^^cls_tmpl_alias<int>));
+
 class S {
   void foo ()
   {

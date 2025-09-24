@@ -93,6 +93,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_enumerator(info);
     consteval bool is_annotation(info);
 
+    consteval bool is_complete_type(info);
     consteval bool is_enumerable_type(info);
 
     consteval bool is_variable(info);
