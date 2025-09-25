@@ -1586,17 +1586,6 @@ save_fundef_copy (tree fun, tree copy)
   *slot = copy;
 }
 
-/* Whether our evaluation wants a prvalue (e.g. CONSTRUCTOR or _CST),
-   a glvalue (e.g. VAR_DECL or _REF), or nothing.  */
-
-enum value_cat {
-   vc_prvalue = 0,
-   vc_glvalue = 1,
-   vc_discard = 2
-};
-
-static tree cxx_eval_constant_expression (const constexpr_ctx *, tree,
-					  value_cat, bool *, bool *, tree *);
 static tree cxx_eval_bare_aggregate (const constexpr_ctx *, tree,
 				     value_cat, bool *, bool *, tree *);
 static tree cxx_fold_indirect_ref (const constexpr_ctx *, location_t, tree, tree,
@@ -3802,8 +3791,9 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  *non_constant_p = true;
 	  return t;
 	}
-      tree e = process_metafunction (ctx, t, jump_target);
-      if (throws (jump_target))
+      tree e = process_metafunction (ctx, t, non_constant_p, overflow_p,
+				     jump_target);
+      if (*jump_target)
 	return NULL_TREE;
       e = cxx_eval_constant_expression (ctx, e, vc_prvalue,
 					non_constant_p, overflow_p,
@@ -8881,7 +8871,7 @@ merge_jump_target (location_t loc, const constexpr_ctx *ctx, tree r,
 /* FIXME unify with c_fully_fold */
 /* FIXME overflow_p is too global */
 
-static tree
+tree
 cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 			      value_cat lval,
 			      bool *non_constant_p, bool *overflow_p,

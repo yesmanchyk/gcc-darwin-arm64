@@ -9102,6 +9102,18 @@ extern bool replace_decl			(tree *, tree, tree);
 extern tree cxa_allocate_and_throw_exception	(location_t, const constexpr_ctx *,
 						 tree);
 
+/* Whether our evaluation wants a prvalue (e.g. CONSTRUCTOR or _CST),
+   a glvalue (e.g. VAR_DECL or _REF), or nothing.  */
+enum value_cat {
+   vc_prvalue = 0,
+   vc_glvalue = 1,
+   vc_discard = 2
+};
+
+extern tree cxx_eval_constant_expression	(const constexpr_ctx *, tree,
+						 value_cat, bool *, bool *,
+						 tree *);
+
 /* An RAII sentinel used to restrict constexpr evaluation so that it
    doesn't do anything that causes extra DECL_UID generation.  */
 
@@ -9148,7 +9160,8 @@ extern tree co_await_get_resume_call		(tree await_expr);
 /* In reflect.cc */
 extern void init_reflection ();
 extern bool metafunction_p (tree) ATTRIBUTE_PURE;
-extern tree process_metafunction (const constexpr_ctx *, tree, tree *);
+extern tree process_metafunction (const constexpr_ctx *, tree,
+				  bool *, bool *, tree *);
 extern tree get_reflection (location_t, tree) ATTRIBUTE_PURE;
 extern tree get_null_reflection () ATTRIBUTE_PURE;
 extern tree splice (tree);

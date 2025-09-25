@@ -237,12 +237,17 @@ metafunction_p (tree fndecl)
 /* Extract the N-th reflection argument from a metafunction call CALL.  */
 
 static tree
-get_info (tree call, int n)
+get_info (const constexpr_ctx *ctx, tree call, int n, bool *non_constant_p,
+	  bool *overflow_p, tree *jump_target)
 {
   gcc_checking_assert (call_expr_nargs (call) > n);
   tree info = get_nth_callarg (call, n);
   gcc_checking_assert (REFLECTION_TYPE_P (TREE_TYPE (info)));
-  info = cxx_constant_value (info);
+  info = cxx_eval_constant_expression (ctx, info, vc_prvalue,
+				       non_constant_p, overflow_p,
+				       jump_target);
+  if (*jump_target)
+    return NULL_TREE;
   return info;
 }
 
@@ -730,6 +735,83 @@ eval_is_conversion_function_template (const_tree)
 {
   // Need members_of to test this.
   gcc_assert (!"TODO");
+}
+
+/* has-type (exposition only).
+   Returns: true if r represents a value, annotation, object, variable,
+   function whose type does not contain an undeduced placeholder type and
+   that is not a constructor or destructor, enumerator, non-static data
+   member, unnamed bit-field, direct base class relationship, data member
+   description, or function parameter.  Otherwise, false.  */
+
+static bool
+has_type (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL)
+    {
+      if (DECL_CONSTRUCTOR_P (r) || DECL_DESTRUCTOR_P (r))
+	return false;
+      if (undeduced_auto_decl (r))
+	return false;
+      return true;
+    }
+  if (CONSTANT_CLASS_P (r)
+      || eval_is_variable (r) == boolean_true_node
+      || eval_is_enumerator (r) == boolean_true_node
+      || TREE_CODE (r) == FIELD_DECL
+      || eval_is_annotation (r) == boolean_true_node)
+    return true;
+  // TODO: object, direct base class relationship, data member description.
+  return false;
+}
+
+/* Process std::meta::type_of.  Returns:
+   -- If r represents the ith parameter of a function F, then the ith type
+      in the parameter-type-list of F.
+   -- Otherwise, if r represents a value, object, variable, function,
+      non-static data member, or unnamed bit-field, then the type of what is
+      represented by r.
+   -- Otherwise, if r represents an annotation, then type_of(constant_of(r)).
+   -- Otherwise, if r represents an enumerator N of an enumeration E, then:
+      -- If E is defined by a declaration D that precedes a point P in the
+	 evaluation context and P does not occur within an enum-specifier of
+	 D, then a reflection of E.
+      -- Otherwise, a reflection of the type of N prior to the closing brace
+	 of the enum-specifier as specified in [dcl.enum].
+   -- Otherwise, if r represents a direct base class relationship (D,B), then
+      a reflection of B.
+   -- Otherwise, for a data member description (T,N,A,W,NUA), a reflection of
+      the type T.  */
+
+static tree
+eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
+	      tree *jump_target)
+{
+  if (!has_type (r))
+    return throw_exception (loc, ctx, N_("reflection does not have a type"),
+			    r, jump_target);
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == PARM_DECL)
+    {
+      tree fn = DECL_CONTEXT (r);
+      tree args = FUNCTION_FIRST_USER_PARM (fn);
+      tree type = FUNCTION_FIRST_USER_PARMTYPE (fn);
+      while (r != args)
+	{
+	  args = DECL_CHAIN (args);
+	  type = TREE_CHAIN (type);
+	}
+      r = TREE_VALUE (type);
+    }
+  else if (TREE_CODE (r) == FUNCTION_DECL)
+    r = TREE_TYPE (TREE_TYPE (r));
+  else if (eval_is_annotation (r) == boolean_true_node)
+    // TODO: or do we need to reflect_constant and get type of that?
+    r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
+  else
+    r = TREE_TYPE (r);
+  return get_reflection_raw (loc, r);
 }
 
 /* Process std::meta::dealias.
@@ -1437,7 +1519,9 @@ eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
 
 // TODO Use gperf?
 tree
-process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
+process_metafunction (const constexpr_ctx *ctx, tree call,
+		      bool *non_constant_p, bool *overflow_p,
+		      tree *jump_target)
 {
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
   const char *ident = IDENTIFIER_POINTER (name);
@@ -1446,10 +1530,17 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
     {
       tree expr = get_nth_callarg (call, 0);
       location_t loc = cp_expr_loc_or_input_loc (expr);
+      expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
+					   non_constant_p, overflow_p,
+					   jump_target);
+      if (*jump_target)
+	return NULL_TREE;
       return eval_reflect_constant (loc, ctx, expr, jump_target);
     }
 
-  tree info = get_info (call, 0);
+  tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
+  if (*jump_target)
+    return NULL_TREE;
   tree h = REFLECT_EXPR_HANDLE (info);
   const location_t loc = cp_expr_loc_or_input_loc (info);
 
@@ -1542,38 +1633,66 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
 	return eval_is_arithmetic_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "same_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_same_type (loc, ctx, h, h1, jump_target);
 	}
       if (!strcmp (ident, "base_of_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_base_of_type (loc, ctx, h, h1, jump_target);
 	}
       if (!strcmp (ident, "virtual_base_of_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_virtual_base_of_type (loc, ctx, h, h1, jump_target);
 	}
       if (!strcmp (ident, "convertible_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_convertible_type (loc, ctx, h, h1, jump_target);
 	}
       if (!strcmp (ident, "nothrow_convertible_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_nothrow_convertible_type (loc, ctx, h, h1,
 						   jump_target);
 	}
       if (!strcmp (ident, "layout_compatible_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_layout_compatible_type (loc, ctx, h, h1, jump_target);
 	}
       if (!strcmp (ident, "pointer_interconvertible_base_of_type"))
 	{
-	  tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h, h1,
 								jump_target);
 	}
@@ -1615,9 +1734,15 @@ process_metafunction (const constexpr_ctx *ctx, tree call, tree *jump_target)
     return eval_annotations_of (loc, ctx, h, NULL_TREE, jump_target);
   if (id_equal (name, "annotations_of_with_type"))
     {
-      tree h1 = REFLECT_EXPR_HANDLE (get_info (call, 1));
+      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			  jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      tree h1 = REFLECT_EXPR_HANDLE (i1);
       return eval_annotations_of (loc, ctx, h, h1, jump_target);
     }
+  if (id_equal (name, "type_of"))
+    return eval_type_of (loc, ctx, h, jump_target);
 
 not_found:
   sorry ("%qE", name);
