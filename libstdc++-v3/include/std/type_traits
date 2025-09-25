@@ -3880,6 +3880,24 @@ template<typename _Ret, typename _Fn, typename... _Args>
 # endif
 #endif
 
+#if __cpp_impl_reflection >= 202500L \
+    && _GLIBCXX_USE_BUILTIN_TRAIT(__builtin_is_consteval_only) // C++ >= 26
+  /// is_consteval_only - true if the type is consteval-only.
+  /// @since C++26
+  template<typename _Tp>
+    struct is_consteval_only
+    : bool_constant<__builtin_is_consteval_only(_Tp)>
+    { };
+
+  /** is_consteval_only_v - true if the type is consteval-only.
+   *  @ingroup variable_templates
+   *  @since C++26
+   */
+  template<typename _Tp>
+    inline constexpr bool is_consteval_only_v
+      = __builtin_is_consteval_only(_Tp);
+#endif
+
   /** * Remove references and cv-qualifiers.
    * @since C++20
    * @{
