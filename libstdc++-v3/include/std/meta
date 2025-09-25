@@ -113,6 +113,58 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       consteval source_location where() const noexcept { return where_; }
     };
 
+    // [meta.reflection.operators], operator representations
+    enum class operators {
+      op_new = 1,
+      op_delete,
+      op_array_new,
+      op_array_delete,
+      op_co_await,
+      op_parentheses,
+      op_square_brackets,
+      op_arrow,
+      op_arrow_star,
+      op_tilde,
+      op_exclamation,
+      op_plus,
+      op_minus,
+      op_star,
+      op_slash,
+      op_percent,
+      op_caret,
+      op_ampersand,
+      op_equals,
+      op_pipe,
+      op_plus_equals,
+      op_minus_equals,
+      op_star_equals,
+      op_slash_equals,
+      op_percent_equals,
+      op_caret_equals,
+      op_ampersand_equals,
+      op_pipe_equals,
+      op_equals_equals,
+      op_exclamation_equals,
+      op_less,
+      op_greater,
+      op_less_equals,
+      op_greater_equals,
+      op_spaceship,
+      op_ampersand_ampersand,
+      op_pipe_pipe,
+      op_less_less,
+      op_greater_greater,
+      op_less_less_equals,
+      op_greater_greater_equals,
+      op_plus_plus,
+      op_minus_minus,
+      op_comma
+    };
+    using enum operators;
+    consteval operators operator_of(info);
+    consteval string_view symbol_of(operators);
+    consteval u8string_view u8symbol_of(operators);
+
     // [meta.reflection.names], reflection names and locations
     consteval bool has_identifier(info);
 

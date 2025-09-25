@@ -368,6 +368,45 @@ throw_exception_nofn (location_t loc, const constexpr_ctx *ctx,
      refl, jump_target);
 }
 
+/* The values of std::meta::operators enumerators corresponding to
+   the ovl_op_code and IDENTIFIER_ASSIGN_OP_P pair.  */
+
+static unsigned char meta_operators[2][OVL_OP_MAX];
+
+/* Init the meta_operators table if not yet initialized.  */
+
+static void
+maybe_init_meta_operators (location_t loc)
+{
+  if (meta_operators[0][OVL_OP_ERROR_MARK])
+    return;
+  meta_operators[0][OVL_OP_ERROR_MARK] = 1;
+  tree operators = lookup_qualified_name (std_meta_node, "operators");
+  if (TREE_CODE (operators) != TYPE_DECL
+      || TREE_CODE (TREE_TYPE (operators)) != ENUMERAL_TYPE)
+    {
+    fail:
+      error_at (loc, "unexpected %<std::meta::operators%>");
+      return;
+    }
+  char buf[sizeof "op_greater_greater_equals"];
+  memcpy (buf, "op_", 3);
+  for (int i = 0; i < 2; ++i)
+    for (int j = OVL_OP_ERROR_MARK + 1; j < OVL_OP_MAX; ++j)
+      if (ovl_op_info[i][j].meta_name)
+	{
+	  strcpy (buf + 3, ovl_op_info[i][j].meta_name);
+	  tree id = get_identifier (buf);
+	  tree t = lookup_enumerator (TREE_TYPE (operators), id);
+	  if (t == NULL_TREE || TREE_CODE (t) != CONST_DECL)
+	    goto fail;
+	  tree v = DECL_INITIAL (t);
+	  if (!tree_fits_uhwi_p (v) || tree_to_uhwi (v) > UCHAR_MAX)
+	    goto fail;
+	  meta_operators[i][j] = tree_to_uhwi (v);
+	}
+}
+
 /* Process std::meta::has_identifier.  Returns:
 
     (1.1) If r represents an entity that has a typedef name for linkage
@@ -820,6 +859,73 @@ eval_is_conversion_function_template (const_tree)
 {
   // Need members_of to test this.
   gcc_assert (!"TODO");
+}
+
+/* Process std::meta::operator_of.
+   Returns: The value of the enumerator from the operators whose corresponding
+   operator-function-id is the unqualified name of the entity represented by
+   r.
+   Throws: meta::exception unless r represents an operator function or
+   operator function template.  */
+
+static tree
+eval_operator_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		  tree *jump_target, tree ret_type)
+{
+  if (eval_is_operator_function (r) == boolean_false_node)
+    return throw_exception (loc, ctx,
+			    N_("reflection does not represent an operator "
+			       "function"), r, jump_target);
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  r = STRIP_TEMPLATE (r);
+  maybe_init_meta_operators (loc);
+  int i = IDENTIFIER_ASSIGN_OP_P (DECL_NAME (r)) ? 1 : 0;
+  int j = IDENTIFIER_CP_INDEX (DECL_NAME (r));
+  return build_int_cst (ret_type, meta_operators[i][j]);
+}
+
+/* Process std::meta::{,u8}symbol_of.
+   Returns: A string_view or u8string_view containing the characters of the
+   operator symbol name corresponding to op, respectively encoded with the
+   ordinary literal encoding or with UTF-8.
+   Throws: meta::exception unless the value of op corresponds to one of the
+   enumerators in operators.  */
+
+static tree
+eval_symbol_of (location_t loc, const constexpr_ctx *ctx, tree expr,
+		tree *jump_target, tree elt_type, tree ret_type)
+{
+  maybe_init_meta_operators (loc);
+  if (!tree_fits_uhwi_p (expr))
+    {
+    fail:
+      return throw_exception (loc, ctx,
+			      N_("operators argument is not a valid operator"),
+			      expr, jump_target);
+    }
+  unsigned HOST_WIDE_INT val = tree_to_uhwi (expr);
+  for (int i = 0; i < 2; ++i)
+    for (int j = OVL_OP_ERROR_MARK + 1; j < OVL_OP_MAX; ++j)
+      if (ovl_op_info[i][j].meta_name && meta_operators[i][j] == val)
+	{
+	  const char *name = ovl_op_info[i][j].name;
+	  char buf[64];
+	  if (const char *sp = strchr (name, ' '))
+	    {
+	      memcpy (buf, name, sp - name);
+	      strcpy (buf + (sp - name), sp + 1);
+	      name = buf;
+	    }
+	  tree str = build_string_literal (strlen (name) + 1, name, elt_type);
+	  releasing_vec args (make_tree_vector_single (str));
+	  tree r = build_special_member_call (NULL_TREE,
+					      complete_ctor_identifier,
+					      &args, ret_type, LOOKUP_NORMAL,
+					      tf_warning_or_error);
+	  return build_cplus_new (ret_type, r, tf_warning_or_error);
+	}
+  goto fail;
 }
 
 /* has-type (exposition only).
@@ -1688,6 +1794,19 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return NULL_TREE;
       return eval_reflect_constant (loc, ctx, expr, jump_target);
     }
+  if (id_equal (name, "symbol_of") || id_equal (name, "u8symbol_of"))
+    {
+      tree expr = get_nth_callarg (call, 0);
+      location_t loc = cp_expr_loc_or_input_loc (expr);
+      expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
+					   non_constant_p, overflow_p,
+					   jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      return eval_symbol_of (loc, ctx, expr, jump_target,
+			     id_equal (name, "symbol_of") ? char_type_node
+			     : char8_type_node, TREE_TYPE (call));
+    }
 
   tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
   if (*jump_target || *non_constant_p)
@@ -1909,10 +2028,12 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     }
   if (id_equal (name, "type_of"))
     return eval_type_of (loc, ctx, h, kind, jump_target);
+  if (!strcmp (ident, "operator_of"))
+    return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
 
 not_found:
   sorry ("%qE", name);
-  return NULL_TREE;
+  return error_mark_node;
 }
 
 /* Splice reflection REFL; i.e., return its entity.  */

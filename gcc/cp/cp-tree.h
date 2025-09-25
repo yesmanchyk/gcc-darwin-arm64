@@ -6563,8 +6563,8 @@ enum ovl_op_flags {
 enum ovl_op_code {
   OVL_OP_ERROR_MARK,
   OVL_OP_NOP_EXPR,
-#define DEF_OPERATOR(NAME, CODE, MANGLING, FLAGS) OVL_OP_##CODE,
-#define DEF_ASSN_OPERATOR(NAME, CODE, MANGLING) /* NOTHING */
+#define DEF_OPERATOR(NAME, CODE, MANGLING, FLAGS, META) OVL_OP_##CODE,
+#define DEF_ASSN_OPERATOR(NAME, CODE, MANGLING, META) /* NOTHING */
 #include "operators.def"
   OVL_OP_MAX
 };
@@ -6579,6 +6579,9 @@ struct GTY(()) ovl_op_info_t {
   const char *name;
   /* The mangled name of the operator.  */
   const char *mangled_name;
+  /* The name of the std::meta::operators enumerator without
+     the "op_" prefix if any (otherwise NULL).  */
+  const char *meta_name;
   /* The (regular) tree code.  */
   enum tree_code tree_code : 16;
   /* The (compressed) operator code.  */
