@@ -154,6 +154,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_reference_type(info);
     consteval bool is_arithmetic_type(info);
     consteval bool is_object_type(info);
+    consteval bool is_member_pointer_type(info);
 
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const(info);

@@ -80,6 +80,9 @@ eval (int n)
     case 22:
       is_arithmetic_type (^^n);
       break;
+    case 23:
+      is_member_pointer_type (^^n);
+      break;
     default:
       break;
     }
@@ -117,3 +120,4 @@ static_assert (test (19));
 static_assert (test (20));
 static_assert (test (21));
 static_assert (test (22));
+static_assert (test (23));

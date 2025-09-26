@@ -30,3 +30,4 @@ static_assert ((add_volatile (^^i), true)); // { dg-error "non-constant|uncaught
 static_assert ((add_cv (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_object_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_arithmetic_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((is_member_pointer_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
