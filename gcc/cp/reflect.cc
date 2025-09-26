@@ -712,6 +712,26 @@ eval_is_function_parameter (const_tree r, reflect_kind kind)
     return boolean_false_node;
 }
 
+/* Process std::meta::has_ellipsis_parameter.
+   Returns: true if r represents a function or function type that has an
+   ellipsis in its parameter-type-list.  Otherwise, false.  */
+
+static tree
+eval_has_ellipsis_parameter (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL)
+    r = TREE_TYPE (r);
+  if (FUNC_OR_METHOD_TYPE_P (r)
+      // TODO: TYPE_ARG_TYPES check shouldn't be necessary once we
+      // implement va_start (ap) support and set TYPE_NO_NAMED_ARGS_STDARG_P.
+      // Though wonder if that won't be an ABI change.
+      && (stdarg_p (r) || TYPE_ARG_TYPES (r) == NULL_TREE))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_enumerator.
    Returns: true if r represents an enumerator.  Otherwise, false.  */
 
@@ -3100,6 +3120,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_has_template_arguments (h);
       if (!strcmp (ident, "parent"))
 	return eval_has_parent (h, kind);
+      if (!strcmp (ident, "ellipsis_parameter"))
+	return eval_has_ellipsis_parameter (h);
       goto not_found;
     }
 

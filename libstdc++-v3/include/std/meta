@@ -209,6 +209,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_destructor(info);
 
     consteval bool is_function_parameter(info);
+    consteval bool has_ellipsis_parameter(info);
 
     consteval bool is_template(info);
     consteval bool is_function_template(info);
