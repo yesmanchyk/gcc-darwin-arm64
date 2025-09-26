@@ -74,6 +74,12 @@ eval (int n)
     case 20:
       add_cv (^^n);
       break;
+    case 21:
+      is_object_type (^^n);
+      break;
+    case 22:
+      is_arithmetic_type (^^n);
+      break;
     default:
       break;
     }
@@ -109,3 +115,5 @@ static_assert (test (17));
 static_assert (test (18));
 static_assert (test (19));
 static_assert (test (20));
+static_assert (test (21));
+static_assert (test (22));

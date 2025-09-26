@@ -1346,6 +1346,15 @@ eval_is_arithmetic_type (location_t loc, const constexpr_ctx *ctx, tree type,
     return boolean_false_node;
 }
 
+/* Process std::meta::is_object_type.  */
+
+static tree
+eval_is_object_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		     tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_OBJECT, jump_target);
+}
+
 /* Process std::meta::is_same_type.  */
 
 static tree
@@ -1631,6 +1640,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_reference_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "arithmetic_type"))
 	return eval_is_arithmetic_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "object_type"))
+	return eval_is_object_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "same_type"))
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
