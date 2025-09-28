@@ -220,6 +220,31 @@ get_null_reflection ()
   return get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
 }
 
+/* If PARM_DECL comes from an earlier reflection of a function parameter
+   and function definition is seen after that, DECL_ARGUMENTS is
+   overwritten and so the old PARM_DECL is no longer present in the
+   DECL_ARGUMENTS (DECL_CONTEXT (parm)) chain.  Return corresponding
+   PARM_DECL which is in the chain.  */
+
+static tree
+maybe_update_function_parm (tree parm)
+{
+  if (!OLD_PARM_DECL_P (parm))
+    return parm;
+  tree fn = DECL_CONTEXT (parm);
+  int oldlen = list_length (parm);
+  int newlen = list_length (DECL_ARGUMENTS (fn));
+  gcc_assert (newlen >= oldlen);
+  tree ret = DECL_ARGUMENTS (fn);
+  int n = newlen - oldlen;
+  while (n)
+    {
+      ret = DECL_CHAIN (ret);
+      --n;
+    }
+  return ret;
+}
+
 /* Returns true if FNDECL, a FUNCTION_DECL, is a call to a metafunction
    declared in namespace std::meta.  */
 
@@ -1136,6 +1161,37 @@ eval_is_explicit_object_parameter (const_tree r, reflect_kind kind)
     return boolean_false_node;
 }
 
+/* Process std::meta::has_default_argument.
+   Returns: If r represents a parameter P of a function F, then:
+   -- If F is a specialization of a templated function T, then true if there
+      exists a declaration D of T that precedes some point in the evaluation
+      context and D specifies a default argument for the parameter of T
+      corresponding to P.  Otherwise, false.
+   -- Otherwise, if there exists a declaration D of F that precedes some
+      point in the evaluation context and D specifies a default argument
+      for P, then true.
+   Otherwise, false.  */
+
+static tree
+eval_has_default_argument (tree r, reflect_kind kind)
+{
+  if (eval_is_function_parameter (r, kind) == boolean_false_node)
+    return boolean_false_node;
+  r = maybe_update_function_parm (r);
+  tree fn = DECL_CONTEXT (r);
+  tree args = FUNCTION_FIRST_USER_PARM (fn);
+  tree types = FUNCTION_FIRST_USER_PARMTYPE (fn);
+  while (r != args)
+    {
+      args = DECL_CHAIN (args);
+      types = TREE_CHAIN (types);
+    }
+  if (TREE_PURPOSE (types))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::has_ellipsis_parameter.
    Returns: true if r represents a function or function type that has an
    ellipsis in its parameter-type-list.  Otherwise, false.  */
@@ -1149,7 +1205,6 @@ eval_has_ellipsis_parameter (tree r)
   if (FUNC_OR_METHOD_TYPE_P (r)
       // TODO: TYPE_ARG_TYPES check shouldn't be necessary once we
       // implement va_start (ap) support and set TYPE_NO_NAMED_ARGS_STDARG_P.
-      // Though wonder if that won't be an ABI change.
       && (stdarg_p (r) || TYPE_ARG_TYPES (r) == NULL_TREE))
     return boolean_true_node;
   else
@@ -1814,6 +1869,7 @@ type_of (tree r, reflect_kind kind)
   r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TREE_CODE (r) == PARM_DECL && kind == REFLECT_PARM)
     {
+      r = maybe_update_function_parm (r);
       tree fn = DECL_CONTEXT (r);
       tree args = FUNCTION_FIRST_USER_PARM (fn);
       tree type = FUNCTION_FIRST_USER_PARMTYPE (fn);
@@ -2129,6 +2185,7 @@ eval_variable_of (location_t loc, const constexpr_ctx *ctx, tree r,
     return throw_exception (loc, ctx, N_("reflection does not represent "
 					 "parameter of current function"),
 			    r, jump_target);
+  r = maybe_update_function_parm (r);
   return get_reflection_raw (loc, r, REFLECT_UNDEF);
 }
 
@@ -4387,6 +4444,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_has_template_arguments (h);
       if (!strcmp (ident, "parent"))
 	return eval_has_parent (h, kind);
+      if (!strcmp (ident, "default_argument"))
+	return eval_has_default_argument (h, kind);
       if (!strcmp (ident, "ellipsis_parameter"))
 	return eval_has_ellipsis_parameter (h);
       if (!strcmp (ident, "virtual_destructor"))
@@ -4736,10 +4795,12 @@ check_out_of_consteval_use (tree expr)
 bool
 compare_reflections (tree lhs, tree rhs)
 {
+  reflect_kind kind;
   do
     {
       if (REFLECT_EXPR_KIND (lhs) != REFLECT_EXPR_KIND (rhs))
 	return false;
+      kind = static_cast <reflect_kind> (REFLECT_EXPR_KIND (lhs));
       lhs = REFLECT_EXPR_HANDLE (lhs);
       rhs = REFLECT_EXPR_HANDLE (rhs);
     }
@@ -4752,8 +4813,13 @@ compare_reflections (tree lhs, tree rhs)
      the RHS will be OVERLOAD<TEMPLATE_DECL> but the LHS will
      only be TEMPLATE_DECL.  They should compare equal, though.  */
   // ??? Can we do something better?
-  rhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (rhs));
   lhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (lhs));
+  rhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (rhs));
+  if (kind == REFLECT_PARM)
+    {
+      lhs = maybe_update_function_parm (lhs);
+      rhs = maybe_update_function_parm (rhs);
+    }
 
   return lhs == rhs;
 }

@@ -3173,6 +3173,15 @@ duplicate_decls (tree newdecl, tree olddecl, bool hiding, bool was_hidden)
 	  if (tree contracts = DECL_CONTRACTS (newdecl))
 	    remap_contracts (olddecl, newdecl, contracts, true);
 
+	  /* Mark the old PARM_DECLs in case std::meta::parameters_of has
+	     been called on the old declaration and reflections of those
+	     arguments are held across this point and used later.
+	     Such PARM_DECLs are no longer present in
+	     DECL_ARGUMENTS (DECL_CONTEXT (oldarg)) chain.  */
+	  for (tree oldarg = DECL_ARGUMENTS (olddecl);
+	       oldarg; oldarg = DECL_CHAIN (oldarg))
+	    OLD_PARM_DECL_P (oldarg) = 1;
+
 	  /* These need to be copied so that the names are available.
 	     Note that if the types do match, we'll preserve inline
 	     info and other bits, but if not, we won't.  */

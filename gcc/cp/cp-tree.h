@@ -461,6 +461,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       CONSTEVAL_BLOCK_P (in STATIC_ASSERT)
       LAMBDA_EXPR_CONSTEVAL_BLOCK_P (in LAMBDA_EXPR)
       SPLICE_EXPR_EXPRESSION_P (in SPLICE_EXPR)
+      OLD_PARM_DECL_P (in PARM_DECL)
    1: IDENTIFIER_KIND_BIT_1 (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -5224,6 +5225,12 @@ get_vec_init_expr (tree t)
    parameter, i.e, a[] rather than *a.  */
 #define DECL_ARRAY_PARAMETER_P(NODE) \
   DECL_LANG_FLAG_1 (PARM_DECL_CHECK (NODE))
+
+/* Nonzero for PARM_DECL node means it is a parameter of an earlier
+   declaration which is no longer in DECL_ARGUMENTS (DECL_CONTEXT (NODE))
+   chain because a function definition has been parsed later.  */
+#define OLD_PARM_DECL_P(NODE) \
+  TREE_LANG_FLAG_0 (PARM_DECL_CHECK (NODE))
 
 /* Nonzero for a FIELD_DECL who's NSMDI is currently being
    instantiated.  */
