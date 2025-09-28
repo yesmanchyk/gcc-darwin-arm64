@@ -726,6 +726,148 @@ eval_is_enumerator (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::has_internal_linkage.
+   Returns: true if r represents a variable, function, type, template, or
+   namespace whose name has internal linkage.  Otherwise, false.  */
+
+static tree
+eval_has_internal_linkage (tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_false_node
+      && eval_is_function (r) == boolean_false_node
+      && eval_is_type (r) == boolean_false_node
+      && eval_is_template (r) == boolean_false_node
+      && eval_is_namespace (r) == boolean_false_node)
+    return boolean_false_node;
+  r = STRIP_TEMPLATE (r);
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	return boolean_false_node;
+      r = TYPE_NAME (r);
+    }
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (decl_linkage (r) == lk_internal)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_module_linkage.
+   Returns: true if r represents a variable, function, type, template, or
+   namespace whose name has module linkage.  Otherwise, false.  */
+
+static tree
+eval_has_module_linkage (tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_false_node
+      && eval_is_function (r) == boolean_false_node
+      && eval_is_type (r) == boolean_false_node
+      && eval_is_template (r) == boolean_false_node
+      && eval_is_namespace (r) == boolean_false_node)
+    return boolean_false_node;
+  r = STRIP_TEMPLATE (r);
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	return boolean_false_node;
+      r = TYPE_NAME (r);
+    }
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (decl_linkage (r) == lk_external
+      && DECL_LANG_SPECIFIC (r)
+      && DECL_MODULE_ATTACH_P (r)
+      && !DECL_MODULE_EXPORT_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_external_linkage.
+   Returns: true if r represents a variable, function, type, template, or
+   namespace whose name has external linkage.  Otherwise, false.  */
+
+static tree
+eval_has_external_linkage (tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_false_node
+      && eval_is_function (r) == boolean_false_node
+      && eval_is_type (r) == boolean_false_node
+      && eval_is_template (r) == boolean_false_node
+      && eval_is_namespace (r) == boolean_false_node)
+    return boolean_false_node;
+  r = STRIP_TEMPLATE (r);
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	return boolean_false_node;
+      r = TYPE_NAME (r);
+    }
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (decl_linkage (r) == lk_external
+      && !(DECL_LANG_SPECIFIC (r)
+	   && DECL_MODULE_ATTACH_P (r)
+	   && !DECL_MODULE_EXPORT_P (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_c_language_linkage.
+   Returns: true if r represents a variable, function, type, template, or
+   namespace whose name has C language linkage.  Otherwise, false.  */
+
+static tree
+eval_has_c_language_linkage (tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_false_node
+      && eval_is_function (r) == boolean_false_node
+      && eval_is_type (r) == boolean_false_node
+      && eval_is_template (r) == boolean_false_node
+      && eval_is_namespace (r) == boolean_false_node)
+    return boolean_false_node;
+  r = STRIP_TEMPLATE (r);
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	return boolean_false_node;
+      r = TYPE_NAME (r);
+    }
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) != NAMESPACE_DECL
+      && decl_linkage (r) == lk_external
+      && DECL_LANGUAGE (r) == lang_c)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_linkage.
+   Returns: true if r represents a variable, function, type, template, or
+   namespace whose name has any linkage.  Otherwise, false.  */
+
+static tree
+eval_has_linkage (tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_false_node
+      && eval_is_function (r) == boolean_false_node
+      && eval_is_type (r) == boolean_false_node
+      && eval_is_template (r) == boolean_false_node
+      && eval_is_namespace (r) == boolean_false_node)
+    return boolean_false_node;
+  r = STRIP_TEMPLATE (r);
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	return boolean_false_node;
+      r = TYPE_NAME (r);
+    }
+  if (decl_linkage (r) != lk_none)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_complete_type.
    Returns: true if is_type(r) is true and there is some point in the
    evaluation context from which the type represented by dealias(r) is
@@ -2076,6 +2218,16 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       ident += 4;
       if (!strcmp (ident, "identifier"))
 	return eval_has_identifier (h);
+      if (!strcmp (ident, "internal_linkage"))
+	return eval_has_internal_linkage (h, kind);
+      if (!strcmp (ident, "module_linkage"))
+	return eval_has_module_linkage (h, kind);
+      if (!strcmp (ident, "external_linkage"))
+	return eval_has_external_linkage (h, kind);
+      if (!strcmp (ident, "c_language_linkage"))
+	return eval_has_c_language_linkage (h, kind);
+      if (!strcmp (ident, "linkage"))
+	return eval_has_linkage (h, kind);
       if (!strcmp (ident, "template_arguments"))
 	return eval_has_template_arguments (h);
       goto not_found;
