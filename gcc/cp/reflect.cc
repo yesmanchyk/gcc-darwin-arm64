@@ -712,6 +712,21 @@ eval_is_function_parameter (const_tree r, reflect_kind kind)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_explicit_object_parameter.
+   Returns: true if r represents a function parameter that is an explicit
+   object parameter.  Otherwise, false.  */
+
+static tree
+eval_is_explicit_object_parameter (const_tree r, reflect_kind kind)
+{
+  if (eval_is_function_parameter (r, kind) == boolean_true_node
+      && r == DECL_ARGUMENTS (DECL_CONTEXT (r))
+      && DECL_XOBJ_MEMBER_FUNCTION_P (DECL_CONTEXT (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::has_ellipsis_parameter.
    Returns: true if r represents a function or function type that has an
    ellipsis in its parameter-type-list.  Otherwise, false.  */
@@ -2902,6 +2917,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_template (h);
       if (!strcmp (ident, "function_parameter"))
 	return eval_is_function_parameter (h, kind);
+      if (!strcmp (ident, "explicit_object_parameter"))
+	return eval_is_explicit_object_parameter (h, kind);
       if (!strcmp (ident, "enumerator"))
 	return eval_is_enumerator (h);
       if (!strcmp (ident, "complete_type"))
