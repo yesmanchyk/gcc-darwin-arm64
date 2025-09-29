@@ -780,11 +780,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
   /// is_fundamental
+#if __cpp_impl_reflection >= 202500L
+  template<typename _Tp>
+    struct is_fundamental
+    : public __or_<is_arithmetic<_Tp>, is_void<_Tp>,
+		   is_null_pointer<_Tp>, is_reflection<_Tp>>::type
+    { };
+#else
   template<typename _Tp>
     struct is_fundamental
     : public __or_<is_arithmetic<_Tp>, is_void<_Tp>,
 		   is_null_pointer<_Tp>>::type
     { };
+#endif
 
   /// is_object
 #if _GLIBCXX_USE_BUILTIN_TRAIT(__is_object)

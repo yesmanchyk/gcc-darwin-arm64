@@ -1380,7 +1380,6 @@ eval_is_fundamental_type (location_t loc, const constexpr_ctx *ctx, tree type,
   if (ARITHMETIC_TYPE_P (type)
       || VOID_TYPE_P (type)
       || NULLPTR_TYPE_P (type)
-      /* ??? Our std::is_fundamental doesn't accept std::meta::info.  */
       || REFLECTION_TYPE_P (type))
     return boolean_true_node;
   else
@@ -1393,11 +1392,13 @@ static tree
 eval_is_compound_type (location_t loc, const constexpr_ctx *ctx, tree type,
 		       tree *jump_target)
 {
-  if (eval_is_fundamental_type (loc, ctx, type, jump_target)
-      == boolean_false_node)
+  tree fundamental = eval_is_fundamental_type (loc, ctx, type, jump_target);
+  if (fundamental == boolean_false_node)
     return boolean_true_node;
-  else
+  else if (fundamental == boolean_true_node)
     return boolean_false_node;
+  else
+    return fundamental;
 }
 
 /* Process std::meta::is_member_pointer_type.  */
