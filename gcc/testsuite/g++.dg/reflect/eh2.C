@@ -32,3 +32,4 @@ static_assert ((is_object_type (^^i), true)); // { dg-error "non-constant|uncaug
 static_assert ((is_arithmetic_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_member_pointer_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_scalar_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((is_fundamental_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }

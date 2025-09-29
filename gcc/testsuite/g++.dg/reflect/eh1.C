@@ -86,6 +86,9 @@ eval (int n)
     case 24:
       is_scalar_type (^^n);
       break;
+    case 25:
+      is_fundamental_type (^^n);
+      break;
     default:
       break;
     }
@@ -125,3 +128,4 @@ static_assert (test (21));
 static_assert (test (22));
 static_assert (test (23));
 static_assert (test (24));
+static_assert (test (25));

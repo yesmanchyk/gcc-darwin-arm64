@@ -1369,6 +1369,23 @@ eval_is_scalar_type (location_t loc, const constexpr_ctx *ctx, tree type,
     return boolean_false_node;
 }
 
+/* Process std::meta::is_fundamental_type.  */
+
+static tree
+eval_is_fundamental_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			  tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (ARITHMETIC_TYPE_P (type)
+      || VOID_TYPE_P (type)
+      || NULLPTR_TYPE_P (type)
+      /* ??? Our std::is_fundamental doesn't accept std::meta::info.  */
+      || REFLECTION_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
 /* Process std::meta::is_member_pointer_type.  */
 
 static tree
@@ -1669,6 +1686,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_scalar_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "member_pointer_type"))
 	return eval_is_member_pointer_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "fundamental_type"))
+	return eval_is_fundamental_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "same_type"))
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
