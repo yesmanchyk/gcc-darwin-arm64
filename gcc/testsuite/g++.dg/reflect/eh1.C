@@ -89,6 +89,9 @@ eval (int n)
     case 25:
       is_fundamental_type (^^n);
       break;
+    case 26:
+      is_compound_type (^^n);
+      break;
     default:
       break;
     }
@@ -129,3 +132,4 @@ static_assert (test (22));
 static_assert (test (23));
 static_assert (test (24));
 static_assert (test (25));
+static_assert (test (26));

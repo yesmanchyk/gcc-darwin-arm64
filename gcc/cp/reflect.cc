@@ -1386,6 +1386,20 @@ eval_is_fundamental_type (location_t loc, const constexpr_ctx *ctx, tree type,
   else
     return boolean_false_node;
 }
+
+/* Process std::meta::is_compound_type.  */
+
+static tree
+eval_is_compound_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
+{
+  if (eval_is_fundamental_type (loc, ctx, type, jump_target)
+      == boolean_false_node)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_member_pointer_type.  */
 
 static tree
@@ -1688,6 +1702,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_member_pointer_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "fundamental_type"))
 	return eval_is_fundamental_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "compound_type"))
+	return eval_is_compound_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "same_type"))
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
