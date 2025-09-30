@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 
 static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
 				   tree *);
+static tree eval_is_object_type (location_t, const constexpr_ctx *, tree,
+				 tree *);
 struct constexpr_ctx;
 
 static GTY(()) tree vector_identifier;
@@ -54,12 +56,13 @@ init_reflection ()
   TREE_TYPE (std_meta_node) = void_type_node;
 }
 
-/* Create a REFLECT_EXPR expression around T.  */
+/* Create a REFLECT_EXPR expression of kind KIND around T.  */
 
 static tree
-get_reflection_raw (location_t loc, tree t)
+get_reflection_raw (location_t loc, tree t, reflect_kind kind = REFLECT_UNDEF)
 {
   t = build1_loc (loc, REFLECT_EXPR, meta_info_type_node, t);
+  REFLECT_EXPR_KIND (t) = kind;
   TREE_CONSTANT (t) = true;
   TREE_READONLY (t) = true;
   TREE_SIDE_EFFECTS (t) = false;
@@ -92,10 +95,13 @@ get_reflection_raw (location_t loc, tree t)
     -- a namespace alias,
     -- a namespace,
     -- a direct base class relationship, or
-    -- a data member description.  */
+    -- a data member description.
+
+   KIND is used to distinguish between categories that are represented
+   by the same handle.  */
 
 tree
-get_reflection (location_t loc, tree t)
+get_reflection (location_t loc, tree t, reflect_kind kind/*=REFLECT_UNDEF*/)
 {
   STRIP_ANY_LOCATION_WRAPPER (t);
 
@@ -201,7 +207,7 @@ get_reflection (location_t loc, tree t)
   if (t == error_mark_node)
     return error_mark_node;
 
-  return get_reflection_raw (loc, t);
+  return get_reflection_raw (loc, t, kind);
 }
 
 /* Return a null reflection value.  */
@@ -547,6 +553,18 @@ eval_is_concept (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_object.
+   Returns: true if r represents an object.  Otherwise, false.  */
+
+static tree
+eval_is_object (reflect_kind kind)
+{
+  if (kind == REFLECT_OBJECT)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_structured_binding.
    Returns: true if r represents a structured binding.  Otherwise, false.  */
 
@@ -580,10 +598,13 @@ eval_is_template (tree r)
    Returns: true if r represents a function parameter.  Otherwise, false.  */
 
 static tree
-eval_is_function_parameter (const_tree r)
+eval_is_function_parameter (const_tree r, reflect_kind kind)
 {
-  if (TREE_CODE (r) == PARM_DECL)
-    return boolean_true_node;
+  if (kind == REFLECT_PARM)
+    {
+      gcc_checking_assert (TREE_CODE (r) == PARM_DECL);
+      return boolean_true_node;
+    }
   else
     return boolean_false_node;
 }
@@ -928,7 +949,8 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	       : TYPE_ARG_TYPES (r));
   for (tree arg = args; arg && arg != void_list_node; arg = TREE_CHAIN (arg))
     CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
-			    get_reflection_raw (location_of (arg), arg));
+			    get_reflection_raw (location_of (arg), arg,
+						REFLECT_PARM));
   return get_vector_of_info_elts (elts);
 }
 
@@ -1606,6 +1628,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (*jump_target)
     return NULL_TREE;
   tree h = REFLECT_EXPR_HANDLE (info);
+  auto kind = static_cast<reflect_kind>(REFLECT_EXPR_KIND (info));
   const location_t loc = cp_expr_loc_or_input_loc (info);
 
   /* There still could be a TEMPLATE_ID_EXPR denoting a function template.  */
@@ -1637,12 +1660,14 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_alias_template (h);
       if (!strcmp (ident, "concept"))
 	return eval_is_concept (h);
+      if (!strcmp (ident, "object"))
+	return eval_is_object (kind);
       if (!strcmp (ident, "structured_binding"))
 	return eval_is_structured_binding (h);
       if (!strcmp (ident, "template"))
 	return eval_is_template (h);
       if (!strcmp (ident, "function_parameter"))
-	return eval_is_function_parameter (h);
+	return eval_is_function_parameter (h, kind);
       if (!strcmp (ident, "enumerator"))
 	return eval_is_enumerator (h);
       if (!strcmp (ident, "complete_type"))

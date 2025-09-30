@@ -92,14 +92,14 @@ f ()
 {
   static_assert (!is_function_parameter (^^T));
   static_assert (!is_function_parameter (R));
-  static_assert (is_function_parameter (R2));
-  static_assert (is_function_parameter (R3));
+  static_assert (!is_function_parameter (R2));
+  static_assert (!is_function_parameter (R3));
 }
 
 void
 g (int p, cls c)
 {
   f<int, ^^var, ^^p, ^^c>();
-  static_assert (is_function_parameter (^^p));
-  static_assert (is_function_parameter (^^c));
+  static_assert (!is_function_parameter (^^p));
+  static_assert (!is_function_parameter (^^c));
 }

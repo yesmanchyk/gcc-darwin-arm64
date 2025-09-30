@@ -1900,6 +1900,34 @@ struct GTY(()) tree_tu_local_entity {
 #define REFLECT_EXPR_HANDLE(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, REFLECT_EXPR), 0)
 
+/* Various kinds of reflections.  Sometimes we cannot simply look at the
+   handle and figure out the kind from it.  For instance,
+
+     consteval void fn(int p) {
+       constexpr auto rp = parameters_of(^^fn)[0];
+       // is_variable(^^p) is true
+       // is_function_parameter(^^p) is false
+       // is_variable(rp) is false
+       // is_function_parameter(rp) is true
+     }
+
+   but we represent the handle p with a PARM_DECL in all cases.
+
+   The size is limited to addr_space_t because we only have 8 bits.  */
+
+enum reflect_kind : addr_space_t {
+  /* Detect the category from the handle.  */
+  REFLECT_UNDEF,
+  /* The reflection represents an object.  */
+  REFLECT_OBJECT,
+  /* The reflection represents a function parameter.  */
+  REFLECT_PARM,
+};
+
+/* The reflect_kind of a REFLECT_EXPR.  */
+#define REFLECT_EXPR_KIND(NODE) \
+  (REFLECT_EXPR_CHECK (NODE)->base.u.bits.address_space)
+
 /* True if this SPLICE_EXPR represents a splice-expression (as opposed to
    a splice-specifier), so it cannot expand to e.g. a type.  */
 #define SPLICE_EXPR_EXPRESSION_P(NODE) \
@@ -9162,7 +9190,7 @@ extern void init_reflection ();
 extern bool metafunction_p (tree) ATTRIBUTE_PURE;
 extern tree process_metafunction (const constexpr_ctx *, tree,
 				  bool *, bool *, tree *);
-extern tree get_reflection (location_t, tree) ATTRIBUTE_PURE;
+extern tree get_reflection (location_t, tree, reflect_kind = REFLECT_UNDEF);
 extern tree get_null_reflection () ATTRIBUTE_PURE;
 extern tree splice (tree);
 extern bool check_out_of_consteval_use (tree);

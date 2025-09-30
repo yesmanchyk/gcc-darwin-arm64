@@ -119,6 +119,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_conversion_function_template(info);
     consteval bool is_concept(info);
 
+    consteval bool is_object(info);
+
     consteval bool is_structured_binding(info);
 
     consteval info dealias(info);
