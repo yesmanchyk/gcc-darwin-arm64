@@ -30,8 +30,7 @@ struct G { constexpr G () : g (42) {} mutable int g; };
 struct H { constexpr H () : h (42) {} int h; G g; };
 [[=H ()]] int j;						// { dg-error "annotation does not have structural type" }
 [[=c]] int k;							// { dg-error "the value of 'c' is not usable in a constant expression" }
-[[=(throw 1, 0)]] int l;					// { dg-error "the value of '<anonymous>' is not usable in a constant expression" }
-								// { dg-error "uncaught exception '1'" "" { target *-*-* } .-1 }
+[[=(throw 1, 0)]] int l;					// { dg-error "uncaught exception '1'" }
 struct I { int a, b; long c; };
 constexpr B m = B ();
 constexpr I n = { 1, 2, 3 };
