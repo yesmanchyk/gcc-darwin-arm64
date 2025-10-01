@@ -1674,6 +1674,32 @@ eval_is_pointer_interconvertible_base_of_type (location_t loc,
 			  jump_target);
 }
 
+/* Process std::meta::enumerators_of.
+   Returns: A vector containing the reflections of each enumerator of the
+   enumeration represented by dealias(type_enum), in the order in which they
+   are declared.
+   Throws: meta::exception unless dealias(type_enum) represents an enumeration
+   type, and is_enumerable_type(type_enum) is true.  */
+
+static tree
+eval_enumerators_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		     tree *jump_target)
+{
+  if (TREE_CODE (r) != ENUMERAL_TYPE
+      || eval_is_enumerable_type (r) == boolean_false_node)
+    return throw_exception (loc, ctx, N_("reflection does not represent an "
+					 "enumerable enumeration type"), r,
+			    jump_target);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  for (tree t = TYPE_VALUES (r); t; t = TREE_CHAIN (t))
+    {
+      tree e = TREE_VALUE (t);
+      CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+			      get_reflection_raw (location_of (e), e));
+    }
+  return get_vector_of_info_elts (elts);
+}
+
 /* Process std::meta::remove_const.
    Returns: a reflection representing the type denoted by
    std::remove_const_t<T>, where T is the type or type alias
@@ -2021,6 +2047,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_template_arguments_of (loc, ctx, h, jump_target);
   if (id_equal (name, "parameters_of"))
     return eval_parameters_of (loc, ctx, h, jump_target);
+  if (id_equal (name, "enumerators_of"))
+    return eval_enumerators_of (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_const"))
     return eval_remove_const (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_volatile"))
