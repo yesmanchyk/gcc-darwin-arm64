@@ -1100,6 +1100,33 @@ has_type (tree r, reflect_kind kind)
   return false;
 }
 
+/* Helper function for eval_type_of.  Assuming has_type is true, return
+   the std::meta::type_of type (rather than reflection thereof).  */
+
+static tree
+type_of (tree r, reflect_kind kind)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == PARM_DECL && kind == REFLECT_PARM)
+    {
+      tree fn = DECL_CONTEXT (r);
+      tree args = FUNCTION_FIRST_USER_PARM (fn);
+      tree type = FUNCTION_FIRST_USER_PARMTYPE (fn);
+      while (r != args)
+	{
+	  args = DECL_CHAIN (args);
+	  type = TREE_CHAIN (type);
+	}
+      r = TREE_VALUE (type);
+    }
+  else if (eval_is_annotation (r) == boolean_true_node)
+    // TODO: or do we need to reflect_constant and get type of that?
+    r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
+  else
+    r = TREE_TYPE (r);
+  return r;
+}
+
 /* Process std::meta::type_of.  Returns:
    -- If r represents the ith parameter of a function F, then the ith type
       in the parameter-type-list of F.
@@ -1125,25 +1152,7 @@ eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
   if (!has_type (r, kind))
     return throw_exception (loc, ctx, N_("reflection does not have a type"),
 			    r, jump_target);
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == PARM_DECL)
-    {
-      tree fn = DECL_CONTEXT (r);
-      tree args = FUNCTION_FIRST_USER_PARM (fn);
-      tree type = FUNCTION_FIRST_USER_PARMTYPE (fn);
-      while (r != args)
-	{
-	  args = DECL_CHAIN (args);
-	  type = TREE_CHAIN (type);
-	}
-      r = TREE_VALUE (type);
-    }
-  else if (eval_is_annotation (r) == boolean_true_node)
-    // TODO: or do we need to reflect_constant and get type of that?
-    r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
-  else
-    r = TREE_TYPE (r);
-  return get_reflection_raw (loc, r);
+  return get_reflection_raw (loc, type_of (r, kind));
 }
 
 /* Process std::meta::dealias.
@@ -1164,6 +1173,42 @@ eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
     return throw_exception_generic (loc, ctx, r, jump_target);
 
   return get_reflection_raw (loc, r);
+}
+
+/* Process std::meta::is_const.
+   Let T be type_of(r) if has-type(r) is true.  Otherwise, let T be dealias(r).
+   Returns: true if T represents a const type, or a const-qualified function
+   type.  Otherwise, false.  */
+
+static tree
+eval_is_const (tree r, reflect_kind kind)
+{
+  if (has_type (r, kind))
+    r = type_of (r, kind);
+  else if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  if (TYPE_P (r) && TYPE_READONLY (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_volatile.
+   Let T be type_of(r) if has-type(r) is true.  Otherwise, let T be dealias(r).
+   Returns: true if T represents a volatile type, or a volatile-qualified
+   function type.  Otherwise, false.  */
+
+static tree
+eval_is_volatile (tree r, reflect_kind kind)
+{
+  if (has_type (r, kind))
+    r = type_of (r, kind);
+  else if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  if (TYPE_P (r) && TYPE_VOLATILE (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Process std::meta::has_template_arguments.
@@ -2477,6 +2522,10 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_enumerable_type (h);
       if (!strcmp (ident, "annotation"))
 	return eval_is_annotation (h);
+      if (!strcmp (ident, "const"))
+	return eval_is_const (h, kind);
+      if (!strcmp (ident, "volatile"))
+	return eval_is_volatile (h, kind);
       if (!strcmp (ident, "conversion_function"))
 	return eval_is_conversion_function (h);
       if (!strcmp (ident, "operator_function"))

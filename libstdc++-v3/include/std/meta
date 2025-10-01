@@ -176,6 +176,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_enumerator(info);
     consteval bool is_annotation(info);
 
+    consteval bool is_const(info);
+    consteval bool is_volatile(info);
+
     consteval bool has_internal_linkage(info);
     consteval bool has_module_linkage(info);
     consteval bool has_external_linkage(info);

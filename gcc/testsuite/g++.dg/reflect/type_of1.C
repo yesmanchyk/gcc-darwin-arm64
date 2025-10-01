@@ -81,7 +81,8 @@ foo (int a, const long b, T c, int d[4], T &e)
   static_assert (has_type (parameters_of (^^bar)[2]));
   static_assert (has_type (parameters_of (^^bar)[3]));
   static_assert (type_of (^^a) == ^^int);
-  static_assert (type_of (^^b) == ^^long);
+  using clong = const long;
+  static_assert (type_of (^^b) == dealias(^^clong));
   static_assert (type_of (^^c) == ^^T);
   using ptr = int *;
   static_assert (type_of (^^d) == dealias (^^ptr));
