@@ -100,3 +100,34 @@ foo (int a, const long b, T c, int d[4], T &e)
   static_assert (parameters_of (^^foo)[3] != ^^d);
   static_assert (parameters_of (^^foo)[4] != ^^e);
 }
+
+consteval bool
+baz (int a, info b, info c, info d)
+{
+  if (a != 43)
+    return false;
+  if (b != d)
+    return false;
+  if (b != variable_of (c))
+    return false;
+  if (b == c)
+    return false;
+  if (^^b != variable_of (parameters_of (^^baz)[1]))
+    return false;
+  if (^^b == parameters_of (^^baz)[1])
+    return false;
+  return true;
+}
+
+consteval bool
+qux (int a)
+{
+  return baz (a + 1, ^^a, parameters_of (^^qux)[0],
+	      variable_of (parameters_of (^^qux)[0]));
+}
+
+// TODO: This doesn't work yet, I think we want to check
+// whether DECL_CONTEXT of the PARM_DECL is current_function_decl
+// or any of the ctx->call->fundef->decl on the constexpr evaluation
+// stack.  But currently we only have access to the innermost.
+//static_assert (qux (42));
