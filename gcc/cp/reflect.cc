@@ -413,16 +413,15 @@ eval_has_identifier (const_tree r)
    Returns: true if r represents a variable.  Otherwise, false.  */
 
 static tree
-eval_is_variable (const_tree r)
+eval_is_variable (const_tree r, reflect_kind kind)
 {
-  /* A parameter is a variable because it is an object or a reference
-     introduced by a declaration.  */
-  if (TREE_CODE (r) == PARM_DECL
+  /* ^^param is a variable but parameters_of(parent_of(^^param))[0] is not.  */
+  if ((TREE_CODE (r) == PARM_DECL && kind != REFLECT_PARM)
       || (VAR_P (r)
 	  /* The definition of a variable excludes non-static data members.  */
 	  && !DECL_ANON_UNION_VAR_P (r)
 	  /* A structured binding is not a variable.  */
-	  && !DECL_DECOMPOSITION_P (r)))
+	  && !(DECL_DECOMPOSITION_P (r) && !DECL_DECOMP_IS_BASE (r))))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -576,7 +575,7 @@ eval_is_object (reflect_kind kind)
 static tree
 eval_is_structured_binding (const_tree r)
 {
-  if (DECL_DECOMPOSITION_P (r))
+  if (DECL_DECOMPOSITION_P (r) && !DECL_DECOMP_IS_BASE (r))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -771,7 +770,7 @@ eval_is_conversion_function_template (const_tree)
    description, or function parameter.  Otherwise, false.  */
 
 static bool
-has_type (tree r)
+has_type (tree r, reflect_kind kind)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TREE_CODE (r) == FUNCTION_DECL)
@@ -783,10 +782,11 @@ has_type (tree r)
       return true;
     }
   if (CONSTANT_CLASS_P (r)
-      || eval_is_variable (r) == boolean_true_node
+      || eval_is_variable (r, kind) == boolean_true_node
       || eval_is_enumerator (r) == boolean_true_node
       || TREE_CODE (r) == FIELD_DECL
-      || eval_is_annotation (r) == boolean_true_node)
+      || eval_is_annotation (r) == boolean_true_node
+      || eval_is_function_parameter (r, kind) == boolean_true_node)
     return true;
   // TODO: object, direct base class relationship, data member description.
   return false;
@@ -812,9 +812,9 @@ has_type (tree r)
 
 static tree
 eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
-	      tree *jump_target)
+	      reflect_kind kind, tree *jump_target)
 {
-  if (!has_type (r))
+  if (!has_type (r, kind))
     return throw_exception (loc, ctx, N_("reflection does not have a type"),
 			    r, jump_target);
   r = MAYBE_BASELINK_FUNCTIONS (r);
@@ -1056,11 +1056,11 @@ remove_const (tree type)
 
 static tree
 eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		     tree type, tree *jump_target)
+		     reflect_kind kind, tree type, tree *jump_target)
 {
   if (!(eval_is_type (r) == boolean_true_node
 	|| eval_is_type_alias (r) == boolean_true_node
-	|| eval_is_variable (r) == boolean_true_node
+	|| eval_is_variable (r, kind) == boolean_true_node
 	|| eval_is_function (r) == boolean_true_node
 	|| eval_is_namespace (r) == boolean_true_node
 	|| eval_is_enumerator (r) == boolean_true_node
@@ -1644,7 +1644,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     {
       ident += 3;
       if (!strcmp (ident, "variable"))
-	return eval_is_variable (h);
+	return eval_is_variable (h, kind);
       if (!strcmp (ident, "type"))
 	return eval_is_type (h);
       if (!strcmp (ident, "type_alias"))
@@ -1835,7 +1835,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (id_equal (name, "add_cv"))
     return eval_add_cv (loc, ctx, h, jump_target);
   if (id_equal (name, "annotations_of"))
-    return eval_annotations_of (loc, ctx, h, NULL_TREE, jump_target);
+    return eval_annotations_of (loc, ctx, h, kind, NULL_TREE, jump_target);
   if (id_equal (name, "annotations_of_with_type"))
     {
       tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
@@ -1843,10 +1843,10 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (*jump_target || *non_constant_p)
 	return NULL_TREE;
       tree h1 = REFLECT_EXPR_HANDLE (i1);
-      return eval_annotations_of (loc, ctx, h, h1, jump_target);
+      return eval_annotations_of (loc, ctx, h, kind, h1, jump_target);
     }
   if (id_equal (name, "type_of"))
-    return eval_type_of (loc, ctx, h, jump_target);
+    return eval_type_of (loc, ctx, h, kind, jump_target);
 
 not_found:
   sorry ("%qE", name);

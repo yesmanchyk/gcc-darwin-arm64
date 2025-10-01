@@ -99,4 +99,6 @@ g (int p, cls c)
   f<int, ^^var, ^^ns, ^^cls>();
   static_assert (is_variable (^^p));
   static_assert (is_variable (^^c));
+  static_assert (!is_variable (parameters_of (^^g)[0]));
+  static_assert (!is_variable (parameters_of (^^g)[1]));
 }

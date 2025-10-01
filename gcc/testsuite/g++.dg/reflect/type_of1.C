@@ -61,6 +61,7 @@ static_assert (!has_type (^^NSAlias));
 static_assert (!has_type (^^NS));
 //static_assert (has_type (std::meta::bases_of (^^S, ctx)[0]));
 //static_assert (has_type (std::meta::data_member_spec (^^int, {.name="member"})));
+void bar (long, const T f, int g[2], T &);
 
 int
 foo (int a, const long b, T c, int d[4], T &e)
@@ -70,6 +71,15 @@ foo (int a, const long b, T c, int d[4], T &e)
   static_assert (has_type (^^c));
   static_assert (has_type (^^d));
   static_assert (has_type (^^e));
+  static_assert (has_type (parameters_of (^^foo)[0]));
+  static_assert (has_type (parameters_of (^^foo)[1]));
+  static_assert (has_type (parameters_of (^^foo)[2]));
+  static_assert (has_type (parameters_of (^^foo)[3]));
+  static_assert (has_type (parameters_of (^^foo)[4]));
+  static_assert (has_type (parameters_of (^^bar)[0]));
+  static_assert (has_type (parameters_of (^^bar)[1]));
+  static_assert (has_type (parameters_of (^^bar)[2]));
+  static_assert (has_type (parameters_of (^^bar)[3]));
   static_assert (type_of (^^a) == ^^int);
   static_assert (type_of (^^b) == ^^long);
   static_assert (type_of (^^c) == ^^T);
@@ -77,6 +87,15 @@ foo (int a, const long b, T c, int d[4], T &e)
   static_assert (type_of (^^d) == dealias (^^ptr));
   using ref = T &;
   static_assert (type_of (^^e) == dealias (^^ref));
+  static_assert (type_of (parameters_of (^^foo)[0]) == ^^int);
+  static_assert (type_of (parameters_of (^^foo)[1]) == ^^long);
+  static_assert (type_of (parameters_of (^^foo)[2]) == ^^T);
+  static_assert (type_of (parameters_of (^^foo)[3]) == dealias (^^ptr));
+  static_assert (type_of (parameters_of (^^foo)[4]) == dealias (^^ref));
+  static_assert (type_of (parameters_of (^^bar)[0]) == ^^long);
+  static_assert (type_of (parameters_of (^^bar)[1]) == ^^T);
+  static_assert (type_of (parameters_of (^^bar)[2]) == dealias (^^ptr));
+  static_assert (type_of (parameters_of (^^bar)[3]) == dealias (^^ref));
   return 0;
 }
 
