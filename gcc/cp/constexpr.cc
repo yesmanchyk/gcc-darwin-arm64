@@ -3793,7 +3793,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	}
       tree e = process_metafunction (ctx, t, non_constant_p, overflow_p,
 				     jump_target);
-      if (*jump_target)
+      if (*jump_target || *non_constant_p)
 	return NULL_TREE;
       e = cxx_eval_constant_expression (ctx, e, vc_prvalue,
 					non_constant_p, overflow_p,

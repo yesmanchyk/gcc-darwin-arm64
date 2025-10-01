@@ -252,6 +252,11 @@ get_info (const constexpr_ctx *ctx, tree call, int n, bool *non_constant_p,
   info = cxx_eval_constant_expression (ctx, info, vc_prvalue,
 				       non_constant_p, overflow_p,
 				       jump_target);
+  if (!REFLECT_EXPR_P (info))
+    {
+      *non_constant_p = true;
+      return NULL_TREE;
+    }
   if (*jump_target)
     return NULL_TREE;
   return info;
@@ -1625,7 +1630,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     }
 
   tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
-  if (*jump_target)
+  if (*jump_target || *non_constant_p)
     return NULL_TREE;
   tree h = REFLECT_EXPR_HANDLE (info);
   auto kind = static_cast<reflect_kind>(REFLECT_EXPR_KIND (info));
@@ -1734,7 +1739,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_same_type (loc, ctx, h, h1, jump_target);
@@ -1743,7 +1748,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_base_of_type (loc, ctx, h, h1, jump_target);
@@ -1752,7 +1757,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_virtual_base_of_type (loc, ctx, h, h1, jump_target);
@@ -1761,7 +1766,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_convertible_type (loc, ctx, h, h1, jump_target);
@@ -1770,7 +1775,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_nothrow_convertible_type (loc, ctx, h, h1,
@@ -1780,7 +1785,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_layout_compatible_type (loc, ctx, h, h1, jump_target);
@@ -1789,7 +1794,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			      jump_target);
-	  if (*jump_target)
+	  if (*jump_target || *non_constant_p)
 	    return NULL_TREE;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
 	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h, h1,
@@ -1835,7 +1840,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     {
       tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
 			  jump_target);
-      if (*jump_target)
+      if (*jump_target || *non_constant_p)
 	return NULL_TREE;
       tree h1 = REFLECT_EXPR_HANDLE (i1);
       return eval_annotations_of (loc, ctx, h, h1, jump_target);
