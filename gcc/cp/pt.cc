@@ -22889,11 +22889,12 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case REFLECT_EXPR:
       {
 	tree h = REFLECT_EXPR_HANDLE (t);
+	auto kind = static_cast<reflect_kind> (REFLECT_EXPR_KIND (t));
 	if (TYPE_P (h))
 	  h = tsubst (h, args, complain, in_decl);
 	else
 	  h = RECUR (h);
-	RETURN (get_reflection (EXPR_LOCATION (t), h));
+	RETURN (get_reflection (EXPR_LOCATION (t), h, kind));
       }
 
     case SPLICE_EXPR:

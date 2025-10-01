@@ -1123,6 +1123,27 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_vector_of_info_elts (elts);
 }
 
+/* Process std::meta::variable_of.
+   Returns: The reflection of the parameter variable corresponding to r.
+
+   Throws: meta::exception unless
+   -- represents a parameter of a function F and
+   -- there is a point P in the evaluation context for which the innermost
+      non-block scope enclosing P is the function parameter scope associated
+      with F.  */
+
+static tree
+eval_variable_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		  reflect_kind kind, tree *jump_target)
+{
+  if (eval_is_function_parameter (r, kind) == boolean_false_node
+      || DECL_CONTEXT (r) != current_function_decl)
+    return throw_exception (loc, ctx, N_("reflection does not represent "
+					 "parameter of current function"),
+			    r, jump_target);
+  return get_reflection_raw (loc, r, REFLECT_UNDEF);
+}
+
 /* Get the reflection of template argument ARG as per
    std::meta::template_arguments_of.  */
 
@@ -2047,6 +2068,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_parameters_of (loc, ctx, h, jump_target);
   if (id_equal (name, "enumerators_of"))
     return eval_enumerators_of (loc, ctx, h, jump_target);
+  if (id_equal (name, "variable_of"))
+    return eval_variable_of (loc, ctx, h, kind, jump_target);
   if (id_equal (name, "remove_const"))
     return eval_remove_const (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_volatile"))
@@ -2288,6 +2311,8 @@ compare_reflections (tree lhs, tree rhs)
 {
   do
     {
+      if (REFLECT_EXPR_KIND (lhs) != REFLECT_EXPR_KIND (rhs))
+	return false;
       lhs = REFLECT_EXPR_HANDLE (lhs);
       rhs = REFLECT_EXPR_HANDLE (rhs);
     }

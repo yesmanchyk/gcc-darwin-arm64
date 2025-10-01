@@ -4430,6 +4430,12 @@ cp_tree_equal (tree t1, tree t2)
 	return equivalent_member_references (t1, t2);
       break;
 
+    case REFLECT_EXPR:
+      if (!cp_tree_equal (REFLECT_EXPR_HANDLE (t1), REFLECT_EXPR_HANDLE (t2))
+	  || REFLECT_EXPR_KIND (t1) != REFLECT_EXPR_KIND (t2))
+	return false;
+      return true;
+
     default:
       break;
     }
