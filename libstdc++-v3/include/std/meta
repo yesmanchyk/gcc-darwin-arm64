@@ -212,6 +212,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval vector<info> template_arguments_of(info);
     consteval vector<info> parameters_of(info);
     consteval info variable_of(info);
+    consteval info return_type_of(info);
 
     // [meta.reflection.member.queries], reflection member queries
     consteval vector<info> enumerators_of(info);

@@ -1106,9 +1106,10 @@ static tree
 eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		    tree *jump_target)
 {
-  if (!(eval_is_function (r) == boolean_true_node
-	|| eval_is_function_type (loc, ctx, r, jump_target)
-	    == boolean_true_node))
+  if (eval_is_function (r) != boolean_true_node
+      && (eval_is_type (r) != boolean_true_node
+	  || eval_is_function_type (loc, ctx, r,
+				    jump_target) != boolean_true_node))
     return throw_exception_nofn (loc, ctx, r, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
@@ -1141,6 +1142,30 @@ eval_variable_of (location_t loc, const constexpr_ctx *ctx, tree r,
     return throw_exception (loc, ctx, N_("reflection does not represent "
 					 "parameter of current function"),
 			    r, jump_target);
+  return get_reflection_raw (loc, r, REFLECT_UNDEF);
+}
+
+/* Process std::meta::return_type_of.
+   Returns: The reflection of the return type of the function or function type
+   represented by r.
+
+   Throws: meta::exception unless either r represents a function and
+   has-type(r) is true or r represents a function type.  */
+
+static tree
+eval_return_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		     reflect_kind kind, tree *jump_target)
+{
+  if ((eval_is_function (r) != boolean_true_node || !has_type (r, kind))
+      && (eval_is_type (r) != boolean_true_node
+	  || eval_is_function_type (loc, ctx, r,
+				    jump_target) != boolean_true_node))
+    return throw_exception_nofn (loc, ctx, r, jump_target);
+
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL)
+    r = TREE_TYPE (r);
+  r = TREE_TYPE (r);
   return get_reflection_raw (loc, r, REFLECT_UNDEF);
 }
 
@@ -2070,6 +2095,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_enumerators_of (loc, ctx, h, jump_target);
   if (id_equal (name, "variable_of"))
     return eval_variable_of (loc, ctx, h, kind, jump_target);
+  if (id_equal (name, "return_type_of"))
+    return eval_return_type_of (loc, ctx, h, kind, jump_target);
   if (id_equal (name, "remove_const"))
     return eval_remove_const (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_volatile"))
