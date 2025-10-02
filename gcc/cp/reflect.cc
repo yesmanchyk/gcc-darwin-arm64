@@ -1356,6 +1356,164 @@ eval_return_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_reflection_raw (loc, r, REFLECT_UNDEF);
 }
 
+/* Process std::meta::offset_of.
+   Let V be the offset in bits from the beginning of a complete object of the
+   type represented by parent_of(r) to the subobject associated with the
+   entity represented by r.
+   Returns: {V / CHAR_BIT, V % CHAR_BIT}.
+   Throws: meta::exception unless r represents a non-static data member,
+   unnamed bit-field, or direct base class relationship (D,B) for which either
+   B is not a virtual base class or D is not an abstract class.  */
+
+static tree
+eval_offset_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		tree member_offset, tree *jump_target)
+{
+  if (TREE_CODE (r) != FIELD_DECL
+      /* TODO: Handle direct base class relationship.  */)
+    return throw_exception (loc, ctx,
+			    N_("reflection unsuitable for offset"),
+			    r, jump_target);
+  tree off = bit_position (r);
+  if (TREE_CODE (off) != INTEGER_CST)
+    return throw_exception (loc, ctx,
+			    N_("non-constant offset for offset_of"),
+			    r, jump_target);
+  if (TREE_CODE (member_offset) != RECORD_TYPE)
+    {
+    fail:
+      error_at (loc, "unexpected return type of %qs", "std::meta::offset_of");
+      return build_zero_cst (member_offset);
+    }
+  tree bytes = next_aggregate_field (TYPE_FIELDS (member_offset));
+  if (!bytes || !INTEGRAL_TYPE_P (TREE_TYPE (bytes)))
+    goto fail;
+  tree bits = next_aggregate_field (DECL_CHAIN (bytes));
+  if (!bits || !INTEGRAL_TYPE_P (TREE_TYPE (bits)))
+    goto fail;
+  if (next_aggregate_field (DECL_CHAIN (bits)))
+    goto fail;
+  tree bytesv = size_binop (TRUNC_DIV_EXPR, off, bitsize_unit_node);
+  bytesv = fold_convert (TREE_TYPE (bytes), bytesv);
+  tree bitsv = size_binop (TRUNC_MOD_EXPR, off, bitsize_unit_node);
+  bitsv = fold_convert (TREE_TYPE (bits), bitsv);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  CONSTRUCTOR_APPEND_ELT (elts, bytes, bytesv);
+  CONSTRUCTOR_APPEND_ELT (elts, bits, bitsv);
+  return build_constructor (member_offset, elts);
+}
+
+/* Process std::meta::size_of.
+   Returns: If r represents
+     -- a non-static data member of type T,
+     -- a data member description (T,N,A,W,NUA), or
+     -- dealias(r) represents a type T,
+   then sizeof(T) if T is not a reference type and size_of(add_pointer(^^T))
+   otherwise.  Otherwise, size_of(type_of(r)).
+
+   Throws: meta::exception unless all of the following conditions are met:
+     -- dealias(r) is a reflection of a type, object, value, variable of
+	non-reference type, non-static data member that is not a bit-field,
+	direct base class relationship, or data member description
+	(T,N,A,W,NUA) where W is not _|_.
+     -- If dealias(r) represents a type, then is_complete_type(r) is true.  */
+
+static tree
+eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
+	      reflect_kind kind, tree ret_type, tree *jump_target)
+{
+  if (eval_is_type (r) != boolean_true_node
+      && eval_is_object (kind) != boolean_true_node
+      /* TODO: value */
+      && (eval_is_variable (r, kind) != boolean_true_node
+	  || TYPE_REF_P (TREE_TYPE (r)))
+      && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
+      /* TODO: direct base class relationship, data member description.  */)
+    return throw_exception (loc, ctx,
+			    N_("reflection not suitable for size_of"),
+			    r, jump_target);
+  if (!INTEGRAL_TYPE_P (ret_type))
+    {
+      error_at (loc, "unexpected return type of %qs", "std::meta::size_of");
+      return build_zero_cst (ret_type);
+    }
+  tree type;
+  if (TYPE_P (r))
+    type = r;
+  else if (TREE_CODE (r) == FIELD_DECL)
+    type = TREE_TYPE (r);
+  else
+    type = type_of (r, kind);
+  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+    return throw_exception (loc, ctx,
+			    N_("reflection with incomplete type"),
+			    r, jump_target);
+  tree ret = c_sizeof_or_alignof_type (loc, type, true, false, 0);
+  if (ret == error_mark_node)
+    return throw_exception (loc, ctx,
+			    N_("reflection with incomplete type"),
+			    r, jump_target);
+  return fold_convert (ret_type, ret);
+}
+
+/* Process std::meta::bit_size_of.
+   Returns:
+     -- If r represents an unnamed bit-field or a non-static data member that
+	is a bit-field with width W, then W.
+     -- Otherwise, if r represents a data member description (T,N,A,W,NUA)
+	and W is not _|_, then W.
+     -- Otherwise, CHAR_BIT * size_of(r).
+
+   Throws: meta::exception unless all of the following conditions are met:
+
+     -- dealias(r) is a reflection of a type, object, value, variable of
+	non-reference type, non-static data member, unnamed bit-field, direct
+	base class relationship, or data member description.
+     -- If dealias(r) represents a type T, there is a point within the
+	evaluation context from which T is not incomplete.  */
+
+static tree
+eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		  reflect_kind kind, tree ret_type, tree *jump_target)
+{
+  if (eval_is_type (r) != boolean_true_node
+      && eval_is_object (kind) != boolean_true_node
+      /* TODO: value */
+      && (eval_is_variable (r, kind) != boolean_true_node
+	  || TYPE_REF_P (TREE_TYPE (r)))
+      && TREE_CODE (r) != FIELD_DECL
+      /* TODO: direct base class relationship, data member description.  */)
+    return throw_exception (loc, ctx,
+			    N_("reflection not suitable for bit_size_of"),
+			    r, jump_target);
+  if (!INTEGRAL_TYPE_P (ret_type))
+    {
+      error_at (loc, "unexpected return type of %qs",
+		"std::meta::bit_size_of");
+      return build_zero_cst (ret_type);
+    }
+  tree type;
+  if (TREE_CODE (r) == FIELD_DECL && DECL_C_BIT_FIELD (r))
+    return fold_convert (ret_type, DECL_SIZE (r));
+  else if (TYPE_P (r))
+    type = r;
+  else if (TREE_CODE (r) == FIELD_DECL)
+    type = TREE_TYPE (r);
+  else
+    type = type_of (r, kind);
+  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+    return throw_exception (loc, ctx,
+			    N_("reflection with incomplete type"),
+			    r, jump_target);
+  tree ret = c_sizeof_or_alignof_type (loc, type, true, false, 0);
+  if (ret == error_mark_node)
+    return throw_exception (loc, ctx,
+			    N_("reflection with incomplete type"),
+			    r, jump_target);
+  ret = size_binop (MULT_EXPR, ret, size_int (BITS_PER_UNIT));
+  return fold_convert (ret_type, ret);
+}
+
 /* Get the reflection of template argument ARG as per
    std::meta::template_arguments_of.  */
 
@@ -2733,6 +2891,12 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_variable_of (loc, ctx, h, kind, jump_target);
   if (id_equal (name, "return_type_of"))
     return eval_return_type_of (loc, ctx, h, kind, jump_target);
+  if (id_equal (name, "offset_of"))
+    return eval_offset_of (loc, ctx, h, TREE_TYPE (call), jump_target);
+  if (id_equal (name, "size_of"))
+    return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
+  if (id_equal (name, "bit_size_of"))
+    return eval_bit_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
   if (id_equal (name, "remove_const"))
     return eval_remove_const (loc, ctx, h, jump_target);
   if (id_equal (name, "remove_volatile"))
