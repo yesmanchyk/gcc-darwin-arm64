@@ -1789,6 +1789,224 @@ eval_is_member_pointer_type (location_t loc, const constexpr_ctx *ctx,
   return eval_type_trait (loc, ctx, type, CPTK_IS_MEMBER_POINTER, jump_target);
 }
 
+/* Process std::meta::is_const_type.  */
+
+static tree
+eval_is_const_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (CP_TYPE_CONST_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_volatile_type.  */
+
+static tree
+eval_is_volatile_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (CP_TYPE_VOLATILE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_copyable_type.  */
+
+static tree
+eval_is_trivially_copyable_type (location_t loc, const constexpr_ctx *ctx,
+				 tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (trivially_copyable_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_relocatable_type.  */
+
+static tree
+eval_is_trivially_relocatable_type (location_t loc, const constexpr_ctx *ctx,
+				    tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (trivially_relocatable_type_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_replaceable_type.  */
+
+static tree
+eval_is_replaceable_type (location_t loc, const constexpr_ctx *ctx,
+			  tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (replaceable_type_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_standard_layout_type.  */
+
+static tree
+eval_is_standard_layout_type (location_t loc, const constexpr_ctx *ctx,
+			      tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (std_layout_type_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_empty_type.  */
+
+static tree
+eval_is_empty_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_EMPTY, jump_target);
+}
+
+/* Process std::meta::is_polymorphic_type.  */
+
+static tree
+eval_is_polymorphic_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			  tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_POLYMORPHIC, jump_target);
+}
+
+/* Process std::meta::is_abstract_type.  */
+
+static tree
+eval_is_abstract_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (ABSTRACT_CLASS_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_final_type.  */
+
+static tree
+eval_is_final_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_FINAL, jump_target);
+}
+
+/* Process std::meta::is_aggregate_type.  */
+
+static tree
+eval_is_aggregate_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (CP_AGGREGATE_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_consteval_only_type.  */
+
+static tree
+eval_is_consteval_only_type (location_t loc, const constexpr_ctx *ctx,
+			     tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (consteval_only_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_signed_type.  */
+
+static tree
+eval_is_signed_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		     tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (ARITHMETIC_TYPE_P (type) && !TYPE_UNSIGNED (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_unsigned_type.  */
+
+static tree
+eval_is_unsigned_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (ARITHMETIC_TYPE_P (type) && TYPE_UNSIGNED (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_bounded_array_type.  */
+
+static tree
+eval_is_bounded_array_type (location_t loc, const constexpr_ctx *ctx,
+			    tree type, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_BOUNDED_ARRAY, jump_target);
+}
+
+/* Process std::meta::is_unbounded_array_type.  */
+
+static tree
+eval_is_unbounded_array_type (location_t loc, const constexpr_ctx *ctx,
+			      tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (array_of_unknown_bound_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_scoped_enum_type.  */
+
+static tree
+eval_is_scoped_enum_type (location_t loc, const constexpr_ctx *ctx,
+			  tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (SCOPED_ENUM_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_same_type.  */
 
 static tree
@@ -2338,6 +2556,40 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_scalar_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "member_pointer_type"))
 	return eval_is_member_pointer_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "const_type"))
+	return eval_is_const_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "volatile_type"))
+	return eval_is_volatile_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "trivially_copyable_type"))
+	return eval_is_trivially_copyable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "trivially_relocatable_type"))
+	return eval_is_trivially_relocatable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "replaceable_type"))
+	return eval_is_replaceable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "standard_layout_type"))
+	return eval_is_standard_layout_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "empty_type"))
+	return eval_is_empty_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "polymorphic_type"))
+	return eval_is_polymorphic_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "abstract_type"))
+	return eval_is_abstract_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "final_type"))
+	return eval_is_final_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "aggregate_type"))
+	return eval_is_aggregate_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "consteval_only_type"))
+	return eval_is_consteval_only_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "signed_type"))
+	return eval_is_signed_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "unsigned_type"))
+	return eval_is_unsigned_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "bounded_array_type"))
+	return eval_is_bounded_array_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "unbounded_array_type"))
+	return eval_is_unbounded_array_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "scoped_enum_type"))
+	return eval_is_scoped_enum_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "fundamental_type"))
 	return eval_is_fundamental_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "compound_type"))

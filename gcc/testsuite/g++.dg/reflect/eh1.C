@@ -119,6 +119,57 @@ eval (int n)
     case 35:
       add_pointer (^^n);
       break;
+    case 36:
+      is_const_type (^^n);
+      break;
+    case 37:
+      is_volatile_type (^^n);
+      break;
+    case 38:
+      is_trivially_copyable_type (^^n);
+      break;
+    case 39:
+      is_trivially_relocatable_type (^^n);
+      break;
+    case 40:
+      is_replaceable_type (^^n);
+      break;
+    case 41:
+      is_standard_layout_type (^^n);
+      break;
+    case 42:
+      is_empty_type (^^n);
+      break;
+    case 43:
+      is_polymorphic_type (^^n);
+      break;
+    case 44:
+      is_abstract_type (^^n);
+      break;
+    case 45:
+      is_final_type (^^n);
+      break;
+    case 46:
+      is_aggregate_type (^^n);
+      break;
+    case 47:
+      is_consteval_only_type (^^n);
+      break;
+    case 48:
+      is_signed_type (^^n);
+      break;
+    case 49:
+      is_unsigned_type (^^n);
+      break;
+    case 50:
+      is_bounded_array_type (^^n);
+      break;
+    case 51:
+      is_unbounded_array_type (^^n);
+      break;
+    case 52:
+      is_scoped_enum_type (^^n);
+      break;
    default:
       break;
     }
@@ -169,3 +220,20 @@ static_assert (test (32));
 static_assert (test (33));
 static_assert (test (34));
 static_assert (test (35));
+static_assert (test (36));
+static_assert (test (37));
+static_assert (test (38));
+static_assert (test (39));
+static_assert (test (40));
+static_assert (test (41));
+static_assert (test (42));
+static_assert (test (43));
+static_assert (test (44));
+static_assert (test (45));
+static_assert (test (46));
+static_assert (test (47));
+static_assert (test (48));
+static_assert (test (49));
+static_assert (test (50));
+static_assert (test (51));
+static_assert (test (52));
