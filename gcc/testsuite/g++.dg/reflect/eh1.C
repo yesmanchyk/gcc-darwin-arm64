@@ -92,7 +92,34 @@ eval (int n)
     case 26:
       is_compound_type (^^n);
       break;
-    default:
+    case 27:
+      remove_reference (^^n);
+      break;
+    case 28:
+      add_lvalue_reference (^^n);
+      break;
+    case 29:
+      add_rvalue_reference (^^n);
+      break;
+    case 30:
+      make_signed (^^n);
+      break;
+    case 31:
+      make_unsigned (^^n);
+      break;
+    case 32:
+      remove_extent (^^n);
+      break;
+    case 33:
+      remove_all_extents (^^n);
+      break;
+    case 34:
+      remove_pointer (^^n);
+      break;
+    case 35:
+      add_pointer (^^n);
+      break;
+   default:
       break;
     }
 }
@@ -133,3 +160,12 @@ static_assert (test (23));
 static_assert (test (24));
 static_assert (test (25));
 static_assert (test (26));
+static_assert (test (27));
+static_assert (test (28));
+static_assert (test (29));
+static_assert (test (30));
+static_assert (test (31));
+static_assert (test (32));
+static_assert (test (33));
+static_assert (test (34));
+static_assert (test (35));

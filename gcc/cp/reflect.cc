@@ -1983,6 +1983,218 @@ eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
   return get_reflection_raw (loc, type);
 }
 
+/* Process std::meta::remove_reference.
+   Returns: a reflection representing the type denoted by
+   std::remove_reference_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_reference (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (TYPE_REF_P (type))
+    type = TREE_TYPE (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::add_lvalue_reference.
+   Returns: a reflection representing the type denoted by
+   std::add_lvalue_reference_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_add_lvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
+			   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = finish_trait_type (CPTK_ADD_LVALUE_REFERENCE, type, NULL_TREE, tf_none);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::add_rvalue_reference.
+   Returns: a reflection representing the type denoted by
+   std::add_rvalue_reference_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_add_rvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
+			   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = finish_trait_type (CPTK_ADD_RVALUE_REFERENCE, type, NULL_TREE, tf_none);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::make_signed.
+   Returns: a reflection representing the type denoted by
+   std::make_signed_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_make_signed (location_t loc, const constexpr_ctx *ctx, tree type,
+		  tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  // TODO: I don't see the standard specifying what to do here.
+  if (!INTEGRAL_TYPE_P (type) || TREE_CODE (type) == BOOLEAN_TYPE)
+    return throw_exception (loc, ctx, N_("reflection represents non-integral "
+					 "or bool type"), type, jump_target);
+  tree ret = type;
+  if (TREE_CODE (type) == ENUMERAL_TYPE
+      || TYPE_MAIN_VARIANT (type) == wchar_type_node
+      || TYPE_MAIN_VARIANT (type) == char8_type_node
+      || TYPE_MAIN_VARIANT (type) == char16_type_node
+      || TYPE_MAIN_VARIANT (type) == char32_type_node)
+    {
+      tree unit = TYPE_SIZE_UNIT (type);
+      tree types[] = {
+	signed_char_type_node,
+	short_integer_type_node,
+	integer_type_node,
+	long_integer_type_node,
+	long_long_integer_type_node };
+      ret = NULL_TREE;
+      for (unsigned i = 0; i < ARRAY_SIZE (types); ++i)
+	if (tree_int_cst_equal (TYPE_SIZE_UNIT (types[i]), unit))
+	  {
+	    ret = types[i];
+	    break;
+	  }
+      if (!ret)
+	ret = c_common_type_for_size (TYPE_PRECISION (type), 0);
+    }
+  else if (TYPE_MAIN_VARIANT (type) == char_type_node)
+    ret = signed_char_type_node;
+  else if (TYPE_UNSIGNED (type))
+    ret = c_common_signed_type (type);
+  if (ret != type)
+    {
+      int quals = cp_type_quals (type);
+      quals &= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+      ret = cp_build_qualified_type (ret, quals);
+    }
+  return get_reflection_raw (loc, ret);
+}
+
+/* Process std::meta::make_unsigned.
+   Returns: a reflection representing the type denoted by
+   std::make_unsigned_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_make_unsigned (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  // TODO: I don't see the standard specifying what to do here.
+  if (!INTEGRAL_TYPE_P (type) || TREE_CODE (type) == BOOLEAN_TYPE)
+    return throw_exception (loc, ctx, N_("reflection represents non-integral "
+					 "or bool type"), type, jump_target);
+  tree ret = type;
+  if (TREE_CODE (type) == ENUMERAL_TYPE
+      || TYPE_MAIN_VARIANT (type) == wchar_type_node
+      || TYPE_MAIN_VARIANT (type) == char8_type_node
+      || TYPE_MAIN_VARIANT (type) == char16_type_node
+      || TYPE_MAIN_VARIANT (type) == char32_type_node)
+    {
+      tree unit = TYPE_SIZE_UNIT (type);
+      tree types[] = {
+	unsigned_char_type_node,
+	short_unsigned_type_node,
+	unsigned_type_node,
+	long_unsigned_type_node,
+	long_long_unsigned_type_node };
+      ret = NULL_TREE;
+      for (unsigned i = 0; i < ARRAY_SIZE (types); ++i)
+	if (tree_int_cst_equal (TYPE_SIZE_UNIT (types[i]), unit))
+	  {
+	    ret = types[i];
+	    break;
+	  }
+      if (!ret)
+	ret = c_common_type_for_size (TYPE_PRECISION (type), 1);
+    }
+  else if (TYPE_MAIN_VARIANT (type) == char_type_node)
+    ret = unsigned_char_type_node;
+  else if (!TYPE_UNSIGNED (type))
+    ret = c_common_unsigned_type (type);
+  if (ret != type)
+    {
+      int quals = cp_type_quals (type);
+      quals &= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+      ret = cp_build_qualified_type (ret, quals);
+    }
+  return get_reflection_raw (loc, ret);
+}
+
+/* Process std::meta::remove_extent.
+   Returns: a reflection representing the type denoted by
+   std::remove_extent_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_extent (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::remove_all_extents.
+   Returns: a reflection representing the type denoted by
+   std::remove_all_extents_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_all_extents (location_t loc, const constexpr_ctx *ctx, tree type,
+			 tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_array_types (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::remove_pointer.
+   Returns: a reflection representing the type denoted by
+   std::remove_pointer_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_remove_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
+		     tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (TYPE_PTR_P (type))
+    type = TREE_TYPE (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::add_pointer.
+   Returns: a reflection representing the type denoted by
+   std::add_pointer_t<T>, where T is the type or type alias
+   represented by type.  */
+
+static tree
+eval_add_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
+		  tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = finish_trait_type (CPTK_ADD_POINTER, type, NULL_TREE, tf_none);
+  return get_reflection_raw (loc, type);
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -2261,6 +2473,24 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_add_volatile (loc, ctx, h, jump_target);
   if (id_equal (name, "add_cv"))
     return eval_add_cv (loc, ctx, h, jump_target);
+  if (id_equal (name, "remove_reference"))
+    return eval_remove_reference (loc, ctx, h, jump_target);
+  if (id_equal (name, "add_lvalue_reference"))
+    return eval_add_lvalue_reference (loc, ctx, h, jump_target);
+  if (id_equal (name, "add_rvalue_reference"))
+    return eval_add_rvalue_reference (loc, ctx, h, jump_target);
+  if (id_equal (name, "make_signed"))
+    return eval_make_signed (loc, ctx, h, jump_target);
+  if (id_equal (name, "make_unsigned"))
+    return eval_make_unsigned (loc, ctx, h, jump_target);
+  if (id_equal (name, "remove_extent"))
+    return eval_remove_extent (loc, ctx, h, jump_target);
+  if (id_equal (name, "remove_all_extents"))
+    return eval_remove_all_extents (loc, ctx, h, jump_target);
+  if (id_equal (name, "remove_pointer"))
+    return eval_remove_pointer (loc, ctx, h, jump_target);
+  if (id_equal (name, "add_pointer"))
+    return eval_add_pointer (loc, ctx, h, jump_target);
   if (id_equal (name, "annotations_of"))
     return eval_annotations_of (loc, ctx, h, kind, NULL_TREE, jump_target);
   if (id_equal (name, "annotations_of_with_type"))

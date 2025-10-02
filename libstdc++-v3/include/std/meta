@@ -262,6 +262,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval info add_volatile(info);
     consteval info add_cv(info);
 
+    // associated with [meta.trans.ref], reference modifications
+    consteval info remove_reference(info);
+    consteval info add_lvalue_reference(info);
+    consteval info add_rvalue_reference(info);
+
+    // associated with [meta.trans.sign], sign modifications
+    consteval info make_signed(info);
+    consteval info make_unsigned(info);
+
+    // associated with [meta.trans.arr], array modifications
+    consteval info remove_extent(info);
+    consteval info remove_all_extents(info);
+
+    // associated with [meta.trans.ptr], pointer modifications
+    consteval info remove_pointer(info);
+    consteval info add_pointer(info);
+
     // associated with [meta.rel], type relations
     consteval bool is_same_type(info, info);
     consteval bool is_base_of_type(info, info);

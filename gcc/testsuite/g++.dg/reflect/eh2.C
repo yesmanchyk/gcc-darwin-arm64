@@ -34,3 +34,12 @@ static_assert ((is_member_pointer_type (^^i), true)); // { dg-error "non-constan
 static_assert ((is_scalar_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_fundamental_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_compound_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((remove_reference (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((add_lvalue_reference (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((add_rvalue_reference (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((make_signed (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((make_unsigned (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((remove_extent (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((remove_all_extents (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((remove_pointer (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((add_pointer (^^i), true)); // { dg-error "non-constant|uncaught exception" }
