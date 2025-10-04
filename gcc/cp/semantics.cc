@@ -13438,6 +13438,60 @@ fold_builtin_is_corresponding_member (location_t loc, int nargs,
 				   fold_convert (TREE_TYPE (arg1), arg2)));
 }
 
+/* Fold __builtin_is_string_literal call.  */
+
+tree
+fold_builtin_is_string_literal (location_t loc, int nargs, tree *args)
+{
+  /* Unless users call the builtin directly, the following 3 checks should be
+     ensured from std::is_string_literal overloads.  */
+  if (nargs != 1)
+    {
+      error_at (loc, "%<__builtin_is_string_literal%> needs a single "
+		"argument");
+      return boolean_false_node;
+    }
+  tree arg = args[0];
+  if (error_operand_p (arg))
+    return boolean_false_node;
+  if (!TYPE_PTR_P (TREE_TYPE (arg))
+      || !TYPE_READONLY (TREE_TYPE (TREE_TYPE (arg)))
+      || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (arg))))
+    {
+    arg_invalid:
+      error_at (loc, "%<__builtin_is_string_literal%> "
+		     "argument is not %<const char*%>, %<const wchar_t*%>, "
+		     "%<const char8_t*%>, %<const char16_t*%> or "
+		     "%<const char32_t*%>");
+      return boolean_false_node;
+    }
+  tree chart = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (arg)));
+  if (chart != char_type_node
+      && chart != wchar_type_node
+      && chart != char8_type_node
+      && chart != char16_type_node
+      && chart != char32_type_node)
+    goto arg_invalid;
+
+  STRIP_NOPS (arg);
+  while (TREE_CODE (arg) == POINTER_PLUS_EXPR)
+    {
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) != INTEGER_CST)
+	return boolean_false_node;
+      arg = TREE_OPERAND (arg, 0);
+      STRIP_NOPS (arg);
+    }
+  if (TREE_CODE (arg) != ADDR_EXPR)
+    return boolean_false_node;
+  arg = TREE_OPERAND (arg, 0);
+  if (TREE_CODE (arg) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
+    arg = TREE_OPERAND (arg, 0);
+  if (TREE_CODE (arg) != STRING_CST)
+    return boolean_false_node;
+  return boolean_true_node;
+}
+
 /* [basic.types] 8.  True iff TYPE is an object type.  */
 
 static bool

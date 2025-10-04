@@ -6970,6 +6970,7 @@ enum cp_built_in_function {
   CP_BUILT_IN_IS_POINTER_INTERCONVERTIBLE_WITH_CLASS,
   CP_BUILT_IN_SOURCE_LOCATION,
   CP_BUILT_IN_EH_PTR_ADJUST_REF,
+  CP_BUILT_IN_IS_STRING_LITERAL,
   CP_BUILT_IN_LAST
 };
 
@@ -8351,6 +8352,7 @@ extern void finish_static_assert                (tree, tree, location_t,
 extern tree finish_decltype_type                (tree, bool, tsubst_flags_t);
 extern tree fold_builtin_is_corresponding_member (location_t, int, tree *);
 extern tree fold_builtin_is_pointer_inverconvertible_with_class (location_t, int, tree *);
+extern tree fold_builtin_is_string_literal	(location_t, int, tree *);
 extern tree finish_structured_binding_size	(location_t, tree, tsubst_flags_t);
 extern tree finish_trait_expr			(location_t, enum cp_trait_kind, tree, tree);
 extern tree finish_trait_type			(enum cp_trait_kind, tree, tree, tsubst_flags_t);

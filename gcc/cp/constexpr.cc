@@ -2447,6 +2447,22 @@ cxx_eval_builtin_function_call (const constexpr_ctx *ctx, tree t, tree fun,
 	}
       new_call = fold_builtin_is_corresponding_member (loc, nargs, args);
     }
+  else if (fndecl_built_in_p (fun, CP_BUILT_IN_IS_STRING_LITERAL,
+			      BUILT_IN_FRONTEND))
+    {
+      location_t loc = EXPR_LOCATION (t);
+      if (nargs >= 1)
+	{
+	  tree arg = CALL_EXPR_ARG (t, 0);
+	  arg = cxx_eval_constant_expression (ctx, arg, vc_prvalue,
+					      non_constant_p, overflow_p,
+					      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  args[0] = arg;
+	}
+      new_call = fold_builtin_is_string_literal (loc, nargs, args);
+    }
   else
     new_call = fold_builtin_call_array (EXPR_LOCATION (t), TREE_TYPE (t),
 					CALL_EXPR_FN (t), nargs, args);

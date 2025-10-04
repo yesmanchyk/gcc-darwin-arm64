@@ -956,6 +956,13 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 			  "__builtin_eh_ptr_adjust_ref");
 		*expr_p = void_node;
 		break;
+	      case CP_BUILT_IN_IS_STRING_LITERAL:
+		*expr_p
+		  = fold_builtin_is_string_literal (EXPR_LOCATION (*expr_p),
+						    call_expr_nargs (*expr_p),
+						    &CALL_EXPR_ARG (*expr_p,
+								    0));
+		break;
 	      default:
 		break;
 	      }
