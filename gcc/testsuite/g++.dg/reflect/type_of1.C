@@ -105,7 +105,7 @@ static_assert (type_of (std::meta::reflect_constant (42.0)) == ^^double);
 //static_assert (type_of (std::meta::reflect_object (arr[1])) == ^int);
 using int3 = int[3];
 static_assert (type_of (^^arr) == dealias (^^int3));
-static_assert (type_of (^^fn) == ^^void);
+static_assert (type_of (^^fn) == ^^void ());
 static_assert (type_of (^^Enum::A) == ^^Enum);
 static_assert (type_of (^^A) == ^^Enum);
 static_assert (type_of (^^S::mem) == ^^int);
@@ -120,6 +120,8 @@ test (info x, info y)
     return 0;
   throw 1;
 }
+
+static_assert (type_of (^^test) == ^^int (info, info));
 
 using ull = unsigned long long;
 

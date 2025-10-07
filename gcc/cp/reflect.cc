@@ -996,8 +996,6 @@ eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	}
       r = TREE_VALUE (type);
     }
-  else if (TREE_CODE (r) == FUNCTION_DECL)
-    r = TREE_TYPE (TREE_TYPE (r));
   else if (eval_is_annotation (r) == boolean_true_node)
     // TODO: or do we need to reflect_constant and get type of that?
     r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
