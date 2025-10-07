@@ -2214,6 +2214,7 @@ eval_remove_reference (location_t loc, const constexpr_ctx *ctx, tree type,
     return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type))
     type = TREE_TYPE (type);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2229,6 +2230,7 @@ eval_add_lvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_ADD_LVALUE_REFERENCE, type, NULL_TREE, tf_none);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2244,6 +2246,7 @@ eval_add_rvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_ADD_RVALUE_REFERENCE, type, NULL_TREE, tf_none);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2296,6 +2299,8 @@ eval_make_signed (location_t loc, const constexpr_ctx *ctx, tree type,
       quals &= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
       ret = cp_build_qualified_type (ret, quals);
     }
+  else
+    ret = strip_typedefs (type);
   return get_reflection_raw (loc, ret);
 }
 
@@ -2312,6 +2317,7 @@ eval_remove_extent (location_t loc, const constexpr_ctx *ctx, tree type,
     return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2327,6 +2333,7 @@ eval_remove_all_extents (location_t loc, const constexpr_ctx *ctx, tree type,
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_array_types (type);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2343,6 +2350,7 @@ eval_remove_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
     return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_PTR_P (type))
     type = TREE_TYPE (type);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2358,6 +2366,7 @@ eval_add_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_ADD_POINTER, type, NULL_TREE, tf_none);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 

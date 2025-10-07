@@ -25,6 +25,8 @@ static_assert (remove_reference (^^C) == ^^C);
 static_assert (remove_reference (^^int (&) (int)) == ^^int (int));
 static_assert (remove_reference (^^int (&&) (int)) == ^^int (int));
 static_assert (remove_reference (^^int (int)) == ^^int (int));
+using T1 = int;
+static_assert (remove_reference (^^T1) == dealias (^^T1));
 
 static_assert (add_lvalue_reference (^^int) == ^^int &);
 static_assert (add_lvalue_reference (^^int &) == ^^int &);
@@ -41,6 +43,8 @@ static_assert (add_lvalue_reference (^^bool (int) const) == ^^bool (int) const);
 static_assert (add_lvalue_reference (^^bool (int) &) == ^^bool (int) &);
 static_assert (add_lvalue_reference (^^bool (int) const &&) == ^^bool (int) const &&);
 static_assert (add_lvalue_reference (^^bool (int)) == ^^bool (&) (int));
+using T2 = int &;
+static_assert (add_lvalue_reference (^^T2) == dealias (^^T2));
 
 static_assert (add_rvalue_reference (^^int) == ^^int &&);
 static_assert (add_rvalue_reference (^^int &&) == ^^int &&);
@@ -56,6 +60,8 @@ static_assert (add_rvalue_reference (^^bool (int) const) == ^^bool (int) const);
 static_assert (add_rvalue_reference (^^bool (int) &) == ^^bool (int) &);
 static_assert (add_rvalue_reference (^^bool (int) const &&) == ^^bool (int) const &&);
 static_assert (add_rvalue_reference (^^bool (int)) == ^^bool (&&) (int));
+using T3 = int &&;
+static_assert (add_rvalue_reference (^^T3) == dealias (^^T3));
 
 static_assert (make_signed (^^const char) == ^^const signed char);
 static_assert (make_signed (^^volatile signed char) == ^^volatile signed char);
@@ -84,6 +90,7 @@ static_assert (sizeof (char32_t) != sizeof (int) || make_signed (^^const volatil
 static_assert (sizeof (wchar_t) != sizeof (short) || make_signed (^^wchar_t) == ^^short);
 static_assert (sizeof (wchar_t) != sizeof (int) || make_signed (^^wchar_t) == ^^signed int);
 #endif
+static_assert (make_signed (^^T1) == ^^int);
 
 static_assert (make_unsigned (^^const char) == ^^const unsigned char);
 static_assert (make_unsigned (^^volatile signed char) == ^^volatile unsigned char);
@@ -112,6 +119,8 @@ static_assert (sizeof (char32_t) != sizeof (int) || make_unsigned (^^const volat
 static_assert (sizeof (wchar_t) != sizeof (short) || make_unsigned (^^wchar_t) == ^^unsigned short);
 static_assert (sizeof (wchar_t) != sizeof (int) || make_unsigned (^^wchar_t) == ^^unsigned int);
 #endif
+using T4 = unsigned;
+static_assert (make_unsigned (^^T4) == ^^unsigned);
 
 static_assert (remove_extent (^^int) == ^^int);
 static_assert (remove_extent (^^int[2]) == ^^int);
@@ -123,6 +132,7 @@ static_assert (remove_extent (^^C[2]) == ^^C);
 static_assert (remove_extent (^^C[2][3]) == ^^C[3]);
 static_assert (remove_extent (^^C[][3]) == ^^C[3]);
 static_assert (remove_extent (^^const C[2]) == ^^const C);
+static_assert (remove_extent (^^T1) == ^^int);
 
 static_assert (remove_all_extents (^^int) == ^^int);
 static_assert (remove_all_extents (^^int[2]) == ^^int);
@@ -134,6 +144,7 @@ static_assert (remove_all_extents (^^C[2]) == ^^C);
 static_assert (remove_all_extents (^^C[2][3]) == ^^C);
 static_assert (remove_all_extents (^^C[][3]) == ^^C);
 static_assert (remove_all_extents (^^const C[2][3]) == ^^const C);
+static_assert (remove_all_extents (^^T1) == ^^int);
 
 static_assert (remove_pointer (^^int *) == ^^int);
 static_assert (remove_pointer (^^int) == ^^int);
@@ -141,6 +152,7 @@ static_assert (remove_pointer (^^const int *) == ^^const int);
 static_assert (remove_pointer (^^int **) == ^^int *);
 static_assert (remove_pointer (^^C *) == ^^C);
 static_assert (remove_pointer (^^C) == ^^C);
+static_assert (remove_pointer (^^T1) == ^^int);
 
 static_assert (add_pointer (^^int) == ^^int *);
 static_assert (add_pointer (^^int *) == ^^int **);
