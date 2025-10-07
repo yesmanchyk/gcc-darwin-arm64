@@ -949,10 +949,10 @@ static tree
 eval_is_operator_function (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
 
   if (TREE_CODE (r) == FUNCTION_DECL)
     {
-      r = OVL_FIRST (r);
       r = STRIP_TEMPLATE (r);
       if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
 	return boolean_true_node;
@@ -1256,6 +1256,101 @@ eval_template_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
   gcc_assert (TREE_CODE (r) == TEMPLATE_DECL);
   return get_reflection_raw (loc, r);
+}
+
+/* Process std::meta::has_parent
+   Returns:
+   -- If r represents the global namespace, then false.
+   -- Otherwise, if r represents an entity that has C language linkage,
+      then false.
+   -- Otherwise, if r represents an entity that has a language linkage
+      other than C++ language linkage, then an implementation-defined value.
+   -- Otherwise, if r represents a type that is neither a class nor enumeration
+      type, then false.
+   -- Otherwise, if r represents an entity or direct base class relationship,
+      then true.
+   -- Otherwise, false.  */
+
+static tree
+eval_has_parent (tree r, reflect_kind kind)
+{
+  if (kind == REFLECT_OBJECT || CONSTANT_CLASS_P (r) || r == global_namespace)
+    return boolean_false_node;
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r)
+	  && DECL_P (TYPE_NAME (r))
+	  && DECL_LANGUAGE (TYPE_NAME (r)) == lang_c)
+	return boolean_false_node;
+      else if (OVERLOAD_TYPE_P (r) || typedef_variant_p (r))
+	return boolean_true_node;
+      else
+	return boolean_false_node;
+    }
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  // TODO: Handle direct base class relationship and punt on data member
+  // description.
+  if (!DECL_P (r))
+    return boolean_false_node;
+  if (TREE_CODE (r) != NAMESPACE_DECL && DECL_LANGUAGE (r) == lang_c)
+    return boolean_false_node;
+  return boolean_true_node;
+}
+
+/* Process std::meta::parent_of.
+   Returns:
+   -- If r represents a non-static data member that is a direct member of an
+      anonymous union, or an unnamed bit-field declared within the
+      member-specification of such a union, then a reflection representing the
+      innermost enclosing anonymous union.
+   -- Otherwise, if r represents an enumerator, then a reflection representing
+      the corresponding enumeration type.
+   -- Otherwise, if r represents a direct base class relationship (D,B), then
+      a reflection representing D.
+   -- Otherwise, let E be a class, function, or namespace whose class scope,
+      function parameter scope, or namespace scope, respectively, is the
+      innermost such scope that either is, or encloses, the target scope of a
+      declaration of what is represented by r.
+      -- If E is the function call operator of a closure type for a
+	 consteval-block-declaration, then parent_of(parent_of(^^E)).
+      -- Otherwise, ^^E.  */
+
+static tree
+eval_parent_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		reflect_kind kind, tree *jump_target)
+{
+  if (eval_has_parent (r, kind) != boolean_true_node)
+    return throw_exception (loc, ctx, N_("reflection does not represent an "
+					 "entity with parent"), r,
+			    jump_target);
+  tree c;
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  if (TYPE_P (r))
+    {
+      if (TYPE_NAME (r) && DECL_P (TYPE_NAME (r)))
+	c = CP_DECL_CONTEXT (TYPE_NAME (r));
+      else
+	c = CP_TYPE_CONTEXT (r);
+    }
+  else if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+    {
+      tree v = DECL_VALUE_EXPR (r);
+      if (v != error_mark_node && TREE_CODE (v) == COMPONENT_REF)
+	c = CP_DECL_CONTEXT (TREE_OPERAND (v, 1));
+      else
+	c = CP_DECL_CONTEXT (r);
+    }
+  // TODO: Handle direct base class relationship.
+  else
+    c = CP_DECL_CONTEXT (r);
+  tree lam;
+  while (LAMBDA_FUNCTION_P (c)
+	 && (lam = CLASSTYPE_LAMBDA_EXPR (CP_DECL_CONTEXT (c)))
+	 && LAMBDA_EXPR_CONSTEVAL_BLOCK_P (lam))
+    c = CP_TYPE_CONTEXT (CP_DECL_CONTEXT (c));
+  return get_reflection_raw (loc, c);
 }
 
 /* Build std::vector<info>{ ELTS }.  */
@@ -2872,6 +2967,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_has_linkage (h, kind);
       if (!strcmp (ident, "template_arguments"))
 	return eval_has_template_arguments (h);
+      if (!strcmp (ident, "parent"))
+	return eval_has_parent (h, kind);
       goto not_found;
     }
 
@@ -2944,6 +3041,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_type_of (loc, ctx, h, kind, jump_target);
   if (!strcmp (ident, "operator_of"))
     return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
+  if (id_equal (name, "parent_of"))
+    return eval_parent_of (loc, ctx, h, kind, jump_target);
 
 not_found:
   sorry ("%qE", name);

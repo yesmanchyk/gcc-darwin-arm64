@@ -35,4 +35,4 @@ static_assert(^^int == std::meta::dealias (^^Alias));
 
 namespace AliasNS = ::std;
 static_assert(^^::std != ^^AliasNS);
-//static_assert(^^:: == parent_of(^^::std));
+static_assert(^^:: == parent_of(^^::std));
