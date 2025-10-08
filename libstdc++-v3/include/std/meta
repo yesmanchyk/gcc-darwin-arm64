@@ -198,7 +198,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_conversion_function(info);
     consteval bool is_operator_function(info);
     consteval bool is_literal_operator(info);
+    consteval bool is_special_member_function(info);
+    consteval bool is_constructor(info);
+    consteval bool is_default_constructor(info);
+    consteval bool is_copy_constructor(info);
+    consteval bool is_move_constructor(info);
     consteval bool is_assignment(info);
+    consteval bool is_copy_assignment(info);
+    consteval bool is_move_assignment(info);
+    consteval bool is_destructor(info);
 
     consteval bool is_function_parameter(info);
 

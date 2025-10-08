@@ -16,12 +16,22 @@ struct S {
 };
 
 struct T {
-  T &operator = (const S &);
+  T &operator = (const S &)
+  {
+    int a;
+    static_assert (is_assignment (parent_of (^^a)));
+    return *this;
+  }
   T &operator *= (const S &);
 };
 
 struct U {
-  U &operator = (U &&);
+  U &operator = (U &&)
+  {
+    int a;
+    static_assert (is_assignment (parent_of (^^a)));
+    return *this;
+  }
 };
 
 static_assert (!is_assignment (null_reflection));
@@ -32,5 +42,3 @@ static_assert (!is_assignment (^^S::bar));
 static_assert (is_assignment (^^S::operator =));
 static_assert (!is_assignment (^^S::operator +=));
 static_assert (!is_assignment (^^T::operator *=));
-// T::operator = and U::operator = are overloads and
-// so we need probably members_of to test those.

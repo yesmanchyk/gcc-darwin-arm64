@@ -976,6 +976,76 @@ eval_is_literal_operator (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_special_member_function.
+   Returns: true if r represents a function that is a special member function.
+   Otherwise, false.  */
+
+static tree
+eval_is_special_member_function (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && special_memfn_p (r) != sfk_none)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_constructor.
+   Returns: true if r represents a function that is a constructor.
+   Otherwise, false.  */
+
+static tree
+eval_is_constructor (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_CONSTRUCTOR_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_default_constructor.
+   Returns: true if r represents a function that is a default constructor.
+   Otherwise, false.  */
+
+static tree
+eval_is_default_constructor (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && default_ctor_p (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_copy_constructor.
+   Returns: true if r represents a function that is a copy constructor.
+   Otherwise, false.  */
+
+static tree
+eval_is_copy_constructor (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_COPY_CONSTRUCTOR_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_move_constructor.
+   Returns: true if r represents a function that is a move constructor.
+   Otherwise, false.  */
+
+static tree
+eval_is_move_constructor (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_MOVE_CONSTRUCTOR_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_assignment.
    Returns: true if r represents a function that is an assignment operator.
    Otherwise, false.  */
@@ -987,6 +1057,51 @@ eval_is_assignment (tree r)
   if (TREE_CODE (r) == FUNCTION_DECL
       && DECL_ASSIGNMENT_OPERATOR_P (r)
       && DECL_OVERLOADED_OPERATOR_IS (r, NOP_EXPR))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_copy_assignment.
+   Returns: true if r represents a function that is a copy assignment
+   operator.  Otherwise, false.  */
+
+static tree
+eval_is_copy_assignment (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL
+      && special_function_p (r) == sfk_copy_assignment)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_move_assignment.
+   Returns: true if r represents a function that is a move assignment
+   operator.  Otherwise, false.  */
+
+static tree
+eval_is_move_assignment (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL
+      && special_function_p (r) == sfk_move_assignment)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_destructor.
+   Returns: true if r represents a function that is a destructor.
+   Otherwise, false.  */
+
+static tree
+eval_is_destructor (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL
+      && DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (r))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -2785,8 +2900,24 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_operator_function (h);
       if (!strcmp (ident, "literal_operator"))
 	return eval_is_literal_operator (h);
+      if (!strcmp (ident, "special_member_function"))
+	return eval_is_special_member_function (h);
+      if (!strcmp (ident, "constructor"))
+	return eval_is_constructor (h);
+      if (!strcmp (ident, "default_constructor"))
+	return eval_is_default_constructor (h);
+      if (!strcmp (ident, "copy_constructor"))
+	return eval_is_copy_constructor (h);
+      if (!strcmp (ident, "move_constructor"))
+	return eval_is_move_constructor (h);
       if (!strcmp (ident, "assignment"))
 	return eval_is_assignment (h);
+      if (!strcmp (ident, "copy_assignment"))
+	return eval_is_copy_assignment (h);
+      if (!strcmp (ident, "move_assignment"))
+	return eval_is_move_assignment (h);
+      if (!strcmp (ident, "destructor"))
+	return eval_is_destructor (h);
       if (!strcmp (ident, "conversion_function_template"))
 	return eval_is_conversion_function_template (h);
       if (!strcmp (ident, "function_type"))
