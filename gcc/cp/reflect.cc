@@ -2115,7 +2115,7 @@ eval_remove_const (location_t loc, const constexpr_ctx *ctx, tree type,
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
-  return get_reflection_raw (loc, remove_const (type));
+  return get_reflection_raw (loc, strip_typedefs (remove_const (type)));
 }
 
 /* Process std::meta::remove_volatile.
@@ -2132,6 +2132,7 @@ eval_remove_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
   int quals = cp_type_quals (type);
   quals &= ~TYPE_QUAL_VOLATILE;
   type = cp_build_qualified_type (type, quals);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2147,6 +2148,7 @@ eval_remove_cv (location_t loc, const constexpr_ctx *ctx, tree type,
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_REMOVE_CV, type, NULL_TREE, tf_none);
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2161,9 +2163,13 @@ eval_add_const (location_t loc, const constexpr_ctx *ctx, tree type,
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
-  int quals = cp_type_quals (type);
-  quals |= TYPE_QUAL_CONST;
-  type = cp_build_qualified_type (type, quals);
+  if (!TYPE_REF_P (type) && !FUNC_OR_METHOD_TYPE_P (type))
+    {
+      int quals = cp_type_quals (type);
+      quals |= TYPE_QUAL_CONST;
+      type = cp_build_qualified_type (type, quals);
+    }
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2178,9 +2184,13 @@ eval_add_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
-  int quals = cp_type_quals (type);
-  quals |= TYPE_QUAL_VOLATILE;
-  type = cp_build_qualified_type (type, quals);
+  if (!TYPE_REF_P (type) && !FUNC_OR_METHOD_TYPE_P (type))
+    {
+      int quals = cp_type_quals (type);
+      quals |= TYPE_QUAL_VOLATILE;
+      type = cp_build_qualified_type (type, quals);
+    }
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
@@ -2195,9 +2205,13 @@ eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
-  int quals = cp_type_quals (type);
-  quals |= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
-  type = cp_build_qualified_type (type, quals);
+  if (!TYPE_REF_P (type) && !FUNC_OR_METHOD_TYPE_P (type))
+    {
+      int quals = cp_type_quals (type);
+      quals |= (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+      type = cp_build_qualified_type (type, quals);
+    }
+  type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
 
