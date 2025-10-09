@@ -2455,6 +2455,381 @@ eval_is_scoped_enum_type (location_t loc, const constexpr_ctx *ctx,
     return boolean_false_node;
 }
 
+/* Process std::meta::is_default_constructible_type.  */
+
+static tree
+eval_is_default_constructible_type (location_t loc, const constexpr_ctx *ctx,
+				    tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (is_xible (INIT_EXPR, type, make_tree_vec (0)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_copy_constructible_type.  */
+
+static tree
+eval_is_copy_constructible_type (location_t loc, const constexpr_ctx *ctx,
+				 tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree arg = make_tree_vec (1);
+  tree ctype
+    = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
+  TREE_VEC_ELT (arg, 0) = cp_build_reference_type (ctype, /*rval=*/false);
+  if (is_xible (INIT_EXPR, type, arg))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_move_constructible_type.  */
+
+static tree
+eval_is_move_constructible_type (location_t loc, const constexpr_ctx *ctx,
+				 tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree arg = make_tree_vec (1);
+  TREE_VEC_ELT (arg, 0) = cp_build_reference_type (type, /*rval=*/true);
+  if (is_xible (INIT_EXPR, type, arg))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_assignable_type.  */
+
+static tree
+eval_is_assignable_type (location_t loc, const constexpr_ctx *ctx, tree type1,
+			 tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_ASSIGNABLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_copy_assignable_type.  */
+
+static tree
+eval_is_copy_assignable_type (location_t loc, const constexpr_ctx *ctx,
+			      tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree type1 = cp_build_reference_type (type, /*rval=*/false);
+  tree type2
+    = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
+  type2 = cp_build_reference_type (type2, /*rval=*/false);
+  if (is_xible (MODIFY_EXPR, type1, type2))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_move_assignable_type.  */
+
+static tree
+eval_is_move_assignable_type (location_t loc, const constexpr_ctx *ctx,
+			      tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree type1 = cp_build_reference_type (type, /*rval=*/false);
+  tree type2 = cp_build_reference_type (type, /*rval=*/true);
+  if (is_xible (MODIFY_EXPR, type1, type2))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_destructible_type.  */
+
+static tree
+eval_is_destructible_type (location_t loc, const constexpr_ctx *ctx, tree type,
+			   tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_DESTRUCTIBLE, jump_target);
+}
+
+/* Process std::meta::is_trivially_default_constructible_type.  */
+
+static tree
+eval_is_trivially_default_constructible_type (location_t loc,
+					      const constexpr_ctx *ctx,
+					      tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (is_trivially_xible (INIT_EXPR, type, make_tree_vec (0)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_copy_constructible_type.  */
+
+static tree
+eval_is_trivially_copy_constructible_type (location_t loc,
+					   const constexpr_ctx *ctx, tree type,
+					   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree arg = make_tree_vec (1);
+  tree ctype
+    = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
+  TREE_VEC_ELT (arg, 0) = cp_build_reference_type (ctype, /*rval=*/false);
+  if (is_trivially_xible (INIT_EXPR, type, arg))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_move_constructible_type.  */
+
+static tree
+eval_is_trivially_move_constructible_type (location_t loc,
+					   const constexpr_ctx *ctx, tree type,
+					   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree arg = make_tree_vec (1);
+  TREE_VEC_ELT (arg, 0) = cp_build_reference_type (type, /*rval=*/true);
+  if (is_trivially_xible (INIT_EXPR, type, arg))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_assignable_type.  */
+
+static tree
+eval_is_trivially_assignable_type (location_t loc, const constexpr_ctx *ctx,
+				   tree type1, tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_TRIVIALLY_ASSIGNABLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_trivially_copy_assignable_type.  */
+
+static tree
+eval_is_trivially_copy_assignable_type (location_t loc,
+					const constexpr_ctx *ctx, tree type,
+					tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree type1 = cp_build_reference_type (type, /*rval=*/false);
+  tree type2
+    = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
+  type2 = cp_build_reference_type (type2, /*rval=*/false);
+  if (is_trivially_xible (MODIFY_EXPR, type1, type2))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_move_assignable_type.  */
+
+static tree
+eval_is_trivially_move_assignable_type (location_t loc,
+					const constexpr_ctx *ctx, tree type,
+					tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree type1 = cp_build_reference_type (type, /*rval=*/false);
+  tree type2 = cp_build_reference_type (type, /*rval=*/true);
+  if (is_trivially_xible (MODIFY_EXPR, type1, type2))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_trivially_destructible_type.  */
+
+static tree
+eval_is_trivially_destructible_type (location_t loc, const constexpr_ctx *ctx,
+				     tree type, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_TRIVIALLY_DESTRUCTIBLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_nothrow_default_constructible_type.  */
+
+static tree
+eval_is_nothrow_default_constructible_type (location_t loc,
+					    const constexpr_ctx *ctx,
+					    tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (is_nothrow_xible (INIT_EXPR, type, make_tree_vec (0)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_nothrow_copy_constructible_type.  */
+
+static tree
+eval_is_nothrow_copy_constructible_type (location_t loc,
+					 const constexpr_ctx *ctx, tree type,
+					 tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree arg = make_tree_vec (1);
+  tree ctype
+    = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
+  TREE_VEC_ELT (arg, 0) = cp_build_reference_type (ctype, /*rval=*/false);
+  if (is_nothrow_xible (INIT_EXPR, type, arg))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_nothrow_move_constructible_type.  */
+
+static tree
+eval_is_nothrow_move_constructible_type (location_t loc,
+					 const constexpr_ctx *ctx, tree type,
+					 tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree arg = make_tree_vec (1);
+  TREE_VEC_ELT (arg, 0) = cp_build_reference_type (type, /*rval=*/true);
+  if (is_nothrow_xible (INIT_EXPR, type, arg))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_nothrow_assignable_type.  */
+
+static tree
+eval_is_nothrow_assignable_type (location_t loc, const constexpr_ctx *ctx,
+				 tree type1, tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_NOTHROW_ASSIGNABLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_nothrow_copy_assignable_type.  */
+
+static tree
+eval_is_nothrow_copy_assignable_type (location_t loc,
+				      const constexpr_ctx *ctx, tree type,
+				      tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree type1 = cp_build_reference_type (type, /*rval=*/false);
+  tree type2
+    = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
+  type2 = cp_build_reference_type (type2, /*rval=*/false);
+  if (is_nothrow_xible (MODIFY_EXPR, type1, type2))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_nothrow_move_assignable_type.  */
+
+static tree
+eval_is_nothrow_move_assignable_type (location_t loc, const constexpr_ctx *ctx,
+				      tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree type1 = cp_build_reference_type (type, /*rval=*/false);
+  tree type2 = cp_build_reference_type (type, /*rval=*/true);
+  if (is_nothrow_xible (MODIFY_EXPR, type1, type2))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_nothrow_destructible_type.  */
+
+static tree
+eval_is_nothrow_destructible_type (location_t loc, const constexpr_ctx *ctx,
+				   tree type, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_NOTHROW_DESTRUCTIBLE,
+			  jump_target);
+}
+
+/* Process std::meta::is_nothrow_relocatable_type.  */
+
+static tree
+eval_is_nothrow_relocatable_type (location_t loc, const constexpr_ctx *ctx,
+				  tree type, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type, CPTK_IS_NOTHROW_RELOCATABLE,
+			  jump_target);
+}
+
+/* Process std::meta::has_virtual_destructor.  */
+
+static tree
+eval_has_virtual_destructor (location_t loc, const constexpr_ctx *ctx,
+			     tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (type_has_virtual_destructor (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_unique_object_representations.  */
+
+static tree
+eval_has_unique_object_representations (location_t loc,
+					const constexpr_ctx *ctx, tree type,
+					tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (type_has_unique_obj_representations (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::reference_constructs_from_temporary.  */
+
+static tree
+eval_reference_constructs_from_temporary (location_t loc,
+					  const constexpr_ctx *ctx, tree type1,
+					  tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2,
+			  CPTK_REF_CONSTRUCTS_FROM_TEMPORARY, jump_target);
+}
+
+/* Process std::meta::reference_converts_from_temporary.  */
+
+static tree
+eval_reference_converts_from_temporary (location_t loc,
+					const constexpr_ctx *ctx, tree type1,
+					tree type2, tree *jump_target)
+{
+  return eval_type_trait (loc, ctx, type1, type2,
+			  CPTK_REF_CONVERTS_FROM_TEMPORARY, jump_target);
+}
+
 /* Process std::meta::is_same_type.  */
 
 static tree
@@ -3031,6 +3406,52 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_unbounded_array_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "scoped_enum_type"))
 	return eval_is_scoped_enum_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "default_constructible_type"))
+	return eval_is_default_constructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "copy_constructible_type"))
+	return eval_is_copy_constructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "move_constructible_type"))
+	return eval_is_move_constructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "copy_assignable_type"))
+	return eval_is_copy_assignable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "move_assignable_type"))
+	return eval_is_move_assignable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "destructible_type"))
+	return eval_is_destructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "trivially_default_constructible_type"))
+	return eval_is_trivially_default_constructible_type (loc, ctx, h,
+							     jump_target);
+      if (!strcmp (ident, "trivially_copy_constructible_type"))
+	return eval_is_trivially_copy_constructible_type (loc, ctx, h,
+							  jump_target);
+      if (!strcmp (ident, "trivially_move_constructible_type"))
+	return eval_is_trivially_move_constructible_type (loc, ctx, h,
+							  jump_target);
+      if (!strcmp (ident, "trivially_copy_assignable_type"))
+	return eval_is_trivially_copy_assignable_type (loc, ctx, h,
+						       jump_target);
+      if (!strcmp (ident, "trivially_move_assignable_type"))
+	return eval_is_trivially_move_assignable_type (loc, ctx, h,
+						       jump_target);
+      if (!strcmp (ident, "trivially_destructible_type"))
+	return eval_is_trivially_destructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "nothrow_default_constructible_type"))
+	return eval_is_nothrow_default_constructible_type (loc, ctx, h,
+							   jump_target);
+      if (!strcmp (ident, "nothrow_copy_constructible_type"))
+	return eval_is_nothrow_copy_constructible_type (loc, ctx, h,
+							jump_target);
+      if (!strcmp (ident, "nothrow_move_constructible_type"))
+	return eval_is_nothrow_move_constructible_type (loc, ctx, h,
+							jump_target);
+      if (!strcmp (ident, "nothrow_copy_assignable_type"))
+	return eval_is_nothrow_copy_assignable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "nothrow_move_assignable_type"))
+	return eval_is_nothrow_move_assignable_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "nothrow_destructible_type"))
+	return eval_is_nothrow_destructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "nothrow_relocatable_type"))
+	return eval_is_nothrow_relocatable_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "fundamental_type"))
 	return eval_is_fundamental_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "compound_type"))
@@ -3111,8 +3532,44 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	  if (*non_constant_p)
 	    return call;
 	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h, h1,
+	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h,
+								h1,
 								jump_target);
+	}
+      if (!strcmp (ident, "assignable_type"))
+	{
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
+	  return eval_is_assignable_type (loc, ctx, h, h1, jump_target);
+	}
+      if (!strcmp (ident, "trivially_assignable_type"))
+	{
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
+	  return eval_is_trivially_assignable_type (loc, ctx, h, h1,
+						    jump_target);
+	}
+      if (!strcmp (ident, "nothrow_assignable_type"))
+	{
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
+	  return eval_is_nothrow_assignable_type (loc, ctx, h, h1,
+						  jump_target);
 	}
       goto not_found;
     }
@@ -3139,6 +3596,11 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_has_parent (h, kind);
       if (!strcmp (ident, "ellipsis_parameter"))
 	return eval_has_ellipsis_parameter (h);
+      if (!strcmp (ident, "virtual_destructor"))
+	return eval_has_virtual_destructor (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "unique_object_representations"))
+	return eval_has_unique_object_representations (loc, ctx, h,
+						       jump_target);
       goto not_found;
     }
 
@@ -3213,6 +3675,30 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
   if (id_equal (name, "parent_of"))
     return eval_parent_of (loc, ctx, h, kind, jump_target);
+  if (id_equal (name, "reference_constructs_from_temporary"))
+    {
+      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			  jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      tree h1 = REFLECT_EXPR_HANDLE (i1);
+      return eval_reference_constructs_from_temporary (loc, ctx, h, h1,
+						       jump_target);
+    }
+  if (id_equal (name, "reference_converts_from_temporary"))
+    {
+      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			  jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      tree h1 = REFLECT_EXPR_HANDLE (i1);
+      return eval_reference_converts_from_temporary (loc, ctx, h, h1,
+						     jump_target);
+    }
 
 not_found:
   sorry ("%qE", name);

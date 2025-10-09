@@ -287,23 +287,60 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_member_pointer_type(info);
 
     // associated with [meta.unary.prop], type properties
-    consteval bool is_const_type (info);
-    consteval bool is_volatile_type (info);
-    consteval bool is_trivially_copyable_type (info);
-    consteval bool is_trivially_relocatable_type (info);
-    consteval bool is_replaceable_type (info);
-    consteval bool is_standard_layout_type (info);
-    consteval bool is_empty_type (info);
-    consteval bool is_polymorphic_type (info);
-    consteval bool is_abstract_type (info);
-    consteval bool is_final_type (info);
-    consteval bool is_aggregate_type (info);
-    consteval bool is_consteval_only_type (info);
-    consteval bool is_signed_type (info);
-    consteval bool is_unsigned_type (info);
-    consteval bool is_bounded_array_type (info);
-    consteval bool is_unbounded_array_type (info);
-    consteval bool is_scoped_enum_type (info);
+    consteval bool is_const_type(info);
+    consteval bool is_volatile_type(info);
+    consteval bool is_trivially_copyable_type(info);
+    consteval bool is_trivially_relocatable_type(info);
+    consteval bool is_replaceable_type(info);
+    consteval bool is_standard_layout_type(info);
+    consteval bool is_empty_type(info);
+    consteval bool is_polymorphic_type(info);
+    consteval bool is_abstract_type(info);
+    consteval bool is_final_type(info);
+    consteval bool is_aggregate_type(info);
+    consteval bool is_consteval_only_type(info);
+    consteval bool is_signed_type(info);
+    consteval bool is_unsigned_type(info);
+    consteval bool is_bounded_array_type(info);
+    consteval bool is_unbounded_array_type(info);
+    consteval bool is_scoped_enum_type(info);
+
+    consteval bool is_default_constructible_type(info);
+    consteval bool is_copy_constructible_type(info);
+    consteval bool is_move_constructible_type(info);
+
+    consteval bool is_assignable_type(info, info);
+    consteval bool is_copy_assignable_type(info);
+    consteval bool is_move_assignable_type(info);
+
+    consteval bool is_destructible_type(info);
+
+    consteval bool is_trivially_default_constructible_type(info);
+    consteval bool is_trivially_copy_constructible_type(info);
+    consteval bool is_trivially_move_constructible_type(info);
+
+    consteval bool is_trivially_assignable_type(info, info);
+    consteval bool is_trivially_copy_assignable_type(info);
+    consteval bool is_trivially_move_assignable_type(info);
+    consteval bool is_trivially_destructible_type(info);
+
+    consteval bool is_nothrow_default_constructible_type(info);
+    consteval bool is_nothrow_copy_constructible_type(info);
+    consteval bool is_nothrow_move_constructible_type(info);
+
+    consteval bool is_nothrow_assignable_type(info, info);
+    consteval bool is_nothrow_copy_assignable_type(info);
+    consteval bool is_nothrow_move_assignable_type(info);
+
+    consteval bool is_nothrow_destructible_type(info);
+    consteval bool is_nothrow_relocatable_type(info);
+
+    consteval bool has_virtual_destructor(info);
+
+    consteval bool has_unique_object_representations(info);
+
+    consteval bool reference_constructs_from_temporary(info, info);
+    consteval bool reference_converts_from_temporary(info, info);
 
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const(info);
