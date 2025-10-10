@@ -2366,7 +2366,7 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       namespace, or namespace alias, then true.
    -- Otherwise, if r represents a direct base class relationship, then
       has_identifier(type_of(r)).
-   -- Otherwise, r represents a data member description (T,N,A,W,NUA), true if
+   -- Otherwise, r represents a data member description (T,N,A,W,NUA); true if
       N is not _|_.  Otherwise, false.  */
 
 static tree
@@ -2459,6 +2459,87 @@ eval_has_identifier (tree r, reflect_kind kind)
     return boolean_true_node;
   // TODO: direct base class relationship and data member description.
   return boolean_false_node;
+}
+
+/* Process std::meta::{,u8}identifier_of.
+   Let E be UTF-8 for u8identifier_of, and otherwise the ordinary literal
+   encoding.
+   Returns: An NTMBS, encoded with E, determined as follows:
+   -- If r represents an entity with a typedef name for linkage purposes,
+      then that name.
+   -- Otherwise, if r represents a literal operator or literal operator
+      template, then the ud-suffix of the operator or operator template.
+   -- Otherwise, if r represents the parameter P of a function F, then let S
+      be the set of declarations, ignoring any explicit instantiations, that
+      precede some point in the evaluation context and that declare either F
+      or a templated function of which F is a specialization; the name that
+      was introduced by a declaration in S for the parameter corresponding
+      to P.
+   -- Otherwise, if r represents an entity, then the identifier introduced by
+      the declaration of that entity.
+   -- Otherwise, if r represents a direct base class relationship, then
+      identifier_of(type_of(r)) or u8identifier_of(type_of(r)), respectively.
+   -- Otherwise, r represents a data member description (T,N,A,W,NUA);
+      a string_view or u8string_view, respectively, containing the identifier
+      N.
+   Throws: meta::exception unless has_identifier(r) is true and the identifier
+   that would be returned (see above) is representable by E.  */
+
+static tree
+eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		    reflect_kind kind, tree *jump_target,
+		    tree elt_type, tree ret_type)
+{
+  if (eval_has_identifier (r, kind) == boolean_false_node)
+    return throw_exception (loc, ctx, N_("reflection with has_identifier "
+					 "false"),
+			    r, jump_target);
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  const char *name = NULL;
+  if (eval_is_function_parameter (r, kind) == boolean_true_node)
+    {
+      r = maybe_update_function_parm (r);
+      if (DECL_NAME (r))
+	name = IDENTIFIER_POINTER (DECL_NAME (r));
+      else
+	{
+	  tree opn = lookup_attribute ("old parm name", DECL_ATTRIBUTES (r));
+	  opn = TREE_VALUE (TREE_VALUE (opn));
+	  name = IDENTIFIER_POINTER (opn);
+	}
+    }
+  else if (DECL_P (r) && UDLIT_OPER_P (DECL_NAME (r)))
+    name = UDLIT_OP_SUFFIX (DECL_NAME (r));
+  else if (DECL_P (r))
+    name = IDENTIFIER_POINTER (DECL_NAME (r));
+  else if (TYPE_P (r))
+    {
+      if (DECL_P (TYPE_NAME (r)))
+	name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (r)));
+      else
+	name = IDENTIFIER_POINTER (TYPE_NAME (r));
+    }
+  // TODO: direct base class relationship and data member description.
+  else
+    gcc_unreachable ();
+  tree str = temp_string_literal (name, elt_type);
+  if (str == NULL_TREE)
+    {
+      if (elt_type == char_type_node)
+	return throw_exception (loc, ctx, N_("identifier_of not representable"
+					     " in ordinary literal encoding"),
+				r, jump_target);
+      else
+	return throw_exception (loc, ctx, N_("u8identifier_of not representable"
+					     " in UTF-8"),
+				r, jump_target);
+    }
+  releasing_vec args (make_tree_vector_single (str));
+  tree ret = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					&args, ret_type, LOOKUP_NORMAL,
+					tf_warning_or_error);
+  return build_cplus_new (ret_type, ret, tf_warning_or_error);
 }
 
 /* Get the reflection of template argument ARG as per
@@ -4675,6 +4756,12 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       tree h1 = REFLECT_EXPR_HANDLE (i1);
       return eval_type_order (loc, ctx, h, h1, jump_target);
     }
+  if (id_equal (name, "identifier_of"))
+    return eval_identifier_of (loc, ctx, h, kind, jump_target, char_type_node,
+			       TREE_TYPE (call));
+  if (id_equal (name, "u8identifier_of"))
+    return eval_identifier_of (loc, ctx, h, kind, jump_target,
+			       char8_type_node, TREE_TYPE (call));
 
 not_found:
   sorry ("%qE", name);
