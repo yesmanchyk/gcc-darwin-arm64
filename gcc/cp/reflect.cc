@@ -2830,6 +2830,43 @@ eval_reference_converts_from_temporary (location_t loc,
 			  CPTK_REF_CONVERTS_FROM_TEMPORARY, jump_target);
 }
 
+/* Process std::meta::rank.  */
+
+static tree
+eval_rank (location_t loc, const constexpr_ctx *ctx, tree type,
+	   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  size_t rank = 0;
+  for (; TREE_CODE (type) == ARRAY_TYPE; type = TREE_TYPE (type))
+    ++rank;
+  return build_int_cst (size_type_node, rank);
+}
+
+/* Process std::meta::extent.  */
+
+static tree
+eval_extent (location_t loc, const constexpr_ctx *ctx, tree type,
+	     tree i, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  size_t rank = tree_to_uhwi (i);
+  while (rank && TREE_CODE (type) == ARRAY_TYPE)
+    {
+      --rank;
+      type = TREE_TYPE (type);
+    }
+  if (rank
+      || TREE_CODE (type) != ARRAY_TYPE
+      || eval_is_bounded_array_type (loc, ctx, type,
+				     jump_target) == boolean_false_node)
+     return size_zero_node;
+  return size_binop (PLUS_EXPR, TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
+		     size_one_node);
+}
+
 /* Process std::meta::is_same_type.  */
 
 static tree
@@ -3698,6 +3735,21 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       tree h1 = REFLECT_EXPR_HANDLE (i1);
       return eval_reference_converts_from_temporary (loc, ctx, h, h1,
 						     jump_target);
+    }
+  if (id_equal (name, "rank"))
+    return eval_rank (loc, ctx, h, jump_target);
+  if (id_equal (name, "extent"))
+    {
+      tree i = get_nth_callarg (call, 1);
+      location_t loc = cp_expr_loc_or_input_loc (i);
+      i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
+					non_constant_p, overflow_p,
+					jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      return eval_extent (loc, ctx, h, i, jump_target);
     }
 
 not_found:

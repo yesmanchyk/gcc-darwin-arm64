@@ -170,6 +170,78 @@ eval (int n)
     case 52:
       is_scoped_enum_type (^^n);
       break;
+    case 53:
+      is_default_constructible_type (^^n);
+      break;
+    case 54:
+      is_copy_constructible_type (^^n);
+      break;
+    case 55:
+      is_move_constructible_type (^^n);
+      break;
+    case 56:
+      is_copy_assignable_type (^^n);
+      break;
+    case 57:
+      is_move_assignable_type (^^n);
+      break;
+    case 58:
+      is_destructible_type (^^n);
+      break;
+    case 59:
+      is_trivially_default_constructible_type (^^n);
+      break;
+    case 60:
+      is_trivially_copy_constructible_type (^^n);
+      break;
+    case 61:
+      is_trivially_move_constructible_type (^^n);
+      break;
+    case 62:
+      is_trivially_copy_assignable_type (^^n);
+      break;
+    case 63:
+      is_trivially_move_assignable_type (^^n);
+      break;
+    case 64:
+      is_trivially_destructible_type (^^n);
+      break;
+    case 65:
+      is_nothrow_default_constructible_type (^^n);
+      break;
+    case 66:
+      is_nothrow_copy_constructible_type (^^n);
+      break;
+    case 67:
+      is_nothrow_move_constructible_type (^^n);
+      break;
+    case 68:
+      is_nothrow_copy_assignable_type (^^n);
+      break;
+    case 69:
+      is_nothrow_move_assignable_type (^^n);
+      break;
+    case 70:
+      is_nothrow_destructible_type (^^n);
+      break;
+    case 71:
+      is_nothrow_relocatable_type (^^n);
+      break;
+    case 72:
+      has_virtual_destructor (^^n);
+      break;
+    case 73:
+      has_unique_object_representations (^^n);
+      break;
+    case 74:
+      rank (^^n);
+      break;
+    case 75:
+      extent (^^n);
+      break;
+    case 76:
+      extent (^^n, 2);
+      break;
    default:
       break;
     }
@@ -237,3 +309,27 @@ static_assert (test (49));
 static_assert (test (50));
 static_assert (test (51));
 static_assert (test (52));
+static_assert (test (53));
+static_assert (test (54));
+static_assert (test (55));
+static_assert (test (56));
+static_assert (test (57));
+static_assert (test (58));
+static_assert (test (59));
+static_assert (test (60));
+static_assert (test (61));
+static_assert (test (62));
+static_assert (test (63));
+static_assert (test (64));
+static_assert (test (65));
+static_assert (test (66));
+static_assert (test (67));
+static_assert (test (68));
+static_assert (test (69));
+static_assert (test (70));
+static_assert (test (71));
+static_assert (test (72));
+static_assert (test (73));
+static_assert (test (74));
+static_assert (test (75));
+static_assert (test (76));

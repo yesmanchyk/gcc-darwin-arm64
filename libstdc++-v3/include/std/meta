@@ -342,6 +342,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool reference_constructs_from_temporary(info, info);
     consteval bool reference_converts_from_temporary(info, info);
 
+    // associated with [meta.unary.prop.query], type property queries
+    consteval size_t rank(info);
+    consteval size_t extent(info, unsigned = 0);
+
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const(info);
     consteval info remove_volatile(info);

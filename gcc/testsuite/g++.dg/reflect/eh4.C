@@ -55,6 +55,36 @@ eval (int n)
     case 13:
       is_pointer_interconvertible_base_of_type (^^n, ^^S);
       break;
+    case 14:
+      is_assignable_type (^^S, ^^n);
+      break;
+    case 15:
+      is_assignable_type (^^n, ^^S);
+      break;
+    case 16:
+      is_trivially_assignable_type (^^S, ^^n);
+      break;
+    case 17:
+      is_trivially_assignable_type (^^n, ^^S);
+      break;
+    case 18:
+      is_nothrow_assignable_type (^^S, ^^n);
+      break;
+    case 19:
+      is_nothrow_assignable_type (^^n, ^^S);
+      break;
+    case 20:
+      reference_constructs_from_temporary (^^S, ^^n);
+      break;
+    case 21:
+      reference_constructs_from_temporary (^^n, ^^S);
+      break;
+    case 22:
+      reference_converts_from_temporary (^^S, ^^n);
+      break;
+    case 23:
+      reference_converts_from_temporary (^^n, ^^S);
+      break;
     default:
       break;
     }
@@ -83,3 +113,13 @@ static_assert (test (10));
 static_assert (test (11));
 static_assert (test (12));
 static_assert (test (13));
+static_assert (test (14));
+static_assert (test (15));
+static_assert (test (16));
+static_assert (test (17));
+static_assert (test (18));
+static_assert (test (19));
+static_assert (test (20));
+static_assert (test (21));
+static_assert (test (22));
+static_assert (test (23));
