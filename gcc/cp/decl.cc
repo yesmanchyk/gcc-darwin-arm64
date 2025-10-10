@@ -3056,9 +3056,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool hiding, bool was_hidden)
 
       /* Merge parameter attributes. */
       tree oldarg, newarg;
-      for (oldarg = DECL_ARGUMENTS(olddecl), newarg = DECL_ARGUMENTS(newdecl);
-           oldarg && newarg;
-           oldarg = DECL_CHAIN(oldarg), newarg = DECL_CHAIN(newarg))
+      for (oldarg = DECL_ARGUMENTS (olddecl),
+	   newarg = DECL_ARGUMENTS (newdecl);
+	   oldarg && newarg;
+	   oldarg = DECL_CHAIN (oldarg), newarg = DECL_CHAIN (newarg))
 	{
           DECL_ATTRIBUTES (newarg)
 	    = (*targetm.merge_decl_attributes) (oldarg, newarg);
@@ -3076,6 +3077,62 @@ duplicate_decls (tree newdecl, tree olddecl, bool hiding, bool was_hidden)
 		      "earlier declaration");
 	    }
           DECL_ATTRIBUTES (oldarg) = DECL_ATTRIBUTES (newarg);
+	  /* Merge names for std::meta::has_identifier and
+	     std::meta::{,u8}identifier_of purposes.  If they are different
+	     and both oldarg and newarg are named, add flag to force that
+	     std::meta::has_identifier returns false.  If one is named and
+	     one is unnamed, if neither is a olddecl nor newdecl is definition,
+	     propagate DECL_NAME to both.  Otherwise stash the old name into
+	     "old parm name" artificial attribute.  */
+	  if (flag_reflection && DECL_NAME (oldarg) != DECL_NAME (newarg))
+	    {
+	      if (DECL_NAME (oldarg) && DECL_NAME (newarg))
+		{
+		  /* Different names.  */
+		  MULTIPLE_NAMES_PARM_P (oldarg) = 1;
+		  MULTIPLE_NAMES_PARM_P (newarg) = 1;
+		}
+	      else if (!new_defines_function
+		       && types_match
+		       && DECL_INITIAL (olddecl) == NULL_TREE)
+		{
+		  /* For 2 non-definitions with matching types,
+		     one is named and one unnamed, propagate name
+		     to both.  */
+		  if (DECL_NAME (oldarg))
+		    DECL_NAME (newarg) = DECL_NAME (oldarg);
+		  else
+		    DECL_NAME (oldarg) = DECL_NAME (newarg);
+		}
+	      /* Depending on which PARM_DECL we'll keep, look at the other
+		 PARM_DECL's name.  */
+	      else if (tree name = ((new_defines_function || !types_match)
+				    ? DECL_NAME (oldarg) : DECL_NAME (newarg)))
+		{
+		  tree opn = lookup_attribute ("old parm name",
+					       DECL_ATTRIBUTES (oldarg));
+		  if (opn)
+		    {
+		      if (TREE_VALUE (TREE_VALUE (opn)) == name)
+			/* Name already in "old parm name" attribute.  */;
+		      else
+			{
+			  /* Different names.  */
+			  MULTIPLE_NAMES_PARM_P (oldarg) = 1;
+			  MULTIPLE_NAMES_PARM_P (newarg) = 1;
+			}
+		    }
+		  else
+		    {
+		      /* Save name into attribute.  */
+		      DECL_ATTRIBUTES (newarg)
+			= tree_cons (get_identifier ("old parm name"),
+				     tree_cons (NULL_TREE, name, NULL_TREE),
+				     DECL_ATTRIBUTES (newarg));
+		      DECL_ATTRIBUTES (oldarg) = DECL_ATTRIBUTES (newarg);
+		    }
+		}
+	    }
 	}
 
       if (DECL_TEMPLATE_INSTANTIATION (olddecl)

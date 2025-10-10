@@ -690,47 +690,6 @@ maybe_init_meta_operators (location_t loc)
 	}
 }
 
-/* Process std::meta::has_identifier.  Returns:
-
-    (1.1) If r represents an entity that has a typedef name for linkage
-	  purposes, then true.
-    (1.2) Otherwise, if r represents an unnamed entity, then false.
-    (1.3) Otherwise, if r represents a class type, then
-	  !has_template_arguments(r).
-    (1.4) Otherwise, if r represents a function, then true if
-	  !has_template_arguments(r) and the function is not a constructor,
-	  destructor, operator function, or conversion function.  Otherwise,
-	  false.
-    (1.5) Otherwise, if r represents a template, then true if r does not
-	  represent a constructor template, operator function template, or
-	  conversion function template.  Otherwise, false.
-    (1.6) Otherwise, if r represents a variable, then false if the declaration
-	  of that variable was instantiated from a function parameter pack.
-	  Otherwise, !has_template_arguments(r).
-    (1.7) Otherwise, if r represents a structured binding, then false if the
-	  declaration of that structured binding was instantiated from
-	  a structured binding pack.  Otherwise, true.
-    (1.8) Otherwise, if r represents a type alias, then
-	  !has_template_arguments(r).
-    (1.9) Otherwise, if r represents a enumerator, non-static data member,
-	  namespace, or namespace alias, then true.
-    (1.10) Otherwise, if r represents a direct base class relationship, then
-	   has_identifier(type_of(r)).
-    (1.11) Otherwise, r represents a data member description (T, N, A, W, NUA);
-	   true if N is not _|_.  Otherwise, false.  */
-
-static tree
-eval_has_identifier (const_tree r)
-{
-  if (TREE_CODE (r) == TYPE_DECL)
-    r = TREE_TYPE (r);
-  // TODO
-  if (CLASS_TYPE_P (r) && TYPE_NAME (r))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
 /* Process std::meta::source_location_of.
    Returns: If r represents a value, a type other than a class type or an
    enumeration type, the global namespace, or a data member description,
@@ -2369,6 +2328,137 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
 			    r, jump_target);
   ret = size_binop (MULT_EXPR, ret, size_int (BITS_PER_UNIT));
   return fold_convert (ret_type, ret);
+}
+
+/* Process std::meta::has_identifier.
+   Returns:
+   -- If r represents an entity that has a typedef name for linkage purposes,
+      then true.
+   -- Otherwise, if r represents an unnamed entity, then false.
+   -- Otherwise, if r represents a class type, then !has_template_arguments(r).
+   -- Otherwise, if r represents a function, then true if
+      has_template_arguments(r) is false and the function is not a constructor,
+      destructor, operator function, or conversion function.  Otherwise, false.
+   -- Otherwise, if r represents a template, then true if r does not represent
+      a constructor template, operator function template, or conversion
+      function template.  Otherwise, false.
+   -- Otherwise, if r represents the ith parameter of a function F that is an
+      (implicit or explicit) specialization of a templated function T and the
+      ith parameter of the instantiated declaration of T whose template
+      arguments are those of F would be instantiated from a pack, then false.
+   -- Otherwise, if r represents the parameter P of a function F, then let S
+      be the set of declarations, ignoring any explicit instantiations, that
+      precede some point in the evaluation context and that declare either F
+      or a templated function of which F is a specialization; true if
+      -- there is a declaration D in S that introduces a name N for either P
+	 or the parameter corresponding to P in the templated function that
+	 D declares and
+      -- no declaration in S does so using any name other than N.
+      Otherwise, false.
+   -- Otherwise, if r represents a variable, then false if the declaration of
+      that variable was instantiated from a function parameter pack.
+      Otherwise, !has_template_arguments(r).
+   -- Otherwise, if r represents a structured binding, then false if the
+      declaration of that structured binding was instantiated from a
+      structured binding pack.  Otherwise, true.
+   -- Otherwise, if r represents a type alias, then !has_template_arguments(r).
+   -- Otherwise, if r represents an enumerator, non-static-data member,
+      namespace, or namespace alias, then true.
+   -- Otherwise, if r represents a direct base class relationship, then
+      has_identifier(type_of(r)).
+   -- Otherwise, r represents a data member description (T,N,A,W,NUA), true if
+      N is not _|_.  Otherwise, false.  */
+
+static tree
+eval_has_identifier (tree r, reflect_kind kind)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  if (DECL_P (r)
+      && kind != REFLECT_PARM
+      && (!DECL_NAME (r) || IDENTIFIER_ANON_P (DECL_NAME (r))))
+    return boolean_false_node;
+  if (TYPE_P (r) && (!TYPE_NAME (r)
+		     || (TYPE_ANON_P (r) && !typedef_variant_p (r))
+		     || (DECL_P (TYPE_NAME (r))
+			 && !DECL_NAME (TYPE_NAME (r)))))
+    return boolean_false_node;
+  if (CLASS_TYPE_P (r))
+    {
+      if (eval_has_template_arguments (r) == boolean_true_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  if (eval_is_function (r) == boolean_true_node)
+    {
+      if (eval_has_template_arguments (r) == boolean_true_node
+	  || eval_is_constructor (r) == boolean_true_node
+	  || eval_is_destructor (r) == boolean_true_node
+	  || eval_is_operator_function (r) == boolean_true_node
+	  || eval_is_conversion_function (r) == boolean_true_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  if (eval_is_template (r) == boolean_true_node)
+    {
+#if 0
+      // TODO: Implement these first
+      if (eval_is_constructor_template (r) == boolean_true_node
+	  || eval_is_operator_function_template (r) == boolean_true_node
+	  || eval_is_conversion_function_template (r) == boolean_true_node)
+	return boolean_false_node;
+      else
+#endif
+	return boolean_true_node;
+    }
+  if (eval_is_function_parameter (r, kind) == boolean_true_node)
+    {
+      r = maybe_update_function_parm (r);
+      if (MULTIPLE_NAMES_PARM_P (r))
+	return boolean_false_node;
+      if (DECL_NAME (r))
+	{
+	  if (strchr (IDENTIFIER_POINTER (DECL_NAME (r)), '#'))
+	    return boolean_false_node;
+	  else
+	    return boolean_true_node;
+	}
+      if (lookup_attribute ("old parm name", DECL_ATTRIBUTES (r)))
+	return boolean_true_node;
+      else
+	return boolean_false_node;
+    }
+  if (eval_is_variable (r, kind) == boolean_true_node)
+    {
+      if (strchr (IDENTIFIER_POINTER (DECL_NAME (r)), '#'))
+	return boolean_false_node;
+      if (eval_has_template_arguments (r) == boolean_true_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  if (eval_is_structured_binding (r) == boolean_true_node)
+    {
+      if (strchr (IDENTIFIER_POINTER (DECL_NAME (r)), '#'))
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  if (eval_is_type_alias (r) == boolean_true_node)
+    {
+      if (eval_has_template_arguments (r) == boolean_true_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  if (eval_is_enumerator (r) == boolean_true_node
+      || TREE_CODE (r) == FIELD_DECL
+      || (TREE_CODE (r) == NAMESPACE_DECL && r != global_namespace))
+    return boolean_true_node;
+  // TODO: direct base class relationship and data member description.
+  return boolean_false_node;
 }
 
 /* Get the reflection of template argument ARG as per
@@ -4429,7 +4519,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     {
       ident += 4;
       if (!strcmp (ident, "identifier"))
-	return eval_has_identifier (h);
+	return eval_has_identifier (h, kind);
       if (!strcmp (ident, "internal_linkage"))
 	return eval_has_internal_linkage (h, kind);
       if (!strcmp (ident, "module_linkage"))

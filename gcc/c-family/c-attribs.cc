@@ -722,7 +722,8 @@ attribute_takes_identifier_p (const_tree attr_id)
 	   || !strcmp ("format", spec->name)
 	   || !strcmp ("cleanup", spec->name)
 	   || !strcmp ("access", spec->name)
-	   || !strcmp ("counted_by", spec->name))
+	   || !strcmp ("counted_by", spec->name)
+	   || !strcmp ("old parm name", spec->name))
     return true;
   else
     return targetm.attribute_takes_identifier_p (attr_id);

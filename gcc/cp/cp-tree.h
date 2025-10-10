@@ -506,6 +506,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       STATIC_INIT_DECOMP_NONBASE_P (in the TREE_LIST
 				    for {static,tls}_aggregates)
       MUST_NOT_THROW_CATCH_P (in MUST_NOT_THROW_EXPR)
+      MULTIPLE_NAMES_PARM_P (in PARM_DECL)
    3: IMPLICIT_RVALUE_P (in NON_LVALUE_EXPR or STATIC_CAST_EXPR)
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -5231,6 +5232,12 @@ get_vec_init_expr (tree t)
    chain because a function definition has been parsed later.  */
 #define OLD_PARM_DECL_P(NODE) \
   TREE_LANG_FLAG_0 (PARM_DECL_CHECK (NODE))
+
+/* Nonzero for PARM_DECL node means it has different names on different
+   declarations of the same FUNCTION_DECL.  If it is unnamed on one and
+   named on another, that is still fine.  */
+#define MULTIPLE_NAMES_PARM_P(NODE) \
+  TREE_LANG_FLAG_2 (PARM_DECL_CHECK (NODE))
 
 /* Nonzero for a FIELD_DECL who's NSMDI is currently being
    instantiated.  */
