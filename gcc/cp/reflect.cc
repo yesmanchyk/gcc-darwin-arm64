@@ -1684,10 +1684,68 @@ eval_is_destructor (tree r)
    Otherwise, false.  */
 
 static tree
-eval_is_conversion_function_template (const_tree)
+eval_is_conversion_function_template (tree r)
 {
-  // Need members_of to test this.
-  gcc_assert (!"TODO");
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+
+  if (DECL_FUNCTION_TEMPLATE_P (r) && DECL_CONV_FN_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_operator_function_template.
+   Returns: true if r represents an operator function template.
+   Otherwise, false.  */
+
+static tree
+eval_is_operator_function_template (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+
+  if (DECL_FUNCTION_TEMPLATE_P (r))
+    {
+      r = STRIP_TEMPLATE (r);
+      if (DECL_OVERLOADED_OPERATOR_P (r) && !DECL_CONV_FN_P (r))
+	return boolean_true_node;
+    }
+
+  return boolean_false_node;
+}
+
+/* Process std::meta::is_literal_operator_template.
+   Returns: true if r represents a literal operator template.
+   Otherwise, false.  */
+
+static tree
+eval_is_literal_operator_template (tree r)
+{
+  /* No MAYBE_BASELINK_FUNCTIONS here because a literal operator
+     template must be a non-member function template.  */
+  r = OVL_FIRST (r);
+
+  if (DECL_FUNCTION_TEMPLATE_P (r) && UDLIT_OPER_P (DECL_NAME (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_constructor_template.
+   Returns: true if r represents a function that is an operator function
+   template.  Otherwise, false.  */
+
+static tree
+eval_is_constructor_template (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+
+  if (DECL_FUNCTION_TEMPLATE_P (r) && DECL_CONSTRUCTOR_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Process std::meta::operator_of.
@@ -2403,14 +2461,11 @@ eval_has_identifier (tree r, reflect_kind kind)
     }
   if (eval_is_template (r) == boolean_true_node)
     {
-#if 0
-      // TODO: Implement these first
       if (eval_is_constructor_template (r) == boolean_true_node
 	  || eval_is_operator_function_template (r) == boolean_true_node
 	  || eval_is_conversion_function_template (r) == boolean_true_node)
 	return boolean_false_node;
       else
-#endif
 	return boolean_true_node;
     }
   if (eval_is_function_parameter (r, kind) == boolean_true_node)
@@ -4300,6 +4355,12 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_destructor (h);
       if (!strcmp (ident, "conversion_function_template"))
 	return eval_is_conversion_function_template (h);
+      if (!strcmp (ident, "operator_function_template"))
+	return eval_is_operator_function_template (h);
+      if (!strcmp (ident, "literal_operator_template"))
+	return eval_is_literal_operator_template (h);
+      if (!strcmp (ident, "constructor_template"))
+	return eval_is_constructor_template (h);
       if (!strcmp (ident, "function_type"))
 	return eval_is_function_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "void_type"))

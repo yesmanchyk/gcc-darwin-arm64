@@ -22,7 +22,7 @@ struct S {
 
 struct T {
   template <typename T>
-  operator T();
+  operator T ();
 };
 
 bool operator&&(const S&, const S&);
@@ -35,9 +35,8 @@ int operator""_a(const char *);
 template<char...>
 int operator""_b();
 
-#if 0
-constexpr auto conversion_template =
-    (members_of(^^T, ctx) | std::views::filter(std::meta::is_template)).front();
+//constexpr auto conversion_template =
+//    (members_of(^^T, ctx) | std::views::filter(std::meta::is_template)).front();
 
 static_assert (!is_conversion_function_template (null_reflection));
 static_assert (!is_conversion_function_template (^^int));
@@ -48,8 +47,7 @@ static_assert (!is_conversion_function_template (^^operator&&));
 static_assert (!is_conversion_function_template (^^operator||));
 static_assert (!is_conversion_function_template (^^S::operator-));
 static_assert (!is_conversion_function_template (^^S::operator int));
-static_assert (is_conversion_function_template (conversion_template));
+//static_assert (is_conversion_function_template (conversion_template));
 static_assert (!is_conversion_function_template (^^S::fn));
 static_assert (!is_conversion_function_template (^^operator""_a));
 static_assert (!is_conversion_function_template (^^operator""_b));
-#endif
