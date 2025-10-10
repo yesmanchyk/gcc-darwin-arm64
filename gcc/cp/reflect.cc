@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h" // for get_identifier
 #include "intl.h"
 #include "attribs.h"
+#include "c-family/c-pragma.h" // for parse_in
 
 static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
 				   tree *);
@@ -1699,6 +1700,34 @@ eval_operator_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return build_int_cst (ret_type, meta_operators[i][j]);
 }
 
+/* Helper to build a string literal containing '\0' terminated NAME.
+   ELT_TYPE must be either char_type_node or char8_type_node, and the
+   function takes care of converting the name from SOURCE_CHARSET
+   to ordinary literal charset resp. UTF-8 and returning the string
+   literal.  Returns NULL_TREE if the conversion failed.  */
+
+static tree
+temp_string_literal (const char *name, tree elt_type)
+{
+  cpp_string cstr = { 0, 0 }, strname;
+  size_t len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
+  char *namep = XNEWVEC (char, len);
+  snprintf (namep, len, "\"%s\"", name);
+  strname.text = (unsigned char *) namep;
+  strname.len = len - 1;
+  if (!cpp_interpret_string (parse_in, &strname, 1, &cstr,
+			     elt_type == char_type_node
+			     ? CPP_STRING : CPP_UTF8STRING))
+    {
+      XDELETEVEC (namep);
+      return NULL_TREE;
+    }
+  name = (const char *) cstr.text;
+  tree ret = build_string_literal (strlen (name) + 1, name, elt_type);
+  free (const_cast <char *> (name));
+  return ret;
+}
+
 /* Process std::meta::{,u8}symbol_of.
    Returns: A string_view or u8string_view containing the characters of the
    operator symbol name corresponding to op, respectively encoded with the
@@ -1731,7 +1760,11 @@ eval_symbol_of (location_t loc, const constexpr_ctx *ctx, tree expr,
 	      strcpy (buf + (sp - name), sp + 1);
 	      name = buf;
 	    }
-	  tree str = build_string_literal (strlen (name) + 1, name, elt_type);
+	  tree str = temp_string_literal (name, elt_type);
+	  /* Basic character set ought to be better convertible
+	     into ordinary literal character set and must be always
+	     convertible into UTF-8.  */
+	  gcc_checking_assert (str);
 	  releasing_vec args (make_tree_vector_single (str));
 	  tree r = build_special_member_call (NULL_TREE,
 					      complete_ctor_identifier,
