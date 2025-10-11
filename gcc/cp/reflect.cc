@@ -680,6 +680,123 @@ eval_is_structured_binding (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_class_member.
+   Returns: true if r represents a class member.  Otherwise, false.  */
+
+static tree
+eval_is_class_member (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  if (TREE_CODE (r) == CONST_DECL)
+    {
+      /* [class.mem.general]/5 - The enumerators of an unscoped enumeration
+	 defined in the class are members of the class.  */
+      if (UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
+	r = DECL_CONTEXT (r);
+      else
+	return boolean_false_node;
+    }
+  else if (TYPE_P (r) && typedef_variant_p (r))
+    r = TYPE_NAME (r);
+  if (DECL_P (r) && DECL_CLASS_SCOPE_P (r))
+    return boolean_true_node;
+  else if (TYPE_P (r) && TYPE_CLASS_SCOPE_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_namespace_member.
+   Returns: true if r represents a namespace member.  Otherwise, false.  */
+
+static tree
+eval_is_namespace_member (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  if (TREE_CODE (r) == CONST_DECL)
+    {
+      // TODO: Should enumerators of unscoped enumeration at namespace scope
+      // result in true here?
+      if (UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
+	r = DECL_CONTEXT (r);
+      else
+	return boolean_false_node;
+    }
+  else if (TYPE_P (r) && typedef_variant_p (r))
+    r = TYPE_NAME (r);
+  if (r == global_namespace || r == unknown_type_node)
+    return boolean_false_node;
+  if (DECL_P (r) && DECL_NAMESPACE_SCOPE_P (r))
+    return boolean_true_node;
+  else if (TYPE_P (r) && TYPE_NAMESPACE_SCOPE_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_nonstatic_data_member.
+   Returns: true if r represents a non-static data member.
+   Otherwise, false.  */
+
+static tree
+eval_is_nonstatic_data_member (const_tree r)
+{
+  if (TREE_CODE (r) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_static_member.
+   Returns: true if r represents a static member.
+   Otherwise, false.  */
+
+static tree
+eval_is_static_member (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  r = STRIP_TEMPLATE (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_STATIC_FUNCTION_P (r))
+    return boolean_true_node;
+  else if (VAR_P (r) && DECL_CLASS_SCOPE_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_default_member_initializer.
+   Returns: true if r represents a non-static data member that has a default
+   member initializer.  Otherwise, false.  */
+
+static tree
+eval_has_default_member_initializer (const_tree r)
+{
+  if (TREE_CODE (r) == FIELD_DECL
+      && !DECL_UNNAMED_BIT_FIELD (r)
+      && DECL_INITIAL (r) != NULL_TREE)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_mutable_member.
+   Returns: true if r represents a mutable non-static data member.
+   Otherwise, false.  */
+
+static tree
+eval_is_mutable_member (const_tree r)
+{
+  if (TREE_CODE (r) == FIELD_DECL
+      && !DECL_UNNAMED_BIT_FIELD (r)
+      && DECL_MUTABLE_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_template.
    Returns: true if r represents a function template, class template, variable
    template, alias template, or concept.  Otherwise, false.  */
@@ -743,6 +860,80 @@ eval_has_ellipsis_parameter (tree r)
       // Though wonder if that won't be an ABI change.
       && (stdarg_p (r) || TYPE_ARG_TYPES (r) == NULL_TREE))
     return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_deleted.
+   Returns: true if r represents a function that is deleted.
+   Otherwise, false.  */
+
+static tree
+eval_is_deleted (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_DELETED_FN (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_defaulted.
+   Returns: true if r represents a function that is defaulted.
+   Otherwise, false.  */
+
+static tree
+eval_is_defaulted (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_DEFAULTED_FN (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_user_provided.
+   Returns: true if r represents a function that is user-provided.
+   Otherwise, false.  */
+
+static tree
+eval_is_user_provided (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL
+      && user_provided_p (r)
+      // TODO: user_provided_p is false for non-members defaulted on
+      // first declaration.
+      && (!DECL_NAMESPACE_SCOPE_P (r) || !DECL_DELETED_FN (r)))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_user_declared.
+   Returns: true if r represents a function that is user-declared.
+   Otherwise, false.  */
+
+static tree
+eval_is_user_declared (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && !DECL_ARTIFICIAL (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_bit_field.
+   Returns: true if r represents a bit-field, or if r represents a data member
+   description (T,N,A,W,NUA) for which W is not _|_..  Otherwise, false.  */
+
+static tree
+eval_is_bit_field (const_tree r)
+{
+  if (TREE_CODE (r) == FIELD_DECL && DECL_C_BIT_FIELD (r))
+    return boolean_true_node;
+  // TODO: Handle data member description.
   else
     return boolean_false_node;
 }
@@ -3384,12 +3575,32 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_object (kind);
       if (!strcmp (ident, "structured_binding"))
 	return eval_is_structured_binding (h);
+      if (!strcmp (ident, "class_member"))
+	return eval_is_class_member (h);
+      if (!strcmp (ident, "namespace_member"))
+	return eval_is_namespace_member (h);
+      if (!strcmp (ident, "nonstatic_data_member"))
+	return eval_is_nonstatic_data_member (h);
+      if (!strcmp (ident, "static_member"))
+	return eval_is_static_member (h);
+      if (!strcmp (ident, "mutable_member"))
+	return eval_is_mutable_member (h);
       if (!strcmp (ident, "template"))
 	return eval_is_template (h);
       if (!strcmp (ident, "function_parameter"))
 	return eval_is_function_parameter (h, kind);
       if (!strcmp (ident, "explicit_object_parameter"))
 	return eval_is_explicit_object_parameter (h, kind);
+      if (!strcmp (ident, "deleted"))
+	return eval_is_deleted (h);
+      if (!strcmp (ident, "defaulted"))
+	return eval_is_defaulted (h);
+      if (!strcmp (ident, "user_provided"))
+	return eval_is_user_provided (h);
+      if (!strcmp (ident, "user_declared"))
+	return eval_is_user_declared (h);
+      if (!strcmp (ident, "bit_field"))
+	return eval_is_bit_field (h);
       if (!strcmp (ident, "enumerator"))
 	return eval_is_enumerator (h);
       if (!strcmp (ident, "complete_type"))
@@ -3697,6 +3908,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (!strcmp (ident, "unique_object_representations"))
 	return eval_has_unique_object_representations (loc, ctx, h,
 						       jump_target);
+      if (!strcmp (ident, "default_member_initializer"))
+	return eval_has_default_member_initializer (h);
       goto not_found;
     }
 
