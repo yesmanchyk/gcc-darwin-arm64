@@ -360,6 +360,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval size_t rank(info);
     consteval size_t extent(info, unsigned = 0);
 
+    // associated with [meta.rel], type relations
+    consteval bool is_same_type(info, info);
+    consteval bool is_base_of_type(info, info);
+    consteval bool is_virtual_base_of_type(info, info);
+    consteval bool is_convertible_type(info, info);
+    consteval bool is_nothrow_convertible_type(info, info);
+    consteval bool is_layout_compatible_type(info, info);
+    consteval bool is_pointer_interconvertible_base_of_type(info, info);
+
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const(info);
     consteval info remove_volatile(info);
@@ -384,15 +393,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // associated with [meta.trans.ptr], pointer modifications
     consteval info remove_pointer(info);
     consteval info add_pointer(info);
-
-    // associated with [meta.rel], type relations
-    consteval bool is_same_type(info, info);
-    consteval bool is_base_of_type(info, info);
-    consteval bool is_virtual_base_of_type(info, info);
-    consteval bool is_convertible_type(info, info);
-    consteval bool is_nothrow_convertible_type(info, info);
-    consteval bool is_layout_compatible_type(info, info);
-    consteval bool is_pointer_interconvertible_base_of_type(info, info);
 
     // associated with [meta.trans.other], other transformations
     consteval info remove_cvref(info);
