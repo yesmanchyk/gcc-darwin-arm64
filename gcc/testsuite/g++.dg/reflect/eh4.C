@@ -85,6 +85,12 @@ eval (int n)
     case 23:
       reference_converts_from_temporary (^^n, ^^S);
       break;
+    case 24:
+      type_order (^^S, ^^n);
+      break;
+    case 25:
+      type_order (^^n, ^^S);
+      break;
     default:
       break;
     }
@@ -123,3 +129,5 @@ static_assert (test (20));
 static_assert (test (21));
 static_assert (test (22));
 static_assert (test (23));
+static_assert (test (24));
+static_assert (test (25));

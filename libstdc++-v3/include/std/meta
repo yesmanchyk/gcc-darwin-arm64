@@ -380,6 +380,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_layout_compatible_type(info, info);
     consteval bool is_pointer_interconvertible_base_of_type(info, info);
 
+    // associated with [meta.trans.other], other transformations
+    consteval info remove_cvref(info);
+    consteval info decay(info);
+    consteval info underlying_type(info);
+
+    consteval strong_ordering type_order(info, info);
+
     // [meta.reflection.annotation], annotation reflection
     consteval vector<info> annotations_of(info);
     consteval vector<info> annotations_of_with_type(info, info);

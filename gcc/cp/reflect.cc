@@ -2938,6 +2938,65 @@ eval_is_pointer_interconvertible_base_of_type (location_t loc,
 			  jump_target);
 }
 
+/* Process std::meta::remove_cvref.  */
+
+static tree
+eval_remove_cvref (location_t loc, const constexpr_ctx *ctx, tree type,
+		   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (TYPE_REF_P (type))
+    type = TREE_TYPE (type);
+  type = finish_trait_type (CPTK_REMOVE_CV, type, NULL_TREE, tf_none);
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::decay.  */
+
+static tree
+eval_decay (location_t loc, const constexpr_ctx *ctx, tree type,
+	    tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = finish_trait_type (CPTK_DECAY, type, NULL_TREE, tf_none);
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::underlying_type.  */
+
+static tree
+eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
+		      tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  /* The standard doesn't say this, but I hope it will clarify it.  */
+  if (TREE_CODE (type) != ENUMERAL_TYPE || !COMPLETE_TYPE_P (type))
+    return throw_exception (loc, ctx, N_("reflection does not represent "
+					 "a complete enumeration type"),
+			    type, jump_target);
+  type = finish_underlying_type (type);
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::type_order.  */
+
+static tree
+eval_type_order (location_t loc, const constexpr_ctx *ctx, tree type1,
+		 tree type2, tree *jump_target)
+{
+  if (eval_is_type (type1) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type1, jump_target);
+  if (eval_is_type (type2) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type2, jump_target);
+  return type_order_value (strip_typedefs (type1), strip_typedefs (type2));
+}
+
 /* Process std::meta::enumerators_of.
    Returns: A vector containing the reflections of each enumerator of the
    enumeration represented by dealias(type_enum), in the order in which they
@@ -3750,6 +3809,23 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (*non_constant_p)
 	return call;
       return eval_extent (loc, ctx, h, i, jump_target);
+    }
+  if (id_equal (name, "remove_cvref"))
+    return eval_remove_cvref (loc, ctx, h, jump_target);
+  if (id_equal (name, "decay"))
+    return eval_decay (loc, ctx, h, jump_target);
+  if (id_equal (name, "underlying_type"))
+    return eval_underlying_type (loc, ctx, h, jump_target);
+  if (id_equal (name, "type_order"))
+    {
+      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			  jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      tree h1 = REFLECT_EXPR_HANDLE (i1);
+      return eval_type_order (loc, ctx, h, h1, jump_target);
     }
 
 not_found:

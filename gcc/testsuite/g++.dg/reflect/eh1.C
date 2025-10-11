@@ -242,6 +242,15 @@ eval (int n)
     case 76:
       extent (^^n, 2);
       break;
+    case 77:
+      remove_cvref (^^n);
+      break;
+    case 78:
+      decay (^^n);
+      break;
+    case 79:
+      underlying_type (^^n);
+      break;
    default:
       break;
     }
@@ -333,3 +342,6 @@ static_assert (test (73));
 static_assert (test (74));
 static_assert (test (75));
 static_assert (test (76));
+static_assert (test (77));
+static_assert (test (78));
+static_assert (test (79));

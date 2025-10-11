@@ -84,3 +84,6 @@ static_assert ((has_unique_object_representations (^^i), true)); // { dg-error "
 static_assert ((rank (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((extent (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((extent (^^i, 42), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((remove_cvref (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((decay (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((underlying_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
