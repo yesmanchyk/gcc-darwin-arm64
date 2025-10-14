@@ -699,6 +699,8 @@ eval_is_class_member (tree r)
     }
   else if (TYPE_P (r) && typedef_variant_p (r))
     r = TYPE_NAME (r);
+  else if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+    return boolean_true_node;
   if (DECL_P (r) && DECL_CLASS_SCOPE_P (r))
     return boolean_true_node;
   else if (TYPE_P (r) && TYPE_CLASS_SCOPE_P (r))
@@ -717,8 +719,6 @@ eval_is_namespace_member (tree r)
   r = OVL_FIRST (r);
   if (TREE_CODE (r) == CONST_DECL)
     {
-      // TODO: Should enumerators of unscoped enumeration at namespace scope
-      // result in true here?
       if (UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
 	r = DECL_CONTEXT (r);
       else
@@ -726,6 +726,8 @@ eval_is_namespace_member (tree r)
     }
   else if (TYPE_P (r) && typedef_variant_p (r))
     r = TYPE_NAME (r);
+  else if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+    return boolean_false_node;
   if (r == global_namespace || r == unknown_type_node)
     return boolean_false_node;
   if (DECL_P (r) && DECL_NAMESPACE_SCOPE_P (r))
@@ -743,6 +745,8 @@ eval_is_namespace_member (tree r)
 static tree
 eval_is_nonstatic_data_member (const_tree r)
 {
+  if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+    return boolean_true_node;
   if (TREE_CODE (r) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (r))
     return boolean_true_node;
   else
@@ -787,8 +791,14 @@ eval_has_default_member_initializer (const_tree r)
    Otherwise, false.  */
 
 static tree
-eval_is_mutable_member (const_tree r)
+eval_is_mutable_member (tree r)
 {
+  if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+    {
+      tree v = DECL_VALUE_EXPR (r);
+      if (v != error_mark_node && TREE_CODE (v) == COMPONENT_REF)
+	r = TREE_OPERAND (v, 1);
+    }
   if (TREE_CODE (r) == FIELD_DECL
       && !DECL_UNNAMED_BIT_FIELD (r)
       && DECL_MUTABLE_P (r))
@@ -872,6 +882,16 @@ static tree
 eval_is_deleted (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_DELETED_FN (r))
     return boolean_true_node;
   else
@@ -886,6 +906,16 @@ static tree
 eval_is_defaulted (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_DEFAULTED_FN (r))
     return boolean_true_node;
   else
@@ -900,6 +930,16 @@ static tree
 eval_is_user_provided (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
   if (TREE_CODE (r) == FUNCTION_DECL
       && user_provided_p (r)
       // TODO: user_provided_p is false for non-members defaulted on
@@ -918,6 +958,16 @@ static tree
 eval_is_user_declared (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
   if (TREE_CODE (r) == FUNCTION_DECL && !DECL_ARTIFICIAL (r))
     return boolean_true_node;
   else

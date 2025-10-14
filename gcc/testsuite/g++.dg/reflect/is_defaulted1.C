@@ -154,3 +154,16 @@ static_assert (!is_defaulted (^^S::foo));
 static_assert (!is_defaulted (^^S::bar));
 static_assert (!is_defaulted (^^S::bar <42>));
 static_assert (is_defaulted (^^V::operator =));
+
+struct W
+{
+  ~W () = default;
+  int w;
+};
+static_assert (is_defaulted (^^W::~W));
+
+struct X
+{
+  int x;
+};
+static_assert (is_defaulted (^^X::~X));

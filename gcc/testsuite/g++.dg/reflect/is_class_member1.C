@@ -78,7 +78,7 @@ static_assert (is_class_member (^^cls::bar));
 static_assert (is_class_member (^^cls::bar <42>));
 static_assert (!is_class_member (^^cls_var));
 static_assert (!is_class_member (^^onion));
-static_assert (!is_class_member (^^anon));
+static_assert (is_class_member (^^anon));
 static_assert (!is_class_member (^^fun));
 static_assert (!is_class_member (^^alias));
 static_assert (!is_class_member (^^var));

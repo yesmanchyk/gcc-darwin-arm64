@@ -88,7 +88,7 @@ static_assert (!is_namespace_member (^^cls::bar));
 static_assert (!is_namespace_member (^^cls::bar <42>));
 static_assert (is_namespace_member (^^cls_var));
 static_assert (is_namespace_member (^^onion));
-static_assert (is_namespace_member (^^anon));
+static_assert (!is_namespace_member (^^anon));
 static_assert (is_namespace_member (^^fun));
 static_assert (is_namespace_member (^^alias));
 static_assert (is_namespace_member (^^var));

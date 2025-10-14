@@ -31,6 +31,7 @@ struct cls {
 } cls_var;
 union onion { };
 static union { int anon; };
+static union { mutable int anon2; };
 using alias = cls;
 void fun ();
 int var;
@@ -83,6 +84,7 @@ static_assert (!is_mutable_member (^^cls::bar <42>));
 static_assert (!is_mutable_member (^^cls_var));
 static_assert (!is_mutable_member (^^onion));
 static_assert (!is_mutable_member (^^anon));
+static_assert (is_mutable_member (^^anon2));
 static_assert (!is_mutable_member (^^fun));
 static_assert (!is_mutable_member (^^alias));
 static_assert (!is_mutable_member (^^var));

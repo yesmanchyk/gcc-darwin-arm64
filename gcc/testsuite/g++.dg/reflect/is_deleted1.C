@@ -146,3 +146,9 @@ auto s3 = s1 <=> s2; // { dg-error "use of deleted function" }
 static_assert (is_deleted (^^S::operator <=>));
 static_assert (is_deleted (^^S::foo));
 static_assert (!is_deleted (^^S::bar));
+
+struct W
+{
+  ~W () = delete;
+};
+static_assert (is_deleted (^^W::~W));

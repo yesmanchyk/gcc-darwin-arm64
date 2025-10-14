@@ -181,3 +181,30 @@ static_assert (is_user_declared (^^X::operator <=>));
 static_assert (is_user_declared (^^X::operator =));
 static_assert (is_user_declared (^^X::foo));
 static_assert (!is_user_declared (^^X::bar));
+
+struct Y
+{
+  ~Y () = default;
+  int y;
+};
+static_assert (is_user_declared (^^Y::~Y));
+
+struct Z
+{
+  int z;
+};
+static_assert (!is_user_declared (^^Z::~Z));
+
+struct R
+{
+  ~R ();
+  int r;
+};
+static_assert (is_user_declared (^^R::~R));
+
+struct H
+{
+  ~H () = delete;
+  int h;
+};
+static_assert (is_user_declared (^^H::~H));

@@ -181,3 +181,30 @@ static_assert (!is_user_provided (^^X::operator <=>));
 static_assert (!is_user_provided (^^X::operator =));
 static_assert (!is_user_provided (^^X::foo));
 static_assert (!is_user_provided (^^X::bar));
+
+struct Y
+{
+  ~Y () = default;
+  int y;
+};
+static_assert (!is_user_provided (^^Y::~Y));
+
+struct Z
+{
+  int z;
+};
+static_assert (!is_user_provided (^^Z::~Z));
+
+struct R
+{
+  ~R ();
+  int r;
+};
+static_assert (is_user_provided (^^R::~R));
+
+struct H
+{
+  ~H () = delete;
+  int h;
+};
+static_assert (!is_user_provided (^^H::~H));
