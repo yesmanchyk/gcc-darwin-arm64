@@ -1442,6 +1442,10 @@ cxx_pretty_printer::simple_type_specifier (tree t)
       pp_cxx_trait (this, t);
       break;
 
+    case META_TYPE:
+      pp_cxx_ws_string (this, "std::meta::info");
+      break;
+
     default:
       c_pretty_printer::simple_type_specifier (t);
       break;
@@ -1938,6 +1942,7 @@ cxx_pretty_printer::type_id (tree t)
     case NULLPTR_TYPE:
     case TEMPLATE_ID_EXPR:
     case OFFSET_TYPE:
+    case META_TYPE:
       pp_cxx_type_specifier_seq (this, t);
       if (TYPE_PTRMEM_P (t))
 	abstract_declarator (t);

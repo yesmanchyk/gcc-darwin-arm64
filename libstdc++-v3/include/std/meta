@@ -269,6 +269,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval size_t size_of(info);
     consteval size_t bit_size_of(info);
 
+    template<class _R>
+      concept reflection_range = ranges::input_range<_R>
+	&& same_as<ranges::range_value_t<_R>, info>
+	&& same_as<remove_cvref_t<ranges::range_reference_t<_R>>, info>;
+
     // [meta.reflection.result], expression result reflection
     template<typename _Tp>
       requires (is_copy_constructible_v<_Tp>)
@@ -319,6 +324,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_unbounded_array_type(info);
     consteval bool is_scoped_enum_type(info);
 
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_constructible_type(info, _R&&);
     consteval bool is_default_constructible_type(info);
     consteval bool is_copy_constructible_type(info);
     consteval bool is_move_constructible_type(info);
@@ -329,6 +336,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     consteval bool is_destructible_type(info);
 
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_trivially_constructible_type(info, _R&&);
     consteval bool is_trivially_default_constructible_type(info);
     consteval bool is_trivially_copy_constructible_type(info);
     consteval bool is_trivially_move_constructible_type(info);
@@ -338,6 +347,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_trivially_move_assignable_type(info);
     consteval bool is_trivially_destructible_type(info);
 
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_nothrow_constructible_type(info, _R&&);
     consteval bool is_nothrow_default_constructible_type(info);
     consteval bool is_nothrow_copy_constructible_type(info);
     consteval bool is_nothrow_move_constructible_type(info);
@@ -368,6 +379,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_nothrow_convertible_type(info, info);
     consteval bool is_layout_compatible_type(info, info);
     consteval bool is_pointer_interconvertible_base_of_type(info, info);
+
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_invocable_type(info, _R&&);
+
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_nothrow_invocable_type(info, _R&&);
 
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const(info);

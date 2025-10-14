@@ -91,6 +91,36 @@ eval (int n)
     case 25:
       type_order (^^n, ^^S);
       break;
+    case 26:
+      is_constructible_type (^^n, {});
+      break;
+    case 27:
+      is_constructible_type (^^S, { ^^S, ^^n, ^^S });
+      break;
+    case 28:
+      is_trivially_constructible_type (^^n, {});
+      break;
+    case 29:
+      is_trivially_constructible_type (^^S, { ^^n, ^^S, ^^S, ^^S });
+      break;
+    case 30:
+      is_nothrow_constructible_type (^^n, {});
+      break;
+    case 31:
+      is_nothrow_constructible_type (^^S, { ^^S, ^^S, ^^S, ^^S, ^^n });
+      break;
+    case 32:
+      is_invocable_type (^^n, {});
+      break;
+    case 33:
+      is_invocable_type (^^S, { ^^S, ^^S, ^^n, ^^S });
+      break;
+    case 34:
+      is_nothrow_invocable_type (^^n, {});
+      break;
+    case 35:
+      is_nothrow_invocable_type (^^S, { ^^S, ^^n, ^^S });
+      break;
     default:
       break;
     }
@@ -131,3 +161,13 @@ static_assert (test (22));
 static_assert (test (23));
 static_assert (test (24));
 static_assert (test (25));
+static_assert (test (26));
+static_assert (test (27));
+static_assert (test (28));
+static_assert (test (29));
+static_assert (test (30));
+static_assert (test (31));
+static_assert (test (32));
+static_assert (test (33));
+static_assert (test (34));
+static_assert (test (35));

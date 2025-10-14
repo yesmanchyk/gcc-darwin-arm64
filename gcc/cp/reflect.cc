@@ -262,6 +262,263 @@ get_info (const constexpr_ctx *ctx, tree call, int n, bool *non_constant_p,
   return info;
 }
 
+/* Helper function for get_info_vec, called through cp_walk_tree.  */
+
+static tree
+replace_parm_r (tree *tp, int *walk_subtrees, void *data)
+{
+  tree *p = (tree *) data;
+  if (*tp == p[0])
+    *tp = p[1];
+  else if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  return NULL_TREE;
+}
+
+/* Extract the N-th reflection_range argument from a metafunction call CALL
+   and return it as TREE_VEC.  */
+
+static tree
+get_info_vec (location_t loc, const constexpr_ctx *ctx, tree call, int n,
+	      bool *non_constant_p, bool *overflow_p, tree *jump_target)
+{
+  gcc_checking_assert (call_expr_nargs (call) > n);
+  tree arg = get_nth_callarg (call, n);
+  tree parm = DECL_ARGUMENTS (cp_get_callee_fndecl_nofold (call));
+  for (int i = 0; i < n; ++i)
+    parm = DECL_CHAIN (parm);
+  tree type = TREE_TYPE (arg);
+  gcc_checking_assert (TYPE_REF_P (type));
+  arg = cxx_eval_constant_expression (ctx, arg, vc_prvalue, non_constant_p,
+				      overflow_p, jump_target);
+fail_ret:
+  if (*jump_target)
+    return NULL_TREE;
+  if (*non_constant_p)
+    return call;
+  tree map[2] = { parm, arg };
+  /* To speed things up, check
+     if constexpr (std::ranges::contiguous_range <_R>).  */
+  tree ranges_ns = lookup_qualified_name (std_node, "ranges");
+  if (TREE_CODE (ranges_ns) != NAMESPACE_DECL)
+    {
+      error_at (loc, "%<std::ranges%> is not a namespace");
+      *non_constant_p = true;
+      return call;
+    }
+  tree contiguous_range
+    = lookup_qualified_name (ranges_ns, "contiguous_range");
+  if (TREE_CODE (contiguous_range) != TEMPLATE_DECL
+      || !concept_definition_p (contiguous_range))
+    contiguous_range = NULL_TREE;
+  else
+    {
+      tree args = make_tree_vec (1);
+      TREE_VEC_ELT (args, 0) = TREE_TYPE (type);
+      contiguous_range = build2_loc (loc, TEMPLATE_ID_EXPR, boolean_type_node,
+				     contiguous_range, args);
+      if (!integer_nonzerop (maybe_constant_value (contiguous_range)))
+	contiguous_range = NULL_TREE;
+    }
+  tree p = convert_from_reference (parm);
+  auto obj_call = [=, &map] (tree obj, tsubst_flags_t complain) {
+    releasing_vec args;
+    vec_safe_push (args, p);
+    tree call = finish_call_expr (obj, &args, true, false, complain);
+    if (call == error_mark_node)
+      return call;
+    cp_walk_tree (&call, replace_parm_r, map, NULL);
+    if (complain != tf_none)
+      return call;
+    call = cxx_eval_constant_expression (ctx, call, vc_prvalue, non_constant_p,
+					 overflow_p, jump_target);
+    if (*jump_target || *non_constant_p)
+      return NULL_TREE;
+    return call;
+  };
+  /* If true, call std::ranges::data (p) and std::ranges::size (p)
+     and if that works out and what the former returns can be handled,
+     grab the elements from the initializer of the decl pointed by the
+     first expression.  p has to be convert_from_reference (PARM_DECL)
+     rather than its value, otherwise it is not considered lvalue.  */
+  if (contiguous_range)
+    {
+      tree data = lookup_qualified_name (ranges_ns, "data");
+      tree size = lookup_qualified_name (ranges_ns, "size");
+      if (TREE_CODE (data) != VAR_DECL || TREE_CODE (size) != VAR_DECL)
+	goto non_contiguous;
+      data = obj_call (data, tf_none);
+      if (error_operand_p (data))
+	goto non_contiguous;
+      if (data == NULL_TREE)
+	goto fail_ret;
+      size = obj_call (size, tf_none);
+      if (error_operand_p (size))
+	goto non_contiguous;
+      if (size == NULL_TREE)
+	goto fail_ret;
+      if (!tree_fits_uhwi_p (size) || tree_to_uhwi (size) > INT_MAX)
+	goto non_contiguous;
+      if (integer_zerop (size))
+	return make_tree_vec (0);
+      STRIP_NOPS (data);
+      if (TREE_CODE (data) != ADDR_EXPR)
+	goto non_contiguous;
+      data = TREE_OPERAND (data, 0);
+      unsigned HOST_WIDE_INT minidx = 0;
+      if (TREE_CODE (data) == ARRAY_REF
+	  && tree_fits_uhwi_p (TREE_OPERAND (data, 1)))
+	{
+	  minidx = tree_to_uhwi (TREE_OPERAND (data, 1));
+	  data = TREE_OPERAND (data, 0);
+	}
+      if (TREE_CODE (data) != VAR_DECL)
+	goto non_contiguous;
+      data = cxx_eval_constant_expression (ctx, data, vc_prvalue,
+					   non_constant_p, overflow_p,
+					   jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      if (TREE_CODE (data) != CONSTRUCTOR
+	  || TREE_CODE (TREE_TYPE (data)) != ARRAY_TYPE
+	  || TREE_CODE (TREE_TYPE (TREE_TYPE (data))) != META_TYPE)
+	goto non_contiguous;
+      unsigned sz = tree_to_uhwi (size), i;
+      unsigned HOST_WIDE_INT j = 0;
+      tree ret = make_tree_vec (sz);
+      tree null = get_null_reflection ();
+      for (i = 0; i < sz; ++i)
+	TREE_VEC_ELT (ret, i) = null;
+      tree field, value;
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (data), i, field, value)
+	if (field == NULL_TREE)
+	  {
+	    if (j >= minidx && j - minidx < sz)
+	      TREE_VEC_ELT (ret, j - minidx) = value;
+	    ++j;
+	  }
+	else if (TREE_CODE (field) == RANGE_EXPR)
+	  {
+	    tree lo = TREE_OPERAND (field, 0);
+	    tree hi = TREE_OPERAND (field, 1);
+	    if (!tree_fits_uhwi_p (lo) || !tree_fits_uhwi_p (hi))
+	      goto non_contiguous;
+	    unsigned HOST_WIDE_INT m = tree_to_uhwi (hi);
+	    for (j = tree_to_uhwi (lo); j < m; ++j)
+	      if (j >= minidx && j - minidx < sz)
+		TREE_VEC_ELT (ret, j - minidx) = value;
+	  }
+	else if (tree_fits_uhwi_p (field))
+	  {
+	    j = tree_to_uhwi (field);
+	    if (j >= minidx && j - minidx < sz)
+	      TREE_VEC_ELT (ret, j - minidx) = value;
+	    ++j;
+	  }
+	else
+	  goto non_contiguous;
+      return ret;
+    }
+ non_contiguous:
+  /* Otherwise, do it the slower way.  Initialize two temporaries,
+     one to std::ranges::base (p) and another to std::ranges::end (p)
+     and use a loop.  */
+  tree begin = lookup_qualified_name (ranges_ns, "begin");
+  tree end = lookup_qualified_name (ranges_ns, "end");
+  if (TREE_CODE (begin) != VAR_DECL || TREE_CODE (end) != VAR_DECL)
+    {
+      error_at (loc, "missing %<std::ranges::begin%> or %<std::ranges::end%>");
+      *non_constant_p = true;
+      return call;
+    }
+  begin = obj_call (begin, tf_warning_or_error);
+  if (error_operand_p (begin))
+    {
+      *non_constant_p = true;
+      return call;
+    }
+  end = obj_call (end, tf_warning_or_error);
+  if (error_operand_p (end))
+    {
+      *non_constant_p = true;
+      return call;
+    }
+  if (!CLASS_TYPE_P (TREE_TYPE (begin)) && !POINTER_TYPE_P (TREE_TYPE (begin)))
+    {
+      error_at (loc, "incorrect type %qT of %<std::ranges::begin(arg)%>",
+		TREE_TYPE (begin));
+      *non_constant_p = true;
+      return call;
+    }
+  if (VOID_TYPE_P (TREE_TYPE (end)))
+    {
+      error_at (loc, "incorrect type %qT of %<std::ranges::end(arg)%>",
+		TREE_TYPE (end));
+      *non_constant_p = true;
+      return call;
+    }
+  begin = get_target_expr (begin);
+  end = get_target_expr (end);
+  begin = cxx_eval_constant_expression (ctx, begin, vc_glvalue, non_constant_p,
+					overflow_p, jump_target);
+  if (*jump_target || *non_constant_p)
+    goto fail_ret;
+  end = cxx_eval_constant_expression (ctx, end, vc_glvalue, non_constant_p,
+				      overflow_p, jump_target);
+  if (*jump_target || *non_constant_p)
+    goto fail_ret;
+  tree cmp = build_new_op (loc, NE_EXPR, LOOKUP_NORMAL, begin, end,
+			   tf_warning_or_error);
+  tree deref = build_new_op (loc, INDIRECT_REF, LOOKUP_NORMAL, begin,
+			     NULL_TREE, tf_warning_or_error);
+  tree inc = build_new_op (loc, PREINCREMENT_EXPR, LOOKUP_NORMAL, begin,
+			   NULL_TREE, tf_warning_or_error);
+  cmp = condition_conversion (cmp);
+  if (error_operand_p (cmp)
+      || error_operand_p (deref)
+      || error_operand_p (inc))
+    {
+      *non_constant_p = true;
+      return call;
+    }
+  if (TREE_CODE (TREE_TYPE (deref)) != META_TYPE)
+    {
+      error_at (loc, "unexpected type %qT of iterator dereference",
+		TREE_TYPE (deref));
+      *non_constant_p = true;
+      return call;
+    }
+  auto_vec<tree, 32> retvec;
+  /* while (begin != end) { push (*begin); ++begin; }  */
+  do
+    {
+      tree t = cxx_eval_constant_expression (ctx, cmp, vc_prvalue,
+					     non_constant_p, overflow_p,
+					     jump_target);
+      if (*jump_target || *non_constant_p)
+	goto fail_ret;
+      if (integer_zerop (t))
+	break;
+      t = cxx_eval_constant_expression (ctx, deref, vc_prvalue, non_constant_p,
+					overflow_p, jump_target);
+      if (*jump_target || *non_constant_p)
+	goto fail_ret;
+      retvec.safe_push (t);
+      cxx_eval_constant_expression (ctx, inc, vc_discard, non_constant_p,
+				    overflow_p, jump_target);
+      if (*jump_target || *non_constant_p)
+	goto fail_ret;
+    }
+  while (true);
+  tree ret = make_tree_vec (retvec.length ()), v;
+  unsigned int i;
+  FOR_EACH_VEC_ELT (retvec, i, v)
+    TREE_VEC_ELT (ret, i) = v;
+  return ret;
+}
+
 /* Return std::vector<info>.  */
 
 static tree
@@ -666,6 +923,30 @@ eval_is_object (reflect_kind kind)
     return boolean_true_node;
   else
     return boolean_false_node;
+}
+
+/* Like get_info_vec, but throw exception if any of the elements aren't
+   eval_is_type reflections and change their content to the corresponding
+   REFLECT_EXPR_HANDLE.  */
+
+static tree
+get_type_info_vec (location_t loc, const constexpr_ctx *ctx, tree call, int n,
+		   bool *non_constant_p, bool *overflow_p, tree *jump_target)
+{
+  tree vec = get_info_vec (loc, ctx, call, n, non_constant_p, overflow_p,
+			   jump_target);
+  if (*jump_target)
+    return NULL_TREE;
+  if (*non_constant_p)
+    return call;
+  for (int i = 0; i < TREE_VEC_LENGTH (vec); i++)
+    {
+      tree type = REFLECT_EXPR_HANDLE (TREE_VEC_ELT (vec, i));
+      if (eval_is_type (type) != boolean_true_node)
+	return throw_exception_nontype (loc, ctx, type, jump_target);
+      TREE_VEC_ELT (vec, i) = type;
+    }
+  return vec;
 }
 
 /* Process std::meta::is_structured_binding.
@@ -2696,6 +2977,20 @@ eval_is_scoped_enum_type (location_t loc, const constexpr_ctx *ctx,
     return boolean_false_node;
 }
 
+/* Process std::meta::is_constructible_type.  */
+
+static tree
+eval_is_constructible_type (location_t loc, const constexpr_ctx *ctx,
+			    tree type, tree tvec, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (is_xible (INIT_EXPR, type, tvec))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_default_constructible_type.  */
 
 static tree
@@ -2795,6 +3090,20 @@ eval_is_destructible_type (location_t loc, const constexpr_ctx *ctx, tree type,
 			   tree *jump_target)
 {
   return eval_type_trait (loc, ctx, type, CPTK_IS_DESTRUCTIBLE, jump_target);
+}
+
+/* Process std::meta::is_trivially_constructible_type.  */
+
+static tree
+eval_is_trivially_constructible_type (location_t loc, const constexpr_ctx *ctx,
+				      tree type, tree tvec, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (is_trivially_xible (INIT_EXPR, type, tvec))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Process std::meta::is_trivially_default_constructible_type.  */
@@ -2902,6 +3211,20 @@ eval_is_trivially_destructible_type (location_t loc, const constexpr_ctx *ctx,
 {
   return eval_type_trait (loc, ctx, type, CPTK_IS_TRIVIALLY_DESTRUCTIBLE,
 			  jump_target);
+}
+
+/* Process std::meta::is_nothrow_constructible_type.  */
+
+static tree
+eval_is_nothrow_constructible_type (location_t loc, const constexpr_ctx *ctx,
+				    tree type, tree tvec, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (is_nothrow_xible (INIT_EXPR, type, tvec))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Process std::meta::is_nothrow_default_constructible_type.  */
@@ -3177,6 +3500,33 @@ eval_is_pointer_interconvertible_base_of_type (location_t loc,
   return eval_type_trait (loc, ctx, type1, type2,
 			  CPTK_IS_POINTER_INTERCONVERTIBLE_BASE_OF,
 			  jump_target);
+}
+
+/* Process std::meta::is_invocable_type.  */
+
+static tree
+eval_is_invocable_type (location_t loc, const constexpr_ctx *ctx,
+			tree type, tree tvec, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree r = finish_trait_expr (input_location, CPTK_IS_INVOCABLE, type, tvec);
+  STRIP_ANY_LOCATION_WRAPPER (r);
+  return r;
+}
+
+/* Process std::meta::is_nothrow_invocable_type.  */
+
+static tree
+eval_is_nothrow_invocable_type (location_t loc, const constexpr_ctx *ctx,
+				tree type, tree tvec, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree r = finish_trait_expr (input_location, CPTK_IS_NOTHROW_INVOCABLE,
+			      type, tvec);
+  STRIP_ANY_LOCATION_WRAPPER (r);
+  return r;
 }
 
 /* Process std::meta::remove_cvref.  */
@@ -3763,6 +4113,16 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_unbounded_array_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "scoped_enum_type"))
 	return eval_is_scoped_enum_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "constructible_type"))
+	{
+	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+					 overflow_p, jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_constructible_type (loc, ctx, h, hvec, jump_target);
+	}
       if (!strcmp (ident, "default_constructible_type"))
 	return eval_is_default_constructible_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "copy_constructible_type"))
@@ -3775,6 +4135,17 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_move_assignable_type (loc, ctx, h, jump_target);
       if (!strcmp (ident, "destructible_type"))
 	return eval_is_destructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "trivially_constructible_type"))
+	{
+	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+					 overflow_p, jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_trivially_constructible_type (loc, ctx, h, hvec,
+						       jump_target);
+	}
       if (!strcmp (ident, "trivially_default_constructible_type"))
 	return eval_is_trivially_default_constructible_type (loc, ctx, h,
 							     jump_target);
@@ -3792,6 +4163,17 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 						       jump_target);
       if (!strcmp (ident, "trivially_destructible_type"))
 	return eval_is_trivially_destructible_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "nothrow_constructible_type"))
+	{
+	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+					 overflow_p, jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_nothrow_constructible_type (loc, ctx, h, hvec,
+						     jump_target);
+	}
       if (!strcmp (ident, "nothrow_default_constructible_type"))
 	return eval_is_nothrow_default_constructible_type (loc, ctx, h,
 							   jump_target);
@@ -3892,6 +4274,27 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h,
 								h1,
 								jump_target);
+	}
+      if (!strcmp (ident, "invocable_type"))
+	{
+	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+					 overflow_p, jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_invocable_type (loc, ctx, h, hvec, jump_target);
+	}
+      if (!strcmp (ident, "nothrow_invocable_type"))
+	{
+	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+					 overflow_p, jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_nothrow_invocable_type (loc, ctx, h, hvec,
+						 jump_target);
 	}
       if (!strcmp (ident, "assignable_type"))
 	{
