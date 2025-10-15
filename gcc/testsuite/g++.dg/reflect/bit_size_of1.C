@@ -47,7 +47,7 @@ has_bit_size_of (info r)
 }
 
 static_assert (!has_bit_size_of (std::meta::reflect_constant (42)));
-//static_assert (!has_bit_size_of (std::meta::reflect_object (arr[1])));
+static_assert (has_bit_size_of (std::meta::reflect_object (arr[1])));
 static_assert (has_bit_size_of (^^arr));
 static_assert (!has_bit_size_of (^^a3));
 static_assert (!has_bit_size_of (^^fn));

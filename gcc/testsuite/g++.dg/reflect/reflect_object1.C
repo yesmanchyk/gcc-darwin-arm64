@@ -6,13 +6,12 @@
 
 using namespace std::meta;
 
-// TODO Implement reflect_object.
-#if 0
 struct S { int m; };
 
 template <int &> void fn();
 int p[2];
-static_assert(template_arguments_of(^^fn<p[1]>)[0] == reflect_object(p[1]));
+// TODO
+//static_assert(template_arguments_of(^^fn<p[1]>)[0] == reflect_object(p[1]));
 
 template <const int &P>
 void
@@ -41,7 +40,6 @@ fn_int_subobject_ref ()
   static_assert(type_of(R) == ^^const int);
   static_assert([:R:] == 3);
 }
-
 
 template <S P>
 void
@@ -83,4 +81,3 @@ doit ()
   static S s;
   fn_cls_ref<s>();
 }
-#endif

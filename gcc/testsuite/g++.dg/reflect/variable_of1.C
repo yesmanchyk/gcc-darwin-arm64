@@ -43,7 +43,7 @@ has_variable_of (info r)
 }
 
 static_assert (!has_variable_of (std::meta::reflect_constant (42)));
-//static_assert (!has_variable_of (std::meta::reflect_object (arr[1])));
+static_assert (!has_variable_of (std::meta::reflect_object (arr[1])));
 static_assert (!has_variable_of (^^arr));
 static_assert (!has_variable_of (^^a3));
 static_assert (!has_variable_of (^^fn));

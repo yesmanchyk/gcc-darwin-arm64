@@ -35,7 +35,7 @@ namespace NSAlias = NS;
 // constexpr auto ctx = std::meta::access_context::current ();
 
 static_assert (!is_volatile (std::meta::reflect_constant (42)));
-//static_assert (!is_volatile (std::meta::reflect_object (arr[1])));
+static_assert (!is_volatile (std::meta::reflect_object (arr[1])));
 static_assert (!is_volatile (^^arr));
 static_assert (!is_volatile (^^a3));
 static_assert (!is_volatile (^^fn));
@@ -73,7 +73,7 @@ foo (int a, const long b, T c, int d[4], T &e)
 static_assert (!is_volatile (std::meta::reflect_constant (42)));
 static_assert (!is_volatile (std::meta::reflect_constant (42.0)));
 //static_assert (!is_volatile (std::meta::reflect_constant (U { 42 })));
-//static_assert (!is_volatile (std::meta::reflect_object (arr[1])));
+static_assert (!is_volatile (std::meta::reflect_object (arr[1])));
 static_assert (!is_volatile (^^arr));
 static_assert (!is_volatile (^^fn));
 static_assert (!is_volatile (^^Enum::A));

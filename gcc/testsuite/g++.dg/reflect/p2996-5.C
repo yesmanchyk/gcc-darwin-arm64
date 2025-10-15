@@ -2,6 +2,8 @@
 // { dg-additional-options "-freflection" }
 // Test from [basic.fundamental].
 
+#include <meta>
+
 int arr[] = {1, 2, 3};
 auto [a1, a2, a3] = arr;
 void fn();
@@ -21,7 +23,7 @@ namespace NSAlias = NS;
 
 //constexpr auto r1 = std::meta::reflect_value(42);  // represents int value of 42
 
-//constexpr auto r2 = std::meta::reflect_object(arr[1]);  // represents int object
+constexpr auto r2 = std::meta::reflect_object(arr[1]);  // represents int object
 
 constexpr auto r3 = ^^arr;      // represents a variable
 constexpr auto r4 = ^^a3;       // represents a structured binding

@@ -43,7 +43,7 @@ has_type (info r)
 }
 
 static_assert (has_type (std::meta::reflect_constant (42)));
-//static_assert (has_type (std::meta::reflect_object (arr[1])));
+static_assert (has_type (std::meta::reflect_object (arr[1])));
 static_assert (has_type (^^arr));
 static_assert (!has_type (^^a3));
 static_assert (has_type (^^fn));
@@ -103,7 +103,7 @@ foo (int a, const long b, T c, int d[4], T &e)
 static_assert (type_of (std::meta::reflect_constant (42)) == ^^int);
 static_assert (type_of (std::meta::reflect_constant (42.0)) == ^^double);
 //static_assert (type_of (std::meta::reflect_constant (U { 42 })) == ^^U);
-//static_assert (type_of (std::meta::reflect_object (arr[1])) == ^int);
+static_assert (type_of (std::meta::reflect_object (arr[1])) == ^^int);
 using int3 = int[3];
 static_assert (type_of (^^arr) == dealias (^^int3));
 static_assert (type_of (^^fn) == ^^void ());

@@ -759,6 +759,7 @@ eval_is_variable (const_tree r, reflect_kind kind)
   /* ^^param is a variable but parameters_of(parent_of(^^param))[0] is not.  */
   if ((TREE_CODE (r) == PARM_DECL && kind != REFLECT_PARM)
       || (VAR_P (r)
+	  && kind == REFLECT_UNDEF
 	  /* The definition of a variable excludes non-static data members.  */
 	  && !DECL_ANON_UNION_VAR_P (r)
 	  /* A structured binding is not a variable.  */
@@ -1871,9 +1872,10 @@ has_type (tree r, reflect_kind kind)
       || eval_is_enumerator (r) == boolean_true_node
       || TREE_CODE (r) == FIELD_DECL
       || eval_is_annotation (r) == boolean_true_node
-      || eval_is_function_parameter (r, kind) == boolean_true_node)
+      || eval_is_function_parameter (r, kind) == boolean_true_node
+      || eval_is_object (kind) == boolean_true_node)
     return true;
-  // TODO: object, direct base class relationship, data member description.
+  // TODO: direct base class relationship, data member description.
   return false;
 }
 
@@ -2779,6 +2781,49 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree expr,
   if (expr == error_mark_node)
     throw_exception_generic (loc, ctx, type, jump_target);
   return get_reflection_raw (loc, expr);
+}
+
+/* Process std::meta::reflect_object.
+   Mandates: T is an object type.
+   Returns: A reflection of the object designated by expr.
+   Throws: meta::exception unless expr is suitable for use as a constant
+   template argument for a constant template parameter of type T&.  */
+
+static tree
+eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree expr,
+		     tree *jump_target)
+{
+  tree type = TREE_TYPE (expr);
+  gcc_assert (TYPE_REF_P (type)
+	      && TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR);
+  if (eval_is_object_type (loc, ctx, TREE_TYPE (type),
+			   jump_target) != boolean_true_node)
+    {
+      error_at (loc, "%qT must be an object type", TREE_TYPE (type));
+      return error_mark_node;
+    }
+  tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
+  if (e == error_mark_node)
+    throw_exception_generic (loc, ctx, type, jump_target);
+  /* We got (const T &) &foo.  Get the referent, since we want the object
+     designated by EXPR.  */
+  STRIP_NOPS (expr);
+  expr = TREE_OPERAND (expr, 0);
+  return get_reflection_raw (loc, expr, REFLECT_OBJECT);
+}
+
+/* Process std::meta::reflect_function.
+   Mandates: T is a function type.
+   Returns: A reflection of the function designated by fn.
+   Throws: meta::exception unless fn is suitable for use as a constant
+   template argument for a constant template parameter of type T&.  */
+
+static tree
+eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree expr,
+		       tree *jump_target)
+{
+  (void) loc, (void) expr, (void) ctx, (void) jump_target;
+  gcc_unreachable();
 }
 
 /* Reflection type traits [meta.reflection.traits].
@@ -4222,7 +4267,9 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
   const char *ident = IDENTIFIER_POINTER (name);
 
-  if (id_equal (name, "reflect_constant"))
+  if (id_equal (name, "reflect_constant")
+      || id_equal (name, "reflect_object")
+      || id_equal (name, "reflect_function"))
     {
       tree expr = get_nth_callarg (call, 0);
       location_t loc = cp_expr_loc_or_input_loc (expr);
@@ -4233,7 +4280,12 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return NULL_TREE;
       if (*non_constant_p)
 	return call;
-      return eval_reflect_constant (loc, ctx, expr, jump_target);
+      if (id_equal (name, "reflect_constant"))
+	return eval_reflect_constant (loc, ctx, expr, jump_target);
+      else if (id_equal (name, "reflect_object"))
+	return eval_reflect_object (loc, ctx, expr, jump_target);
+      else
+	return eval_reflect_function (loc, ctx, expr, jump_target);
     }
   if (id_equal (name, "symbol_of") || id_equal (name, "u8symbol_of"))
     {
