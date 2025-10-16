@@ -2818,9 +2818,19 @@ static tree
 eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
 		       tree expr, tree *jump_target)
 {
-  (void) loc, (void) expr, (void) ctx, (void) jump_target;
+  if (eval_is_function_type (loc, ctx, type, jump_target) != boolean_true_node)
+    {
+      error_at (loc, "%qT must be a function type", TREE_TYPE (type));
+      return error_mark_node;
+    }
   type = cp_build_reference_type (type, /*rval=*/false);
-  gcc_unreachable();
+  tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
+  if (e == error_mark_node)
+    throw_exception_generic (loc, ctx, type, jump_target);
+  /* We got (void (&<Ta885>) (void)) fn.  Get the function.  */
+  STRIP_NOPS (expr);
+  expr = TREE_OPERAND (expr, 0);
+  return get_reflection_raw (loc, expr /*, REFLECT_OBJECT*/);
 }
 
 /* Reflection type traits [meta.reflection.traits].
