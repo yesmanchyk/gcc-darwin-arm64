@@ -179,6 +179,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_defaulted(info);
     consteval bool is_user_provided(info);
     consteval bool is_user_declared(info);
+    consteval bool is_explicit(info);
 
     consteval bool is_bit_field(info);
     consteval bool is_enumerator(info);

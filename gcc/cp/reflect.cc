@@ -1316,6 +1316,27 @@ eval_is_user_declared (tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_explicit.
+   Returns: true if r represents
+   a member function that is declared explicit.
+   Otherwise, false.
+   If r represents a member function template
+   that is declared explicit, is_explicit(r)
+   is still false because in general such queries
+   for templates cannot be answered.  */
+
+static tree
+eval_is_explicit (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_NONCONVERTING_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_bit_field.
    Returns: true if r represents a bit-field, or if r represents a data member
    description (T,N,A,W,NUA) for which W is not _|_..  Otherwise, false.  */
@@ -4598,6 +4619,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_user_provided (h);
       if (!strcmp (ident, "user_declared"))
 	return eval_is_user_declared (h);
+      if (!strcmp (ident, "explicit"))
+	return eval_is_explicit (h);
       if (!strcmp (ident, "bit_field"))
 	return eval_is_bit_field (h);
       if (!strcmp (ident, "enumerator"))
