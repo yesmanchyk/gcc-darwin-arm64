@@ -2764,10 +2764,9 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
      template<T P> struct TCls;  */
 
 static tree
-eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree expr,
-		       tree *jump_target)
+eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree expr, tree *jump_target)
 {
-  tree type = TREE_TYPE (expr);
   if (!structural_type_p (type)
       || CP_TYPE_VOLATILE_P (type)
       || CP_TYPE_CONST_P (type)
@@ -2777,7 +2776,7 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree expr,
 		"not a reference type", type);
       return error_mark_node;
     }
-  expr = convert_reflect_constant_arg (type, expr);
+  expr = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (expr == error_mark_node)
     throw_exception_generic (loc, ctx, type, jump_target);
   return get_reflection_raw (loc, expr);
@@ -2790,18 +2789,15 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree expr,
    template argument for a constant template parameter of type T&.  */
 
 static tree
-eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree expr,
-		     tree *jump_target)
+eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
+		     tree expr, tree *jump_target)
 {
-  tree type = TREE_TYPE (expr);
-  gcc_assert (TYPE_REF_P (type)
-	      && TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR);
-  if (eval_is_object_type (loc, ctx, TREE_TYPE (type),
-			   jump_target) != boolean_true_node)
+  if (eval_is_object_type (loc, ctx, type, jump_target) != boolean_true_node)
     {
       error_at (loc, "%qT must be an object type", TREE_TYPE (type));
       return error_mark_node;
     }
+  type = cp_build_reference_type (type, /*rval=*/false);
   tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (e == error_mark_node)
     throw_exception_generic (loc, ctx, type, jump_target);
@@ -2819,10 +2815,11 @@ eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree expr,
    template argument for a constant template parameter of type T&.  */
 
 static tree
-eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree expr,
-		       tree *jump_target)
+eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree expr, tree *jump_target)
 {
   (void) loc, (void) expr, (void) ctx, (void) jump_target;
+  type = cp_build_reference_type (type, /*rval=*/false);
   gcc_unreachable();
 }
 
@@ -4273,6 +4270,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     {
       tree expr = get_nth_callarg (call, 0);
       location_t loc = cp_expr_loc_or_input_loc (expr);
+      tree decl = cp_get_callee_fndecl_nofold (call);
+      tree type = TREE_VEC_ELT (get_template_innermost_arguments (decl), 0);
       expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
 					   non_constant_p, overflow_p,
 					   jump_target);
@@ -4281,11 +4280,11 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (*non_constant_p)
 	return call;
       if (id_equal (name, "reflect_constant"))
-	return eval_reflect_constant (loc, ctx, expr, jump_target);
+	return eval_reflect_constant (loc, ctx, type, expr, jump_target);
       else if (id_equal (name, "reflect_object"))
-	return eval_reflect_object (loc, ctx, expr, jump_target);
+	return eval_reflect_object (loc, ctx, type, expr, jump_target);
       else
-	return eval_reflect_function (loc, ctx, expr, jump_target);
+	return eval_reflect_function (loc, ctx, type, expr, jump_target);
     }
   if (id_equal (name, "symbol_of") || id_equal (name, "u8symbol_of"))
     {
