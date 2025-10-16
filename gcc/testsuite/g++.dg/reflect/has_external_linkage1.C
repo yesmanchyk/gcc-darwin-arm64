@@ -68,7 +68,7 @@ static_assert (has_external_linkage (^^incomplete_cls<int>));
 //static_assert (!has_external_linkage (^^fun_tmpl));
 static_assert (has_external_linkage (^^fun_tmpl<int>));
 static_assert (has_external_linkage (^^conc));
-//static_assert (!has_external_linkage (substitute (^^conc, {^^int})));
+static_assert (!has_external_linkage (substitute (^^conc, { ^^int })));
 static_assert (has_external_linkage (^^var_tmpl));
 static_assert (has_external_linkage (^^var_tmpl<int>));
 static_assert (!has_external_linkage (^^cls_tmpl_alias));

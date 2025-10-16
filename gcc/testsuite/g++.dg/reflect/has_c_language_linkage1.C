@@ -69,7 +69,7 @@ static_assert (!has_c_language_linkage (^^incomplete_cls<int>));
 //static_assert (!has_c_language_linkage (^^fun_tmpl));
 static_assert (!has_c_language_linkage (^^fun_tmpl<int>));
 static_assert (!has_c_language_linkage (^^conc));
-//static_assert (!has_c_language_linkage (substitute (^^conc, {^^int})));
+static_assert (!has_c_language_linkage (substitute (^^conc, { ^^int })));
 static_assert (!has_c_language_linkage (^^var_tmpl));
 static_assert (!has_c_language_linkage (^^var_tmpl<int>));
 static_assert (!has_c_language_linkage (^^cls_tmpl_alias));

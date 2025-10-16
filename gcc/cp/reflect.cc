@@ -4262,6 +4262,135 @@ eval_add_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
   return get_reflection_raw (loc, type);
 }
 
+/* Process std::meta::can_substitute.
+   Let Z be the template represented by templ and let Args... be a sequence of
+   prvalue constant expressions that compute the reflections held by the
+   elements of arguments, in order.
+   Returns: true if Z<[:Args:]...> is a valid template-id that does not name
+   a function whose type contains an undeduced placeholder type.
+   Otherwise, false.
+   Throws: meta::exception unless templ represents a template, and every
+   reflection in arguments represents a construct usable as a template
+   argument.  */
+
+static tree
+eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
+		     tree r, tree rvec, tree *jump_target)
+{
+  if (eval_is_template (r) != boolean_true_node)
+    return throw_exception (loc, ctx,
+			    N_("reflection does not represent a template"),
+			    r, jump_target);
+  for (int i = 0; i < TREE_VEC_LENGTH (rvec); ++i)
+    {
+      tree ra = TREE_VEC_ELT (rvec, i);
+      tree a = REFLECT_EXPR_HANDLE (ra);
+      auto kind = static_cast<reflect_kind> (REFLECT_EXPR_KIND (ra));
+      // TODO: It is unclear on what kinds of reflections we should throw
+      // and what kinds of exceptions should merely result in can_substitute
+      // returning false.  Direct base class relationship, data member
+      // description?
+      if (a == unknown_type_node
+	  || kind == REFLECT_PARM
+	  || eval_is_namespace (a) == boolean_true_node
+	  || eval_is_constructor (a) == boolean_true_node
+	  || eval_is_destructor (a) == boolean_true_node
+	  || eval_is_annotation (a) == boolean_true_node
+	  || (TREE_CODE (a) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (a)))
+	return throw_exception (loc, ctx,
+				N_("invalid argument to can_substitute"),
+				a, jump_target);
+      else if (!TYPE_P (a) && eval_is_template (a) == boolean_false_node)
+	{
+	  if (!has_type (a, kind))
+	    return throw_exception (loc, ctx,
+				    N_("invalid argument to can_substitute"),
+				    a, jump_target);
+	  tree type = type_of (a, kind);
+	  if (!structural_type_p (type))
+	    return throw_exception (loc, ctx,
+				    N_("argument without structural type"),
+				    a, jump_target);
+	}
+      a = resolve_nondeduced_context (a, tf_warning_or_error);
+      TREE_VEC_ELT (rvec, i) = a;
+    }
+  if (DECL_TYPE_TEMPLATE_P (r) || DECL_TEMPLATE_TEMPLATE_PARM_P (r))
+    {
+      tree type = lookup_template_class (r, rvec, NULL_TREE, NULL_TREE,
+					 tf_none);
+      if (type == error_mark_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  else if (concept_definition_p (r))
+    {
+      tree c = build_concept_check (r, rvec, tf_none);
+      if (c == error_mark_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  else if (variable_template_p (r))
+    {
+      tree var = lookup_template_variable (r, rvec, tf_none);
+      if (var == error_mark_node)
+	return boolean_false_node;
+      var = finish_template_variable (var, tf_none);
+      if (var == error_mark_node)
+	return boolean_false_node;
+      else
+	return boolean_true_node;
+    }
+  else
+    {
+      tree fn = lookup_template_function (r, rvec);
+      if (fn == error_mark_node)
+	return boolean_false_node;
+      fn = resolve_nondeduced_context_or_error (fn, tf_none);
+      if (fn == error_mark_node)
+	return boolean_false_node;
+      return boolean_true_node;
+    }
+}
+
+/* Process std::meta::substitute.
+   Let Z be the template represented by templ and let Args... be a sequence of
+   prvalue constant expressions that compute the reflections held by the
+   elements of arguments, in order.
+   Returns: ^^Z<[:Args:]...>.
+   Throws: meta::exception unless can_substitute(templ, arguments) is true.  */
+
+static tree
+eval_substitute (location_t loc, const constexpr_ctx *ctx,
+		 tree r, tree rvec, tree *jump_target)
+{
+  tree cs = eval_can_substitute (loc, ctx, r, rvec, jump_target);
+  if (*jump_target)
+    return cs;
+  if (cs == boolean_false_node)
+    return throw_exception (loc, ctx,
+			    N_("can_substitute returned false"),
+			    r, jump_target);
+  tree ret = NULL_TREE;
+  if (DECL_TYPE_TEMPLATE_P (r) || DECL_TEMPLATE_TEMPLATE_PARM_P (r))
+    ret = lookup_template_class (r, rvec, NULL_TREE, NULL_TREE, tf_none);
+  else if (concept_definition_p (r))
+    {
+      ret = build_concept_check (r, rvec, tf_none);
+      ret = evaluate_concept_check (ret);
+    }
+  else if (variable_template_p (r))
+    {
+      ret = lookup_template_variable (r, rvec, tf_none);
+      ret = finish_template_variable (ret, tf_none);
+    }
+  else
+    ret = lookup_template_function (r, rvec);
+  return get_reflection_raw (loc, ret);
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -4884,6 +5013,26 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (id_equal (name, "u8identifier_of"))
     return eval_identifier_of (loc, ctx, h, kind, jump_target,
 			       char8_type_node, TREE_TYPE (call));
+  if (id_equal (name, "can_substitute"))
+    {
+      tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
+				overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      return eval_can_substitute (loc, ctx, h, hvec, jump_target);
+    }
+  if (id_equal (name, "substitute"))
+    {
+      tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
+				overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      return eval_substitute (loc, ctx, h, hvec, jump_target);
+    }
 
 not_found:
   sorry ("%qE", name);
@@ -5104,6 +5253,9 @@ compare_reflections (tree lhs, tree rhs)
       rhs = REFLECT_EXPR_HANDLE (rhs);
     }
   while (REFLECT_EXPR_P (lhs) && REFLECT_EXPR_P (rhs));
+
+  lhs = resolve_nondeduced_context (lhs, tf_warning_or_error);
+  rhs = resolve_nondeduced_context (rhs, tf_warning_or_error);
 
   /* TEMPLATE_DECLs are wrapped in an OVERLOAD.  When we have
 

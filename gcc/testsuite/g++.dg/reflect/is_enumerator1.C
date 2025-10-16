@@ -66,7 +66,7 @@ static_assert (!is_enumerator (^^incomplete_cls<int>));
 static_assert (!is_enumerator (^^fun_tmpl));
 static_assert (!is_enumerator (^^fun_tmpl<int>));
 static_assert (!is_enumerator (^^conc));
-//static_assert (!is_enumerator (substitute (^^conc, {^^int})));
+static_assert (!is_enumerator (substitute (^^conc, { ^^int })));
 static_assert (!is_enumerator (^^var_tmpl));
 static_assert (!is_enumerator (^^var_tmpl<int>));
 static_assert (!is_enumerator (^^cls_tmpl_alias));

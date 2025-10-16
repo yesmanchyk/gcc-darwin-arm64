@@ -66,7 +66,7 @@ static_assert (!is_object (^^incomplete_cls<int>));
 static_assert (!is_object (^^fun_tmpl));
 static_assert (!is_object (^^fun_tmpl<int>));
 static_assert (!is_object (^^conc));
-//static_assert (!is_object (substitute (^^conc, {^^int})));
+static_assert (!is_object (substitute (^^conc, { ^^int })));
 static_assert (!is_object (^^var_tmpl));
 static_assert (!is_object (^^var_tmpl<int>));
 static_assert (!is_object (^^cls_tmpl_alias));

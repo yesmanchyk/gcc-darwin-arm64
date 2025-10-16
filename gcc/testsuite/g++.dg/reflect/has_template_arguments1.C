@@ -70,7 +70,7 @@ static_assert (has_template_arguments (^^incomplete_cls<int>));
 static_assert (!has_template_arguments (^^fun_tmpl));
 static_assert (has_template_arguments (^^fun_tmpl<int>));
 static_assert (!has_template_arguments (^^conc));
-//static_assert (!has_template_arguments (substitute (^^conc, {^^int})));
+static_assert (!has_template_arguments (substitute (^^conc, { ^^int })));
 static_assert (!has_template_arguments (^^var_tmpl));
 static_assert (has_template_arguments (^^var_tmpl<int>));
 static_assert (!has_template_arguments (^^cls_tmpl_alias));

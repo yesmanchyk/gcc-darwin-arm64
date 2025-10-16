@@ -66,7 +66,7 @@ static_assert (!is_explicit_object_parameter (^^incomplete_cls<int>));
 static_assert (!is_explicit_object_parameter (^^fun_tmpl));
 static_assert (!is_explicit_object_parameter (^^fun_tmpl<int>));
 static_assert (!is_explicit_object_parameter (^^conc));
-//static_assert (!is_explicit_object_parameter (substitute (^^conc, {^^int})));
+static_assert (!is_explicit_object_parameter (substitute (^^conc, { ^^int })));
 static_assert (!is_explicit_object_parameter (^^var_tmpl));
 static_assert (!is_explicit_object_parameter (^^var_tmpl<int>));
 static_assert (!is_explicit_object_parameter (^^cls_tmpl_alias));

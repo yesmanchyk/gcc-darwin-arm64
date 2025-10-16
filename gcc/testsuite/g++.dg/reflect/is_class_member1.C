@@ -91,7 +91,7 @@ static_assert (!is_class_member (^^incomplete_cls<int>));
 static_assert (!is_class_member (^^fun_tmpl));
 static_assert (!is_class_member (^^fun_tmpl<int>));
 static_assert (!is_class_member (^^conc));
-//static_assert (!is_class_member (substitute (^^conc, {^^int})));
+static_assert (!is_class_member (substitute (^^conc, { ^^int })));
 static_assert (!is_class_member (^^var_tmpl));
 static_assert (!is_class_member (^^var_tmpl<int>));
 static_assert (!is_class_member (^^cls_tmpl_alias));

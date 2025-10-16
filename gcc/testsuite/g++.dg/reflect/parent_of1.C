@@ -76,7 +76,7 @@ static_assert (parent_of (^^incomplete_cls<int>) == ^^::);
 static_assert (parent_of (^^fun_tmpl) == ^^::);
 static_assert (parent_of (^^fun_tmpl<int>) == ^^::);
 static_assert (parent_of (^^conc) == ^^::);
-//static_assert (!has_parent_of (substitute (^^conc, {^^int})));
+static_assert (!has_parent_of (substitute (^^conc, { ^^int })));
 static_assert (parent_of (^^var_tmpl) == ^^::);
 static_assert (parent_of (^^var_tmpl<int>) == ^^::);
 static_assert (parent_of (^^cls_tmpl_alias) == ^^::);

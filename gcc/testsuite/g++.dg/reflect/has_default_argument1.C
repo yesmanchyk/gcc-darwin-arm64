@@ -66,7 +66,7 @@ static_assert (!has_default_argument (^^incomplete_cls<int>));
 static_assert (!has_default_argument (^^fun_tmpl));
 static_assert (!has_default_argument (^^fun_tmpl<int>));
 static_assert (!has_default_argument (^^conc));
-//static_assert (!has_default_argument (substitute (^^conc, {^^int})));
+static_assert (!has_default_argument (substitute (^^conc, { ^^int })));
 static_assert (!has_default_argument (^^var_tmpl));
 static_assert (!has_default_argument (^^var_tmpl<int>));
 static_assert (!has_default_argument (^^cls_tmpl_alias));

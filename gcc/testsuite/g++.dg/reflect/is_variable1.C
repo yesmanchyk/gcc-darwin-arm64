@@ -67,7 +67,7 @@ static_assert (!is_variable (^^incomplete_cls<int>));
 static_assert (!is_variable (^^fun_tmpl));
 static_assert (!is_variable (^^fun_tmpl<int>));
 static_assert (!is_variable (^^conc));
-//static_assert (!is_variable (substitute (^^conc, {^^int})));
+static_assert (!is_variable (substitute (^^conc, { ^^int })));
 static_assert (!is_variable (^^var_tmpl));
 static_assert (is_variable (^^var_tmpl<int>));
 static_assert (!is_variable (^^cls_tmpl_alias));

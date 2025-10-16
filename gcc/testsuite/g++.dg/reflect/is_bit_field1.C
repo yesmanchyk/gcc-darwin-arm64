@@ -91,7 +91,7 @@ static_assert (!is_bit_field (^^incomplete_cls<int>));
 static_assert (!is_bit_field (^^fun_tmpl));
 static_assert (!is_bit_field (^^fun_tmpl<int>));
 static_assert (!is_bit_field (^^conc));
-//static_assert (!is_bit_field (substitute (^^conc, {^^int})));
+static_assert (!is_bit_field (substitute (^^conc, { ^^int })));
 static_assert (!is_bit_field (^^var_tmpl));
 static_assert (!is_bit_field (^^var_tmpl<int>));
 static_assert (!is_bit_field (^^cls_tmpl_alias));

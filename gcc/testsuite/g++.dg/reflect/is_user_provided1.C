@@ -91,7 +91,7 @@ static_assert (!is_user_provided (^^incomplete_cls<int>));
 static_assert (!is_user_provided (^^fun_tmpl));
 static_assert (is_user_provided (^^fun_tmpl<int>));
 static_assert (!is_user_provided (^^conc));
-//static_assert (!is_user_provided (substitute (^^conc, {^^int})));
+static_assert (!is_user_provided (substitute (^^conc, { ^^int })));
 static_assert (!is_user_provided (^^var_tmpl));
 static_assert (!is_user_provided (^^var_tmpl<int>));
 static_assert (!is_user_provided (^^cls_tmpl_alias));

@@ -101,7 +101,7 @@ static_assert (is_namespace_member (^^incomplete_cls<int>));
 static_assert (is_namespace_member (^^fun_tmpl));
 static_assert (is_namespace_member (^^fun_tmpl<int>));
 static_assert (is_namespace_member (^^conc));
-//static_assert (is_namespace_member (substitute (^^conc, {^^int})));
+static_assert (!is_namespace_member (substitute (^^conc, { ^^int })));
 static_assert (is_namespace_member (^^var_tmpl));
 static_assert (is_namespace_member (^^var_tmpl<int>));
 static_assert (is_namespace_member (^^cls_tmpl_alias));

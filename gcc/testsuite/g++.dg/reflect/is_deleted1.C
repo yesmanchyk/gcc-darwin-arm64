@@ -91,7 +91,7 @@ static_assert (!is_deleted (^^incomplete_cls<int>));
 static_assert (!is_deleted (^^fun_tmpl));
 static_assert (!is_deleted (^^fun_tmpl<int>));
 static_assert (!is_deleted (^^conc));
-//static_assert (!is_deleted (substitute (^^conc, {^^int})));
+static_assert (!is_deleted (substitute (^^conc, { ^^int })));
 static_assert (!is_deleted (^^var_tmpl));
 static_assert (!is_deleted (^^var_tmpl<int>));
 static_assert (!is_deleted (^^cls_tmpl_alias));

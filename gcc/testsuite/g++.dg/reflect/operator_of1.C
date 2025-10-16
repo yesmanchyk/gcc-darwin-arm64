@@ -74,7 +74,7 @@ static_assert (!is_operator (^^incomplete_cls<int>));
 static_assert (!is_operator (^^fun_tmpl));
 static_assert (!is_operator (^^fun_tmpl<int>));
 static_assert (!is_operator (^^conc));
-//static_assert (!is_operator (substitute (^^conc, {^^int})));
+static_assert (!is_operator (substitute (^^conc, { ^^int })));
 static_assert (!is_operator (^^var_tmpl));
 static_assert (!is_operator (^^var_tmpl<int>));
 static_assert (!is_operator (^^cls_tmpl_alias));

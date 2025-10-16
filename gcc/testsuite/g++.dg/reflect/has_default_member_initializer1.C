@@ -96,7 +96,7 @@ static_assert (!has_default_member_initializer (^^incomplete_cls<int>));
 static_assert (!has_default_member_initializer (^^fun_tmpl));
 static_assert (!has_default_member_initializer (^^fun_tmpl<int>));
 static_assert (!has_default_member_initializer (^^conc));
-//static_assert (!has_default_member_initializer (substitute (^^conc, {^^int})));
+static_assert (!has_default_member_initializer (substitute (^^conc, { ^^int })));
 static_assert (!has_default_member_initializer (^^var_tmpl));
 static_assert (!has_default_member_initializer (^^var_tmpl<int>));
 static_assert (!has_default_member_initializer (^^cls_tmpl_alias));

@@ -66,7 +66,7 @@ static_assert (!is_function_parameter (^^incomplete_cls<int>));
 static_assert (!is_function_parameter (^^fun_tmpl));
 static_assert (!is_function_parameter (^^fun_tmpl<int>));
 static_assert (!is_function_parameter (^^conc));
-//static_assert (!is_function_parameter (substitute (^^conc, {^^int})));
+static_assert (!is_function_parameter (substitute (^^conc, { ^^int })));
 static_assert (!is_function_parameter (^^var_tmpl));
 static_assert (!is_function_parameter (^^var_tmpl<int>));
 static_assert (!is_function_parameter (^^cls_tmpl_alias));

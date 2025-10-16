@@ -66,7 +66,7 @@ static_assert (!is_class_template (^^incomplete_cls<int>));
 static_assert (!is_class_template (^^fun_tmpl));
 static_assert (!is_class_template (^^fun_tmpl<int>));
 static_assert (!is_class_template (^^conc));
-//static_assert (!is_class_template (substitute (^^conc, {^^int})));
+static_assert (!is_class_template (substitute (^^conc, { ^^int })));
 static_assert (!is_class_template (^^var_tmpl));
 static_assert (!is_class_template (^^var_tmpl<int>));
 static_assert (!is_class_template (^^cls_tmpl_alias));

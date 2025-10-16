@@ -68,7 +68,7 @@ static_assert (!is_complete_type (^^incomplete_cls<int>));
 static_assert (!is_complete_type (^^fun_tmpl));
 static_assert (!is_complete_type (^^fun_tmpl<int>));
 static_assert (!is_complete_type (^^conc));
-//static_assert (!is_complete_type (substitute (^^conc, {^^int})));
+static_assert (!is_complete_type (substitute (^^conc, { ^^int })));
 static_assert (!is_complete_type (^^var_tmpl));
 static_assert (!is_complete_type (^^var_tmpl<int>));
 static_assert (!is_complete_type (^^cls_tmpl_alias));

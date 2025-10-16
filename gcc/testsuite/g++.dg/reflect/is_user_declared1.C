@@ -91,7 +91,7 @@ static_assert (!is_user_declared (^^incomplete_cls<int>));
 static_assert (!is_user_declared (^^fun_tmpl));
 static_assert (is_user_declared (^^fun_tmpl<int>));
 static_assert (!is_user_declared (^^conc));
-//static_assert (!is_user_declared (substitute (^^conc, {^^int})));
+static_assert (!is_user_declared (substitute (^^conc, { ^^int })));
 static_assert (!is_user_declared (^^var_tmpl));
 static_assert (!is_user_declared (^^var_tmpl<int>));
 static_assert (!is_user_declared (^^cls_tmpl_alias));

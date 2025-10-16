@@ -66,7 +66,7 @@ static_assert (!is_concept (^^incomplete_cls<int>));
 static_assert (!is_concept (^^fun_tmpl));
 static_assert (!is_concept (^^fun_tmpl<int>));
 static_assert (is_concept (^^conc));
-//static_assert (!is_concept (substitute (^^conc, {^^int})));
+static_assert (!is_concept (substitute (^^conc, { ^^int })));
 static_assert (!is_concept (^^var_tmpl));
 static_assert (!is_concept (^^var_tmpl<int>));
 static_assert (!is_concept (^^cls_tmpl_alias));

@@ -103,7 +103,7 @@ static_assert (has_ellipsis_parameter (^^fun_tmpl3<int>));
 static_assert (!has_ellipsis_parameter (^^fun_tmpl4));
 static_assert (!has_ellipsis_parameter (^^fun_tmpl4<int>));
 static_assert (!has_ellipsis_parameter (^^conc));
-//static_assert (!has_ellipsis_parameter (substitute (^^conc, {^^int})));
+static_assert (!has_ellipsis_parameter (substitute (^^conc, { ^^int })));
 static_assert (!has_ellipsis_parameter (^^var_tmpl));
 static_assert (!has_ellipsis_parameter (^^var_tmpl<int>));
 static_assert (!has_ellipsis_parameter (^^cls_tmpl_alias));

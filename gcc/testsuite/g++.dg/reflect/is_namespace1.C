@@ -66,7 +66,7 @@ static_assert (!is_namespace (^^incomplete_cls<int>));
 static_assert (!is_namespace (^^fun_tmpl));
 static_assert (!is_namespace (^^fun_tmpl<int>));
 static_assert (!is_namespace (^^conc));
-//static_assert (!is_namespace (substitute (^^conc, {^^int})));
+static_assert (!is_namespace (substitute (^^conc, { ^^int })));
 static_assert (!is_namespace (^^var_tmpl));
 static_assert (!is_namespace (^^var_tmpl<int>));
 static_assert (!is_namespace (^^cls_tmpl_alias));
