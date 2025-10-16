@@ -2000,6 +2000,49 @@ eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_reflection_raw (loc, r);
 }
 
+/* Process std::meta::is_noexcept.
+   Returns: true if r represents a noexcept function type or a function
+   with a non-throwing exception specification ([except.spec]).
+   Otherwise, false.
+   Note: If r represents a function template that is declared noexcept,
+   is_noexcept (r) is still false because in general such queries
+   for templates cannot be answered.  */
+
+static tree
+eval_is_noexcept (location_t loc, const constexpr_ctx *ctx, tree r,
+		  tree *jump_target)
+{
+  if (eval_is_function (r) == boolean_true_node)
+    {
+      if (TREE_CODE (r) == BIT_NOT_EXPR)
+	{
+	  tree t = TREE_OPERAND (r, 0);
+	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	    lazily_declare_fn (sfk_destructor, t);
+	  r = CLASSTYPE_DESTRUCTOR (t);
+	  gcc_assert (r != nullptr);
+	  bool no_err = maybe_instantiate_noexcept (r);
+	  gcc_assert (no_err);
+	}
+
+      if (TYPE_NOTHROW_P (TREE_TYPE (r)))
+	return boolean_true_node;
+      else
+	return boolean_false_node;
+    }
+
+  if (eval_is_type (r) == boolean_true_node
+      && eval_is_function_type (loc, ctx, r, jump_target) == boolean_true_node)
+    {
+      if (TYPE_NOTHROW_P (r))
+	return boolean_true_node;
+      else
+	return boolean_false_node;
+    }
+
+  return boolean_false_node;
+}
+
 /* Process std::meta::is_const.
    Let T be type_of(r) if has-type(r) is true.  Otherwise, let T be dealias(r).
    Returns: true if T represents a const type, or a const-qualified function
@@ -4560,6 +4603,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return eval_is_enumerable_type (h);
       if (!strcmp (ident, "annotation"))
 	return eval_is_annotation (h);
+      if (!strcmp (ident, "noexcept"))
+	return eval_is_noexcept (loc, ctx, h, jump_target);
       if (!strcmp (ident, "const"))
 	return eval_is_const (h, kind);
       if (!strcmp (ident, "volatile"))
