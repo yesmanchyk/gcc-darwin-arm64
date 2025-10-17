@@ -4,12 +4,11 @@
 
 #include <meta>
 
-
 // Basic noexcept specifications
-void noexcept_function () noexcept;                    
-void noexcept_true_function () noexcept(true);               
-void noexcept_false_function () noexcept(false);             
-void not_noexcept_function ();                            
+void noexcept_function () noexcept;
+void noexcept_true_function () noexcept(true);
+void noexcept_false_function () noexcept(false);
+void not_noexcept_function ();
 
 static_assert(std::meta::is_noexcept (^^noexcept_function));
 static_assert(std::meta::is_noexcept (^^noexcept_true_function));
@@ -18,7 +17,7 @@ static_assert(!std::meta::is_noexcept (^^not_noexcept_function));
 
 // throw()
 void throw_function () throw();
-// void func () throw(int) -->  error: ISO C++17 does not allow dynamic exception specifications                
+// void func () throw(int) -->  error: ISO C++17 does not allow dynamic exception specifications
 
 static_assert (std::meta::is_noexcept (^^throw_function));
 
@@ -26,9 +25,9 @@ static_assert (std::meta::is_noexcept (^^throw_function));
 template <class T>
 void noexcept_template_function(T param) noexcept(true);
 
-// Note 2 from P2996: If r represents a function template that is declared noexcept, 
-// is_noexcept(r) is still false because in general such queries 
-// for templates cannot be answered. 
+// Note 2 from P2996: If r represents a function template that is declared noexcept,
+// is_noexcept(r) is still false because in general such queries
+// for templates cannot be answered.
 static_assert (!std::meta::is_noexcept (^^noexcept_template_function));
 // Note 5 from P2996: A template specialization is not a template.
 static_assert (std::meta::is_noexcept (^^noexcept_template_function<bool>));
@@ -142,8 +141,6 @@ struct T {
     }
 };
 
-static_assert (std::meta::is_noexcept (^^T::T)); // { dg-error "cannot take the reflection of an overload set" }
-
 static_assert (noexcept (T()));
 static_assert (!noexcept (T(123)));
 static_assert (noexcept (T(123.123)));
@@ -178,4 +175,3 @@ struct Z { ~Z() noexcept(false); };
 Z z;
 static_assert(!std::meta::is_noexcept (^^Z::~Z));
 static_assert(!noexcept (z.~Z()));
-

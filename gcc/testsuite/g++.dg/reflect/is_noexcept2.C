@@ -1,6 +1,6 @@
 // { dg-do compile { target c++26 } }
 // { dg-additional-options "-freflection" }
-// Test std::meta::is_noexcept. Negative cases
+// Test std::meta::is_noexcept.  Negative cases.
 
 #include <meta>
 #include <functional>
@@ -63,4 +63,3 @@ static_assert (!std::meta::is_noexcept (^^f));
 static_assert (!std::meta::is_noexcept (^^n));
 static_assert (!std::meta::is_noexcept (^^S));
 static_assert (!std::meta::is_noexcept (^^::));
-

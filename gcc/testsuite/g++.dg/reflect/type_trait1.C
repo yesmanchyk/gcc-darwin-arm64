@@ -49,6 +49,8 @@ static_assert (!is_function_type (^^std::meta::info));
 static_assert (!is_function_type (^^int (cls::*)));
 static_assert (!is_function_type (^^int (cls::*)()));
 static_assert (!is_function_type (^^cls));
+static_assert (is_function_type (type_of (^^cls::mem_fun)));
+static_assert (is_function_type (type_of (^^cls::static_mem_fun)));
 static_assert (!is_function_type (^^empty));
 static_assert (!is_function_type (^^abstract_cls));
 static_assert (!is_function_type (^^final_cls));

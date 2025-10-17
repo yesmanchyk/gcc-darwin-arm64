@@ -2020,7 +2020,7 @@ eval_is_noexcept (location_t loc, const constexpr_ctx *ctx, tree r,
 	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
 	    lazily_declare_fn (sfk_destructor, t);
 	  r = CLASSTYPE_DESTRUCTOR (t);
-	  gcc_assert (r != nullptr);
+	  gcc_assert (r != NULL_TREE);
 	  bool no_err = maybe_instantiate_noexcept (r);
 	  gcc_assert (no_err);
 	}
@@ -2962,7 +2962,12 @@ static tree
 eval_is_function_type (location_t loc, const constexpr_ctx *ctx, tree type,
 		       tree *jump_target)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_FUNCTION, jump_target);
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (FUNC_OR_METHOD_TYPE_P (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
 }
 
 /* Process std::meta::is_void_type.  */
