@@ -1053,6 +1053,51 @@ eval_has_default_member_initializer (const_tree r)
     return boolean_false_node;
 }
 
+/* Process std::meta::has_static_storage_duration.
+   Returns: true if r represents an object or variable that has static
+   storage duration.  Otherwise, false.  */
+
+static tree
+eval_has_static_storage_duration (const_tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_true_node
+      && decl_storage_duration (CONST_CAST_TREE (r)) == dk_static)
+    return boolean_true_node;
+  /* This includes DECL_NTTP_OBJECT_P objects.  */
+  else if (eval_is_object (kind) == boolean_true_node)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_thread_storage_duration.
+   Returns: true if r represents an object or variable that has thread
+   storage duration.  Otherwise, false.  */
+
+static tree
+eval_has_thread_storage_duration (const_tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_true_node
+      && decl_storage_duration (CONST_CAST_TREE (r)) == dk_thread)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::has_automatic_storage_duration.
+   Returns: true if r represents an object or variable that has automatic
+   storage duration.  Otherwise, false.  */
+
+static tree
+eval_has_automatic_storage_duration (const_tree r, reflect_kind kind)
+{
+  if (eval_is_variable (r, kind) == boolean_true_node
+      && decl_storage_duration (CONST_CAST_TREE (r)) == dk_auto)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_mutable_member.
    Returns: true if r represents a mutable non-static data member.
    Otherwise, false.  */
@@ -2830,7 +2875,7 @@ eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
   /* We got (void (&<Ta885>) (void)) fn.  Get the function.  */
   STRIP_NOPS (expr);
   expr = TREE_OPERAND (expr, 0);
-  return get_reflection_raw (loc, expr /*, REFLECT_OBJECT*/);
+  return get_reflection_raw (loc, expr);
 }
 
 /* Reflection type traits [meta.reflection.traits].
@@ -4877,6 +4922,12 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 						       jump_target);
       if (!strcmp (ident, "default_member_initializer"))
 	return eval_has_default_member_initializer (h);
+      if (!strcmp (ident, "static_storage_duration"))
+	return eval_has_static_storage_duration (h, kind);
+      if (!strcmp (ident, "thread_storage_duration"))
+	return eval_has_thread_storage_duration (h, kind);
+      if (!strcmp (ident, "automatic_storage_duration"))
+	return eval_has_automatic_storage_duration (h, kind);
       goto not_found;
     }
 
