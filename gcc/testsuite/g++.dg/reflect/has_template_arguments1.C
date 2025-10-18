@@ -85,8 +85,8 @@ static_assert (!has_template_arguments (^^arr));
 static_assert (!has_template_arguments (^^U));
 static_assert (!has_template_arguments (^^TYPE));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_template_arguments (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!has_template_arguments (dms));
 
 struct Base {};
 struct Derived : Base {};

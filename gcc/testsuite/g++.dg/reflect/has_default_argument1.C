@@ -79,8 +79,8 @@ static_assert (!has_default_argument (^^decomp));
 static_assert (!has_default_argument (^^decomp_ref));
 static_assert (!has_default_argument (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_default_argument (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "n" });
+static_assert (!has_default_argument (dms));
 
 struct Base {};
 struct Derived : Base {};

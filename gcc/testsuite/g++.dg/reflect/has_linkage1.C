@@ -81,8 +81,8 @@ static_assert (!has_linkage (^^decomp));
 static_assert (!has_linkage (^^decomp_ref));
 static_assert (has_linkage (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_linkage (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!has_linkage (dms));
 
 template<typename T, info R, info R2, info R3>
 void

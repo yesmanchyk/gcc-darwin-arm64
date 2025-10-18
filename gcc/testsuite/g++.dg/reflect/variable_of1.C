@@ -60,7 +60,7 @@ static_assert (!has_variable_of (^^Concept));
 static_assert (!has_variable_of (^^NSAlias));
 static_assert (!has_variable_of (^^NS));
 //static_assert (!has_variable_of (std::meta::bases_of (^^S, ctx)[0]));
-//static_assert (!has_variable_of (std::meta::data_member_spec (^^int, {.name="member"})));
+static_assert (!has_variable_of (std::meta::data_member_spec (^^int, { .name = "member" })));
 
 void
 bar (long, const T f, int g[2], T &)

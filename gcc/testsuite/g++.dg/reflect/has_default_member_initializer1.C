@@ -109,8 +109,8 @@ static_assert (!has_default_member_initializer (^^decomp));
 static_assert (!has_default_member_initializer (^^decomp_ref));
 static_assert (!has_default_member_initializer (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_default_member_initializer (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "a" });
+static_assert (!has_default_member_initializer (dms));
 
 struct Base {};
 struct Derived : Base {};

@@ -60,7 +60,10 @@ static_assert (!has_type (^^Concept));
 static_assert (!has_type (^^NSAlias));
 static_assert (!has_type (^^NS));
 //static_assert (has_type (std::meta::bases_of (^^S, ctx)[0]));
-//static_assert (has_type (std::meta::data_member_spec (^^int, {.name="member"})));
+static_assert (has_type (std::meta::data_member_spec (^^int, { .name = "member" })));
+static_assert (has_type (std::meta::data_member_spec (^^int, { .name = "member", .bit_width = 6 })));
+static_assert (has_type (std::meta::data_member_spec (^^int, { .bit_width = 0 })));
+static_assert (has_type (std::meta::data_member_spec (^^int, { .bit_width = 5 })));
 void bar (long, const T f, int g[2], T &);
 
 int
@@ -112,7 +115,11 @@ static_assert (type_of (^^A) == ^^Enum);
 static_assert (type_of (^^S::mem) == ^^int);
 //static_assert (type_of (std::meta::members_of (^^S, ctx)[1]) == ??);
 //static_assert (type_of (std::meta::bases_of (^^S, ctx)[0]) == ??);
-//static_assert (type_of (std::meta::data_member_spec (^^int, {.name="member"})) == ??);
+static_assert (type_of (std::meta::data_member_spec (^^int, { .name = "member" })) == ^^int);
+static_assert (type_of (std::meta::data_member_spec (^^const long, { .name = "member", .bit_width = 8 })) == ^^const long);
+static_assert (type_of (std::meta::data_member_spec (^^int3, { .name = "member" })) == ^^int[3]);
+static_assert (type_of (std::meta::data_member_spec (^^int, { .bit_width = 7 })) == ^^int);
+static_assert (type_of (std::meta::data_member_spec (^^int, { .bit_width = 0 })) == ^^int);
 
 consteval int
 test (info x, info y)

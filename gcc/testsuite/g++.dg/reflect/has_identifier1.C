@@ -33,6 +33,10 @@ static_assert (has_identifier (^^E1));
 //static_assert (has_identifier (^^E));
 [[=1]] int w;
 static_assert (!has_identifier (annotations_of (^^w)[0]));
+static_assert (!has_identifier (data_member_spec (^^int, { .bit_width = 0 })));
+static_assert (!has_identifier (data_member_spec (^^long, { .bit_width = 6 })));
+static_assert (has_identifier (data_member_spec (^^long, { .name = "dms", .bit_width = 6 })));
+static_assert (has_identifier (data_member_spec (^^long, { .name = u8"dms", .alignment = 2 * alignof (long) })));
 
 namespace N {}
 namespace NA = N;

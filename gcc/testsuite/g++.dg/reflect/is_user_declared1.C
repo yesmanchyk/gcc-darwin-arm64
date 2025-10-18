@@ -104,8 +104,8 @@ static_assert (!is_user_declared (^^decomp));
 static_assert (!is_user_declared (^^decomp_ref));
 static_assert (!is_user_declared (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_user_declared (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_user_declared (dms));
 
 struct Base {};
 struct Derived : Base {};

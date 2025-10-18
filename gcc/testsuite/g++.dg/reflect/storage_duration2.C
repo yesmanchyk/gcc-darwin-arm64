@@ -188,8 +188,10 @@ static_assert (has_static_storage_duration (^^arr));
 static_assert (!has_thread_storage_duration (^^arr));
 static_assert (!has_automatic_storage_duration (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_static_storage_duration (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!has_static_storage_duration (dms));
+static_assert (!has_thread_storage_duration (dms));
+static_assert (!has_automatic_storage_duration (dms));
 
 template<typename T, info R, info R2, info R3>
 void

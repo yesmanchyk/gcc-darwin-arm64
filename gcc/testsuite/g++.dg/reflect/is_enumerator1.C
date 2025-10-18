@@ -79,8 +79,8 @@ static_assert (!is_enumerator (^^decomp));
 static_assert (!is_enumerator (^^decomp_ref));
 static_assert (!is_enumerator (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_enumerator (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_enumerator (dms));
 
 struct Base {};
 struct Derived : Base {};

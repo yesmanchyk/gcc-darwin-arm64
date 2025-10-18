@@ -83,8 +83,8 @@ static_assert (!is_complete_type (^^arr));
 static_assert (!is_complete_type (^^inc_arr));
 static_assert (is_complete_type (^^com_arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_complete_type (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_complete_type (dms));
 
 struct Base {};
 struct Derived : Base {};

@@ -122,8 +122,8 @@ static_assert (has_ellipsis_parameter (^^funt2));
 static_assert (has_ellipsis_parameter (^^funt3));
 static_assert (!has_ellipsis_parameter (^^funt4));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_ellipsis_parameter (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = u8"a" });
+static_assert (!has_ellipsis_parameter (dms));
 
 struct Base {};
 struct Derived : Base {};

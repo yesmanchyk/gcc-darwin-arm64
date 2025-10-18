@@ -104,10 +104,12 @@ static_assert (!is_bit_field (^^decomp));
 static_assert (!is_bit_field (^^decomp_ref));
 static_assert (!is_bit_field (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_bit_field (dms));
-//constexpr auto dms2 = data_member_spec (^^int, { .width = 6 });
-//static_assert (is_bit_field (dms2));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_bit_field (dms));
+constexpr auto dms2 = data_member_spec (^^int, { .bit_width = 6 });
+static_assert (is_bit_field (dms2));
+constexpr auto dms3 = data_member_spec (^^int, { .name = "dms", .bit_width = 15 });
+static_assert (is_bit_field (dms3));
 
 struct Base {};
 struct Derived : Base {};

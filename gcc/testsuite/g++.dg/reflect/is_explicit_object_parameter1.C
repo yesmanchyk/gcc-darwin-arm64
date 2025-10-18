@@ -79,8 +79,8 @@ static_assert (!is_explicit_object_parameter (^^decomp));
 static_assert (!is_explicit_object_parameter (^^decomp_ref));
 static_assert (!is_explicit_object_parameter (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_explicit_object_parameter (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_explicit_object_parameter (dms));
 
 struct Base {};
 struct Derived : Base {};

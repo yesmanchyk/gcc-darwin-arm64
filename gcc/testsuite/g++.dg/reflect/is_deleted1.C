@@ -104,8 +104,8 @@ static_assert (!is_deleted (^^decomp));
 static_assert (!is_deleted (^^decomp_ref));
 static_assert (!is_deleted (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_deleted (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = u8"dms" });
+static_assert (!is_deleted (dms));
 
 struct Base {};
 struct Derived : Base {};

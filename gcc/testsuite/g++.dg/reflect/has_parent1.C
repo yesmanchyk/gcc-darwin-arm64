@@ -79,8 +79,8 @@ static_assert (has_parent (^^decomp));
 static_assert (has_parent (^^decomp_ref));
 static_assert (has_parent (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_parent (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!has_parent (dms));
 
 struct Base {};
 struct Derived : Base {};

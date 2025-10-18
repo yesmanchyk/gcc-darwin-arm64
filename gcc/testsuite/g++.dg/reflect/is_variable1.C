@@ -80,8 +80,8 @@ static_assert (!is_variable (^^decomp));
 static_assert (!is_variable (^^decomp_ref));
 static_assert (is_variable (^^arr));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_variable (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_variable (dms));
 
 template<typename T, info R, info R2, info R3>
 void

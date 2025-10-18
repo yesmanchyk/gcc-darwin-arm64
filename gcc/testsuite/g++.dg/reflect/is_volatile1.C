@@ -52,7 +52,7 @@ static_assert (!is_volatile (^^Concept));
 static_assert (!is_volatile (^^NSAlias));
 static_assert (!is_volatile (^^NS));
 //static_assert (!is_volatile (std::meta::bases_of (^^S, ctx)[0]));
-//static_assert (!is_volatile (std::meta::data_member_spec (^^int, {.name="member"})));
+static_assert (!is_volatile (std::meta::data_member_spec (^^int, { .name = "member" })));
 
 int
 foo (int a, const long b, T c, int d[4], T &e)
@@ -79,9 +79,6 @@ static_assert (!is_volatile (^^fn));
 static_assert (!is_volatile (^^Enum::A));
 static_assert (!is_volatile (^^A));
 static_assert (!is_volatile (^^S::mem));
-//static_assert (!is_volatile (std::meta::members_of (^^S, ctx)[1]));
-//static_assert (!is_volatile (std::meta::bases_of (^^S, ctx)[0]));
-//static_assert (!is_volatile (std::meta::data_member_spec (^^int, {.name="member"})));
 
 volatile int vi = 42;
 static_assert (is_volatile (^^vi));

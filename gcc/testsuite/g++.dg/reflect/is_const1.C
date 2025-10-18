@@ -52,7 +52,7 @@ static_assert (!is_const (^^Concept));
 static_assert (!is_const (^^NSAlias));
 static_assert (!is_const (^^NS));
 //static_assert (!is_const (std::meta::bases_of (^^S, ctx)[0]));
-//static_assert (!is_const (std::meta::data_member_spec (^^int, {.name="member"})));
+static_assert (!is_const (std::meta::data_member_spec (^^int, { .name = "member" })));
 
 int
 foo (int a, const long b, T c, int d[4], T &e)
@@ -79,9 +79,6 @@ static_assert (!is_const (^^fn));
 static_assert (!is_const (^^Enum::A));
 static_assert (!is_const (^^A));
 static_assert (!is_const (^^S::mem));
-//static_assert (!is_const (std::meta::members_of (^^S, ctx)[1]));
-//static_assert (!is_const (std::meta::bases_of (^^S, ctx)[0]));
-//static_assert (!is_const (std::meta::data_member_spec (^^int, {.name="member"})));
 
 const int ci = 42;
 static_assert (is_const (^^ci));

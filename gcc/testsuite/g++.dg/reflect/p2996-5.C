@@ -46,5 +46,5 @@ constexpr auto r16 = ^^NS;       // represents a namespace
 //constexpr auto r17 = std::meta::bases_of(^^S)[0];
     // represents a direct base class relationship
 
-//constexpr auto r18 = std::meta::data_member_spec(^^int, {.name="member"});
+constexpr auto r18 = std::meta::data_member_spec(^^int, {.name="member"});
     // represents a data member description

@@ -29,6 +29,8 @@ static_assert (identifier_of (^^E1) == std::string_view ("E1"));
 // We probably want identifier_of on enumeral types unless they
 // are unnamed, but I think not on other types and not on annotations.
 //static_assert (identifier_of (^^E) == std::string_view ("E"));
+static_assert (identifier_of (data_member_spec (^^long, { .name = "foo", .bit_width = 6 })) == std::string_view ("foo"));
+static_assert (identifier_of (data_member_spec (^^long, { .name = "extremely_long_string_used_as_identifier" })) == std::string_view ("extremely_long_string_used_as_identifier"));
 
 namespace N {}
 namespace NA = N;

@@ -124,8 +124,8 @@ static_assert (is_namespace_member (^^NN::ns_alias));
 static_assert (is_namespace_member (^^NN::E));
 static_assert (is_namespace_member (^^NN::F));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!is_namespace_member (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!is_namespace_member (dms));
 
 struct Base {};
 struct Derived : Base {};

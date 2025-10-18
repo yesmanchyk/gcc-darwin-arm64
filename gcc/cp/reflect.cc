@@ -398,8 +398,6 @@ fail_ret:
 	  minidx = tree_to_uhwi (TREE_OPERAND (data, 1));
 	  data = TREE_OPERAND (data, 0);
 	}
-      if (TREE_CODE (data) != VAR_DECL)
-	goto non_contiguous;
       data = cxx_eval_constant_expression (ctx, data, vc_prvalue,
 					   non_constant_p, overflow_p,
 					   jump_target);
@@ -432,7 +430,7 @@ fail_ret:
 	    if (!tree_fits_uhwi_p (lo) || !tree_fits_uhwi_p (hi))
 	      goto non_contiguous;
 	    unsigned HOST_WIDE_INT m = tree_to_uhwi (hi);
-	    for (j = tree_to_uhwi (lo); j < m; ++j)
+	    for (j = tree_to_uhwi (lo); j <= m; ++j)
 	      if (j >= minidx && j - minidx < sz)
 		TREE_VEC_ELT (ret, j - minidx) = value;
 	  }
@@ -1151,6 +1149,22 @@ eval_is_function_parameter (const_tree r, reflect_kind kind)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_data_member_spec.
+   Returns: true if r represents a data member description.
+   Otherwise, false.  */
+
+static tree
+eval_is_data_member_spec (const_tree r, reflect_kind kind)
+{
+  if (kind == REFLECT_DATA_MEMBER_SPEC)
+    {
+      gcc_checking_assert (TREE_CODE (r) == TREE_VEC);
+      return boolean_true_node;
+    }
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_explicit_object_parameter.
    Returns: true if r represents a function parameter that is an explicit
    object parameter.  Otherwise, false.  */
@@ -1339,14 +1353,15 @@ eval_is_explicit (tree r)
 
 /* Process std::meta::is_bit_field.
    Returns: true if r represents a bit-field, or if r represents a data member
-   description (T,N,A,W,NUA) for which W is not _|_..  Otherwise, false.  */
+   description (T,N,A,W,NUA) for which W is not _|_.  Otherwise, false.  */
 
 static tree
-eval_is_bit_field (const_tree r)
+eval_is_bit_field (const_tree r, reflect_kind kind)
 {
   if (TREE_CODE (r) == FIELD_DECL && DECL_C_BIT_FIELD (r))
     return boolean_true_node;
-  // TODO: Handle data member description.
+  else if (kind == REFLECT_DATA_MEMBER_SPEC && TREE_VEC_ELT (r, 3))
+    return boolean_true_node;
   else
     return boolean_false_node;
 }
@@ -1939,9 +1954,10 @@ has_type (tree r, reflect_kind kind)
       || TREE_CODE (r) == FIELD_DECL
       || eval_is_annotation (r) == boolean_true_node
       || eval_is_function_parameter (r, kind) == boolean_true_node
-      || eval_is_object (kind) == boolean_true_node)
+      || eval_is_object (kind) == boolean_true_node
+      || kind == REFLECT_DATA_MEMBER_SPEC)
     return true;
-  // TODO: direct base class relationship, data member description.
+  // TODO: direct base class relationship.
   return false;
 }
 
@@ -1965,6 +1981,8 @@ type_of (tree r, reflect_kind kind)
 	}
       r = TREE_VALUE (type);
     }
+  else if (kind == REFLECT_DATA_MEMBER_SPEC)
+    r = TREE_VEC_ELT (r, 0);
   else if (eval_is_annotation (r) == boolean_true_node)
     // TODO: or do we need to reflect_constant and get type of that?
     r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
@@ -2163,7 +2181,10 @@ eval_template_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_has_parent (tree r, reflect_kind kind)
 {
-  if (kind == REFLECT_OBJECT || CONSTANT_CLASS_P (r) || r == global_namespace)
+  if (kind == REFLECT_OBJECT
+      || CONSTANT_CLASS_P (r)
+      || r == global_namespace
+      || kind == REFLECT_DATA_MEMBER_SPEC)
     return boolean_false_node;
   if (TYPE_P (r))
     {
@@ -2178,8 +2199,7 @@ eval_has_parent (tree r, reflect_kind kind)
     }
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
-  // TODO: Handle direct base class relationship and punt on data member
-  // description.
+  // TODO: Handle direct base class relationship.
   if (!DECL_P (r))
     return boolean_false_node;
   if (TREE_CODE (r) != NAMESPACE_DECL && DECL_LANGUAGE (r) == lang_c)
@@ -2413,7 +2433,8 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       && (eval_is_variable (r, kind) != boolean_true_node
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
-      /* TODO: direct base class relationship, data member description.  */)
+      && (kind != REFLECT_DATA_MEMBER_SPEC || TREE_VEC_ELT (r, 3))
+      /* TODO: direct base class relationship.  */)
     return throw_exception (loc, ctx,
 			    N_("reflection not suitable for size_of"),
 			    r, jump_target);
@@ -2467,7 +2488,8 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       && (eval_is_variable (r, kind) != boolean_true_node
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && TREE_CODE (r) != FIELD_DECL
-      /* TODO: direct base class relationship, data member description.  */)
+      && kind != REFLECT_DATA_MEMBER_SPEC
+      /* TODO: direct base class relationship.  */)
     return throw_exception (loc, ctx,
 			    N_("reflection not suitable for bit_size_of"),
 			    r, jump_target);
@@ -2484,6 +2506,8 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
     type = r;
   else if (TREE_CODE (r) == FIELD_DECL)
     type = TREE_TYPE (r);
+  else if (kind == REFLECT_DATA_MEMBER_SPEC && TREE_VEC_ELT (r, 3))
+    return fold_convert (ret_type, TREE_VEC_ELT (r, 3));
   else
     type = type_of (r, kind);
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
@@ -2623,7 +2647,9 @@ eval_has_identifier (tree r, reflect_kind kind)
       || TREE_CODE (r) == FIELD_DECL
       || (TREE_CODE (r) == NAMESPACE_DECL && r != global_namespace))
     return boolean_true_node;
-  // TODO: direct base class relationship and data member description.
+  // TODO: direct base class relationship.
+  if (kind == REFLECT_DATA_MEMBER_SPEC && TREE_VEC_ELT (r, 1))
+    return boolean_true_node;
   return boolean_false_node;
 }
 
@@ -2686,7 +2712,9 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
       else
 	name = IDENTIFIER_POINTER (TYPE_NAME (r));
     }
-  // TODO: direct base class relationship and data member description.
+  // TODO: direct base class relationship.
+  else if (kind == REFLECT_DATA_MEMBER_SPEC)
+    name = IDENTIFIER_POINTER (TREE_VEC_ELT (r, 1));
   else
     gcc_unreachable ();
   tree str = temp_string_literal (name, elt_type);
@@ -4402,15 +4430,15 @@ eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
       auto kind = static_cast<reflect_kind> (REFLECT_EXPR_KIND (ra));
       // TODO: It is unclear on what kinds of reflections we should throw
       // and what kinds of exceptions should merely result in can_substitute
-      // returning false.  Direct base class relationship, data member
-      // description?
+      // returning false.  Direct base class relationship?
       if (a == unknown_type_node
 	  || kind == REFLECT_PARM
 	  || eval_is_namespace (a) == boolean_true_node
 	  || eval_is_constructor (a) == boolean_true_node
 	  || eval_is_destructor (a) == boolean_true_node
 	  || eval_is_annotation (a) == boolean_true_node
-	  || (TREE_CODE (a) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (a)))
+	  || (TREE_CODE (a) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (a))
+	  || kind == REFLECT_DATA_MEMBER_SPEC)
 	return throw_exception (loc, ctx,
 				N_("invalid argument to can_substitute"),
 				a, jump_target);
@@ -4503,6 +4531,389 @@ eval_substitute (location_t loc, const constexpr_ctx *ctx,
   else
     ret = lookup_template_function (r, rvec);
   return get_reflection_raw (loc, ret);
+}
+
+/* Process std::meta::data_member_spec.
+   Returns: A reflection of a data member description (T,N,A,W,NUA) where
+   -- T is the type represented by dealias(type),
+   -- N is either the identifier encoded by options.name or _|_ if
+      options.name does not contain a value,
+   -- A is either the alignment value held by options.alignment or _|_ if
+      options.alignment does not contain a value,
+   -- W is either the value held by options.bit_width or _|_ if
+      options.bit_width does not contain a value, and
+   -- NUA is the value held by options.no_unique_address.
+   Throws: meta::exception unless the following conditions are met:
+   -- dealias(type) represents either an object type or a reference type;
+   -- if options.name contains a value, then:
+      -- holds_alternative<u8string>(options.name->contents) is true and
+	 get<u8string>(options.name->contents) contains a valid identifier
+	 that is not a keyword when interpreted with UTF-8, or
+      -- holds_alternative<string>(options.name->contents) is true and
+	 get<string>(options.name->contents) contains a valid identifier
+	 that is not a keyword when interpreted with the ordinary literal
+	 encoding;
+   -- if options.name does not contain a value, then options.bit_width
+      contains a value;
+   -- if options.bit_width contains a value V, then
+      -- is_integral_type(type) || is_enum_type(type) is true,
+      -- options.alignment does not contain a value,
+      -- options.no_unique_address is false, and
+      -- if V equals 0, then options.name does not contain a value; and
+   -- if options.alignment contains a value, it is an alignment value not less
+      than alignment_of(type).  */
+
+static tree
+eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
+		       tree type, tree opts, tree call,
+		       bool *non_constant_p, bool *overflow_p,
+		       tree  *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
+  if (!TYPE_OBJ_P (type) && !TYPE_REF_P (type))
+    return throw_exception (loc, ctx,
+			    N_("type is not object or reference type"),
+			    type, jump_target);
+  opts = convert_from_reference (opts);
+  if (!CLASS_TYPE_P (TREE_TYPE (opts)))
+    {
+    fail:
+      error_at (loc, "unexpected %<data_member_options%> argument");
+      *non_constant_p = true;
+      return error_mark_node;
+    }
+  tree args[5] = { type, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE };
+  for (tree field = next_aggregate_field (TYPE_FIELDS (TREE_TYPE (opts)));
+       field; field = next_aggregate_field (DECL_CHAIN (field)))
+    if (tree name = DECL_NAME (field))
+      {
+	if (id_equal (name, "name"))
+	  args[1] = field;
+	else if (id_equal (name, "alignment"))
+	  args[2] = field;
+	else if (id_equal (name, "bit_width"))
+	  args[3] = field;
+	else if (id_equal (name, "no_unique_address"))
+	  args[4] = field;
+      }
+  for (int i = 1; i < 5; ++i)
+    {
+      if (args[i] == NULL_TREE)
+	goto fail;
+      tree opt = build3 (COMPONENT_REF, TREE_TYPE (args[i]), opts, args[i],
+			 NULL_TREE);
+      if (i == 4)
+	{
+	  /* The no_unique_address handling is simple.  */
+	  if (TREE_CODE (TREE_TYPE (opt)) != BOOLEAN_TYPE)
+	    goto fail;
+	  opt = cxx_eval_constant_expression (ctx, opt, vc_prvalue,
+					      non_constant_p, overflow_p,
+					      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  if (TREE_CODE (opt) != INTEGER_CST)
+	    goto fail;
+	  if (integer_zerop (opt))
+	    args[i] = boolean_false_node;
+	  else
+	    args[i] = boolean_true_node;
+	  continue;
+	}
+      /* Otherwise the member is optional<something>.  */
+      if (!CLASS_TYPE_P (TREE_TYPE (opt)))
+	goto fail;
+      tree has_value = build_static_cast (loc, boolean_type_node, opt,
+					  tf_warning_or_error);
+      if (error_operand_p (has_value))
+	goto fail;
+      has_value = cxx_eval_constant_expression (ctx, has_value, vc_prvalue,
+						non_constant_p, overflow_p,
+						jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      if (TREE_CODE (has_value) != INTEGER_CST)
+	goto fail;
+      if (integer_zerop (has_value))
+	{
+	  /* If it doesn't have value, store NULL_TREE.  */
+	  args[i] = NULL_TREE;
+	  continue;
+	}
+      tree deref = build_new_op (loc, INDIRECT_REF, LOOKUP_NORMAL, opt,
+				 NULL_TREE, tf_warning_or_error);
+      if (error_operand_p (deref))
+	goto fail;
+      if (i != 1)
+	{
+	  /* For alignment and bit_width otherwise it should be int.  */
+	  if (TYPE_MAIN_VARIANT (TREE_TYPE (deref)) != integer_type_node)
+	    goto fail;
+	  deref = cxx_eval_constant_expression (ctx, deref, vc_prvalue,
+						non_constant_p, overflow_p,
+						jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  if (TREE_CODE (deref) != INTEGER_CST)
+	    goto fail;
+	  args[i] = deref;
+	  continue;
+	}
+      /* Otherwise it is a name.  */
+      if (!CLASS_TYPE_P (TREE_TYPE (deref)))
+	goto fail;
+      tree fields[3] = { NULL_TREE, NULL_TREE, NULL_TREE };
+      for (tree field = next_aggregate_field (TYPE_FIELDS (TREE_TYPE (deref)));
+	   field; field = next_aggregate_field (DECL_CHAIN (field)))
+	if (tree name = DECL_NAME (field))
+	  {
+	    if (id_equal (name, "_M_is_u8"))
+	      fields[0] = field;
+	    else if (id_equal (name, "_M_u8s"))
+	      fields[1] = field;
+	    else if (id_equal (name, "_M_s"))
+	      fields[2] = field;
+	  }
+      for (int j = 0; j < 3; ++j)
+	{
+	  if (fields[j] == NULL_TREE)
+	    goto fail;
+	  if (j && j == (fields[0] == boolean_true_node ? 2 : 1))
+	    continue;
+	  tree f = build3 (COMPONENT_REF, TREE_TYPE (fields[j]), deref,
+			   fields[j], NULL_TREE);
+	  if (j == 0)
+	    {
+	      /* The _M_is_u8 handling is simple.  */
+	      if (TREE_CODE (TREE_TYPE (f)) != BOOLEAN_TYPE)
+		goto fail;
+	      f = cxx_eval_constant_expression (ctx, f, vc_prvalue,
+						non_constant_p, overflow_p,
+						jump_target);
+	      if (*jump_target)
+		return NULL_TREE;
+	      if (*non_constant_p)
+		return call;
+	      if (TREE_CODE (f) != INTEGER_CST)
+		goto fail;
+	      if (integer_zerop (f))
+		fields[0] = boolean_false_node;
+	      else
+		fields[0] = boolean_true_node;
+	      continue;
+	    }
+	  /* _M_u8s/_M_s handling is the same except for encoding.  */
+	  if (!CLASS_TYPE_P (TREE_TYPE (f)))
+	    goto fail;
+	  tree fns = lookup_qualified_name (TREE_TYPE (f),
+					    get_identifier ("c_str"));
+	  if (error_operand_p (fns))
+	    goto fail;
+	  f = build_new_method_call (f, fns, NULL, NULL_TREE, LOOKUP_NORMAL,
+				     NULL, tf_warning_or_error);
+	  if (error_operand_p (f))
+	    goto fail;
+	  f = cxx_eval_constant_expression (ctx, f, vc_prvalue,
+					    non_constant_p, overflow_p,
+					    jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  STRIP_NOPS (f);
+	  if (TREE_CODE (f) != ADDR_EXPR)
+	    goto fail;
+	  f = TREE_OPERAND (f, 0);
+	  f = cxx_eval_constant_expression (ctx, f, vc_prvalue,
+					    non_constant_p, overflow_p,
+					    jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  if (TREE_CODE (f) != CONSTRUCTOR
+	      || TREE_CODE (TREE_TYPE (f)) != ARRAY_TYPE)
+	    goto fail;
+	  tree eltt = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (f)));
+	  if (eltt != (j == 1 ? char8_type_node : char_type_node))
+	    goto fail;
+	  tree field, value;
+	  unsigned k;
+	  unsigned HOST_WIDE_INT l = 0;
+	  bool ntmbs = false;
+	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (f), k, field, value)
+	    if (!tree_fits_shwi_p (value))
+	      goto fail;
+	    else if (field == NULL_TREE)
+	      {
+		if (integer_zerop (value))
+		  {
+		    ntmbs = true;
+		    break;
+		  }
+		++l;
+	      }
+	    else if (TREE_CODE (field) == RANGE_EXPR)
+	      {
+		tree lo = TREE_OPERAND (field, 0);
+		tree hi = TREE_OPERAND (field, 1);
+		if (!tree_fits_uhwi_p (lo) || !tree_fits_uhwi_p (hi))
+		  goto fail;
+		if (integer_zerop (value))
+		  {
+		    l = tree_to_uhwi (lo);
+		    ntmbs = true;
+		    break;
+		  }
+		l = tree_to_uhwi (hi) + 1;
+	      }
+	    else if (tree_fits_uhwi_p (field))
+	      {
+		l = tree_to_uhwi (field);
+		if (integer_zerop (value))
+		  {
+		    ntmbs = true;
+		    break;
+		  }
+		++l;
+	      }
+	    else
+	      goto fail;
+	  if (!ntmbs || l > INT_MAX - 1)
+	    goto fail;
+	  char *namep;
+	  unsigned len = l;
+	  if (l < 64)
+	    namep = XALLOCAVEC (char, l + 1);
+	  else
+	    namep = XNEWVEC (char, l + 1);
+	  memset (namep, 0, l + 1);
+	  l = 0;
+	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (f), k, field, value)
+	    if (field == NULL_TREE)
+	      {
+		if (integer_zerop (value))
+		  break;
+		namep[l] = tree_to_shwi (value);
+		++l;
+	      }
+	    else if (TREE_CODE (field) == RANGE_EXPR)
+	      {
+		tree lo = TREE_OPERAND (field, 0);
+		tree hi = TREE_OPERAND (field, 1);
+		if (integer_zerop (value))
+		  break;
+		unsigned HOST_WIDE_INT m = tree_to_uhwi (hi);
+		for (l = tree_to_uhwi (lo); l <= m; ++l)
+		  namep[l] = tree_to_shwi (value);
+	      }
+	    else
+	      {
+		l = tree_to_uhwi (field);
+		namep[l++] = tree_to_shwi (value);
+	      }
+	  namep[len] = '\0';
+	  /* Convert namep from execution charset to SOURCE_CHARSET.  */
+	  cpp_string istr, ostr;
+	  istr.len = strlen (namep) + 1;
+	  istr.text = (const unsigned char *) namep;
+	  if (!cpp_translate_string (parse_in, &istr, &ostr,
+				     j == 2 ? CPP_STRING : CPP_UTF8STRING,
+				     true))
+	    {
+	      if (len >= 64)
+		XDELETEVEC (namep);
+	      if (j == 1)
+		return throw_exception (loc, ctx,
+					N_("conversion from ordinary literal "
+					   "encoding to source charset "
+					   "failed"),
+					type, jump_target);
+	      else
+		return throw_exception (loc, ctx,
+					N_("conversion from UTF-8 encoding to "
+					   "source charset failed"),
+					type, jump_target);
+	    }
+	  if (len >= 64)
+	    XDELETEVEC (namep);
+	  if (!cpp_valid_identifier (parse_in, ostr.text))
+	    return throw_exception (loc, ctx,
+				    N_("name is not a valid identifier"),
+				    type, jump_target);
+	  args[i] = get_identifier ((const char *) ostr.text);
+	  switch (get_identifier_kind (args[i]))
+	    {
+	    case cik_keyword:
+	      return throw_exception (loc, ctx,
+				      N_("name is a keyword"),
+				      type, jump_target);
+	    case cik_trait:
+	      return throw_exception (loc, ctx,
+				      N_("name is a built-in trait"),
+				      type, jump_target);
+	    default:
+	      break;
+	    }
+	}
+    }
+  if (args[1] == NULL_TREE && args[3] == NULL_TREE)
+    return throw_exception (loc, ctx,
+			    N_("neither name nor bit_width specified"),
+			    type, jump_target);
+  if (args[3])
+    {
+      if (!CP_INTEGRAL_TYPE_P (type) && TREE_CODE (type) != ENUMERAL_TYPE)
+	return throw_exception (loc, ctx,
+				N_("bit_width specified with non-integral "
+				   "and non-enumeration type"),
+				type, jump_target);
+      if (args[2])
+	return throw_exception (loc, ctx,
+				N_("both alignment and bit_width specified"),
+				type, jump_target);
+      if (args[4] == boolean_true_node)
+	return throw_exception (loc, ctx,
+				N_("bit_width specified with "
+				   "no_unique_address true"),
+				type, jump_target);
+      if (integer_zerop (args[3]) && args[1])
+	return throw_exception (loc, ctx,
+				N_("bit_width 0 with specified name"),
+				type, jump_target);
+      if (tree_int_cst_sgn (args[3]) < 0)
+	return throw_exception (loc, ctx, N_("bit_width is negative"),
+				type, jump_target);
+    }
+  if (args[2])
+    {
+      if (!integer_pow2p (args[2]))
+	return throw_exception (loc, ctx,
+				N_("alignment is not power of two"),
+				type, jump_target);
+      if (tree_int_cst_sgn (args[2]) < 0)
+	return throw_exception (loc, ctx, N_("alignment is negative"),
+				type, jump_target);
+      tree al = cxx_sizeof_or_alignof_type (loc, type, ALIGNOF_EXPR, true,
+					    tf_none);
+      if (TREE_CODE (al) == INTEGER_CST
+	  && wi::to_widest (al) > wi::to_widest (args[2]))
+	return throw_exception (loc, ctx,
+				N_("alignment is smaller than alignment_of"),
+				type, jump_target);
+    }
+  tree ret = make_tree_vec (5);
+  for (int i = 0; i < 5; ++i)
+    TREE_VEC_ELT (ret, i) = args[i];
+  return get_reflection_raw (loc, ret, REFLECT_DATA_MEMBER_SPEC);
 }
 
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.
@@ -4622,7 +5033,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (!strcmp (ident, "explicit"))
 	return eval_is_explicit (h);
       if (!strcmp (ident, "bit_field"))
-	return eval_is_bit_field (h);
+	return eval_is_bit_field (h, kind);
       if (!strcmp (ident, "enumerator"))
 	return eval_is_enumerator (h);
       if (!strcmp (ident, "complete_type"))
@@ -4961,6 +5372,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	  return eval_is_nothrow_assignable_type (loc, ctx, h, h1,
 						  jump_target);
 	}
+      if (!strcmp (ident, "data_member_spec"))
+	return eval_is_data_member_spec (h, kind);
       goto not_found;
     }
 
@@ -5104,7 +5517,6 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (id_equal (name, "extent"))
     {
       tree i = get_nth_callarg (call, 1);
-      location_t loc = cp_expr_loc_or_input_loc (i);
       i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
 					non_constant_p, overflow_p,
 					jump_target);
@@ -5156,6 +5568,19 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (*non_constant_p)
 	return call;
       return eval_substitute (loc, ctx, h, hvec, jump_target);
+    }
+  if (id_equal (name, "data_member_spec"))
+    {
+      tree opts = get_nth_callarg (call, 1);
+      opts = cxx_eval_constant_expression (ctx, opts, vc_prvalue,
+					   non_constant_p, overflow_p,
+					   jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      return eval_data_member_spec (loc, ctx, h, opts, call,
+				    non_constant_p, overflow_p, jump_target);
     }
 
 not_found:
@@ -5395,6 +5820,14 @@ compare_reflections (tree lhs, tree rhs)
       lhs = maybe_update_function_parm (lhs);
       rhs = maybe_update_function_parm (rhs);
     }
+  else if (kind == REFLECT_DATA_MEMBER_SPEC)
+    return (TREE_VEC_ELT (lhs, 0) == TREE_VEC_ELT (rhs, 0)
+	    && TREE_VEC_ELT (lhs, 1) == TREE_VEC_ELT (rhs, 1)
+	    && tree_int_cst_equal (TREE_VEC_ELT (lhs, 2),
+				   TREE_VEC_ELT (rhs, 2))
+	    && tree_int_cst_equal (TREE_VEC_ELT (lhs, 3),
+				   TREE_VEC_ELT (rhs, 3))
+	    && TREE_VEC_ELT (lhs, 4) == TREE_VEC_ELT (rhs, 4));
 
   return lhs == rhs;
 }

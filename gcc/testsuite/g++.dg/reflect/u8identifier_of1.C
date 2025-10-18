@@ -29,6 +29,8 @@ static_assert (u8identifier_of (^^E1) == std::u8string_view (u8"E1"));
 // We probably want u8identifier_of on enumeral types unless they
 // are unnamed, but I think not on other types and not on annotations.
 //static_assert (u8identifier_of (^^E) == std::u8string_view (u8"E"));
+static_assert (u8identifier_of (data_member_spec (^^long, { .name = u8"foo", .bit_width = 6 })) == std::u8string_view (u8"foo"));
+static_assert (u8identifier_of (data_member_spec (^^long, { .name = u8"extremely_long_string_used_as_identifier" })) == std::u8string_view (u8"extremely_long_string_used_as_identifier"));
 
 namespace N {}
 namespace NA = N;

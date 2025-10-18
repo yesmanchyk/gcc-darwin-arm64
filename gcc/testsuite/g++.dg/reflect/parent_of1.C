@@ -90,8 +90,8 @@ static_assert (parent_of (^^decomp) == ^^::);
 static_assert (parent_of (^^decomp_ref) == ^^::);
 static_assert (parent_of (^^arr) == ^^::);
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!has_parent_of (dms));
+constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
+static_assert (!has_parent_of (dms));
 
 //constexpr auto ctx = std::meta::access_context::current ();
 

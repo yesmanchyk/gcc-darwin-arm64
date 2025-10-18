@@ -88,8 +88,8 @@ static_assert (!could_substitute (^^decomp, {}));
 static_assert (!could_substitute (^^decomp_ref, {}));
 static_assert (!could_substitute (^^arr, {}));
 
-//constexpr auto dms = data_member_spec (^^int, {});
-//static_assert (!could_substitute (dms, {}));
+constexpr auto dms = data_member_spec (^^int, { .name = "a" });
+static_assert (!could_substitute (dms, {}));
 
 struct Base {};
 struct Derived : Base {};
