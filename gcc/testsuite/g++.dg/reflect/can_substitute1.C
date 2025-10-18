@@ -154,8 +154,7 @@ static_assert (could_substitute (^^S, { reflect_constant (42) }));
 constexpr int n = 42;
 static_assert (could_substitute (^^S, { ^^n }));
 constexpr NS nsv (42);
-// nsv doesn't have structural type
-static_assert (!could_substitute (^^S, { ^^nsv }));
+static_assert (could_substitute (^^S, { ^^nsv }));
 
 static_assert (!can_substitute (^^S, {}));
 static_assert (can_substitute (^^S, { ^^int }));
@@ -164,6 +163,7 @@ static_assert (can_substitute (^^S, { ^^NS }));
 static_assert (!can_substitute (^^S, { ^^int, ^^long }));
 static_assert (!can_substitute (^^S, { reflect_constant (42) }));
 static_assert (!can_substitute (^^S, { ^^n }));
+static_assert (!can_substitute (^^S, { ^^nsv }));
 static_assert (!can_substitute (^^T, {}));
 static_assert (!can_substitute (^^T, { ^^float, ^^int }));
 constexpr float fv = 42.0f;

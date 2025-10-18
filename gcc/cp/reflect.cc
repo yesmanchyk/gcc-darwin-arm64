@@ -4448,11 +4448,6 @@ eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
 	    return throw_exception (loc, ctx,
 				    N_("invalid argument to can_substitute"),
 				    a, jump_target);
-	  tree type = type_of (a, kind);
-	  if (!structural_type_p (type))
-	    return throw_exception (loc, ctx,
-				    N_("argument without structural type"),
-				    a, jump_target);
 	}
       a = resolve_nondeduced_context (a, tf_warning_or_error);
       TREE_VEC_ELT (rvec, i) = a;
