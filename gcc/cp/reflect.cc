@@ -4919,10 +4919,9 @@ static tree
 eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
 		 tree *jump_target)
 {
-  type = eval_dealias (loc, ctx, type, jump_target);
-  if (*jump_target)
-    return type;
-  type = REFLECT_EXPR_HANDLE (type);
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
   /* It's UB to specialize tuple_size_v, so we can use this.  */
   return get_tuple_size (type);
 }
@@ -4937,10 +4936,9 @@ eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
 		    tree type, tree *jump_target)
 {
   const unsigned HOST_WIDE_INT index = tree_to_uhwi (i);
-  type = eval_dealias (loc, ctx, type, jump_target);
-  if (*jump_target)
-    return type;
-  type = REFLECT_EXPR_HANDLE (type);
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
   type = get_tuple_element_type (type, index);
   if (type == error_mark_node)
     return error_mark_node;
@@ -5647,11 +5645,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return NULL_TREE;
       if (!tsize)
 	{
-	  if (TYPE_P (h))
-	    error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
-	  else
-	    error_at (loc, "couldn%'t compute %qs of non-type %qE",
-		      "tuple_size", h);
+	  error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
 	  *non_constant_p = true;
 	  return call;
 	}

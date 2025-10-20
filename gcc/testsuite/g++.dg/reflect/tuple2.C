@@ -9,7 +9,7 @@ using namespace std::meta;
 
 constexpr auto s1 = tuple_size (^^int); // { dg-error "compute .tuple_size. of .int." }
 int x;
-constexpr auto s2 = tuple_size (^^x); // { dg-error "compute .tuple_size. of non-type .x." }
+constexpr auto s2 = tuple_size (^^x); // { dg-error "uncaught exception" }
 
 constexpr auto r1 = tuple_element (666, ^^std::tuple<int>);
 
