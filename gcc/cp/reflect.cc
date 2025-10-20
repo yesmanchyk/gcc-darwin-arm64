@@ -1319,14 +1319,34 @@ eval_is_structured_binding (const_tree r, reflect_kind kind)
     return boolean_false_node;
 }
 
+/* Try to get the underlying FUNCTION_DECL from reflection if any,
+   otherwise return R.  */
+
+static tree
+maybe_get_reflection_fndecl (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
+  return r;
+}
+
 /* Process std::meta::is_class_member.
    Returns: true if r represents a class member.  Otherwise, false.  */
 
 static tree
 eval_is_class_member (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == CONST_DECL)
     {
       /* [class.mem.general]/5 - The enumerators of an unscoped enumeration
@@ -1340,18 +1360,6 @@ eval_is_class_member (tree r)
     r = TYPE_NAME (r);
   else if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
     return boolean_true_node;
-  else if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      // TODO: move this code into reusable function
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
-
   if (DECL_P (r) && DECL_CLASS_SCOPE_P (r))
     return boolean_true_node;
   else if (TYPE_P (r) && TYPE_CLASS_SCOPE_P (r))
@@ -1367,24 +1375,13 @@ eval_is_expected_access (tree r, reflect_kind kind, tree expected_access)
 {
   if (eval_is_class_member (r) == boolean_true_node)
     {
-      r = MAYBE_BASELINK_FUNCTIONS (r);
-      r = OVL_FIRST (r);
+      r = maybe_get_reflection_fndecl (r);
 
       if (TYPE_P (r))
 	{
-	if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
-	  return boolean_false_node;
-	r = TYPE_NAME (r);
-	}
-
-      if (TREE_CODE (r) == BIT_NOT_EXPR)
-	{
-	  // TODO: move this code into reusable function
-	  tree t = TREE_OPERAND (r, 0);
-	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	    lazily_declare_fn (sfk_destructor, t);
-	  r = CLASSTYPE_DESTRUCTOR (t);
-	  gcc_assert (r != NULL_TREE);
+	  if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	    return boolean_false_node;
+	  r = TYPE_NAME (r);
 	}
 
       bool matches = false;
@@ -1465,6 +1462,23 @@ eval_is_private (tree r, reflect_kind kind)
   return eval_is_expected_access (r, kind, access_private_node);
 }
 
+/* Process std::meta::is_virtual.
+   Returns: true if r represents a virtual method
+   or virtual base class relationship.  Otherwise, false.  */
+
+static tree
+eval_is_virtual (tree r, reflect_kind kind)
+{
+  r = maybe_get_reflection_fndecl (r);
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_VIRTUAL_P (r))
+    return boolean_true_node;
+
+  if (kind == REFLECT_BASE && BINFO_VIRTUAL_P (r))
+    return boolean_true_node;
+
+  return boolean_false_node;
+}
+
 /* Process std::meta::is_pure_virtual.
    Returns: true if r represents a pure virtual method.
    Otherwise, false.  */
@@ -1472,17 +1486,7 @@ eval_is_private (tree r, reflect_kind kind)
 static tree
 eval_is_pure_virtual (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_PURE_VIRTUAL_P (r))
     return boolean_true_node;
   else
@@ -1765,17 +1769,7 @@ eval_has_ellipsis_parameter (tree r)
 static tree
 eval_is_deleted (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_DELETED_FN (r))
     return boolean_true_node;
   else
@@ -1789,17 +1783,7 @@ eval_is_deleted (tree r)
 static tree
 eval_is_defaulted (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_DEFAULTED_FN (r))
     return boolean_true_node;
   else
@@ -1813,17 +1797,7 @@ eval_is_defaulted (tree r)
 static tree
 eval_is_user_provided (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == FUNCTION_DECL
       && user_provided_p (r)
       // TODO: user_provided_p is false for non-members defaulted on
@@ -1841,17 +1815,7 @@ eval_is_user_provided (tree r)
 static tree
 eval_is_user_declared (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == FUNCTION_DECL && !DECL_ARTIFICIAL (r))
     return boolean_true_node;
   else
@@ -2680,13 +2644,10 @@ eval_is_noexcept (tree r)
 {
   if (eval_is_function (r) == boolean_true_node)
     {
-      if (TREE_CODE (r) == BIT_NOT_EXPR)
+      r = maybe_get_reflection_fndecl (r);
+      if (TREE_CODE (r) == FUNCTION_DECL
+	  && DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (r))
 	{
-	  tree t = TREE_OPERAND (r, 0);
-	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	    lazily_declare_fn (sfk_destructor, t);
-	  r = CLASSTYPE_DESTRUCTOR (t);
-	  gcc_assert (r != NULL_TREE);
 	  bool no_err = maybe_instantiate_noexcept (r);
 	  gcc_assert (no_err);
 	}
@@ -4101,17 +4062,8 @@ eval_is_final (tree r)
 {
   if (eval_is_function (r) == boolean_true_node)
     {
-      r = MAYBE_BASELINK_FUNCTIONS (r);
-      if (TREE_CODE (r) == BIT_NOT_EXPR)
-	{
-	  tree t = TREE_OPERAND (r, 0);
-	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	    lazily_declare_fn (sfk_destructor, t);
-	  r = CLASSTYPE_DESTRUCTOR (t);
-	  gcc_assert (r != NULL_TREE);
-	}
-
-      if (DECL_FINAL_P (r))
+      r = maybe_get_reflection_fndecl (r);
+      if (TREE_CODE (r) == FUNCTION_DECL && DECL_FINAL_P (r))
 	return boolean_true_node;
       else
 	return boolean_false_node;
@@ -7298,7 +7250,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_PRIVATE:
       return eval_is_private (h, kind);
     case METAFN_IS_VIRTUAL:
-      gcc_unreachable ();
+      return eval_is_virtual (h, kind);
     case METAFN_IS_PURE_VIRTUAL:
       return eval_is_pure_virtual (h);
     case METAFN_IS_OVERRIDE:

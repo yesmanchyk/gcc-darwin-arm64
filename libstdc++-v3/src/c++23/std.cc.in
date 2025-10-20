@@ -2066,8 +2066,8 @@ export namespace std
     using std::meta::is_public;
     using std::meta::is_protected;
     using std::meta::is_private;
-    // using std::meta::is_virtual;
-    // using std::meta::is_pure_virtual;
+    using std::meta::is_virtual;
+    using std::meta::is_pure_virtual;
     // using std::meta::is_override;
     using std::meta::is_final;
     using std::meta::is_deleted;

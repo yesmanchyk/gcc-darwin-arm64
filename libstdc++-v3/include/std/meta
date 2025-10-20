@@ -206,9 +206,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_public(info);
     consteval bool is_protected(info);
     consteval bool is_private(info);
-    consteval bool is_pure_virtual(info);
 
+    consteval bool is_virtual(info);
+    consteval bool is_pure_virtual(info);
     consteval bool is_final(info);
+
     consteval bool is_deleted(info);
     consteval bool is_defaulted(info);
     consteval bool is_user_provided(info);
