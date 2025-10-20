@@ -509,8 +509,9 @@ fail_ret:
     }
   if (TREE_CODE (TREE_TYPE (deref)) != META_TYPE)
     {
-      error_at (loc, "unexpected type %qT of iterator dereference",
-		TREE_TYPE (deref));
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "unexpected type %qT of iterator dereference",
+		  TREE_TYPE (deref));
       *non_constant_p = true;
       return call;
     }
@@ -1986,6 +1987,8 @@ type_of (tree r, reflect_kind kind)
   else if (eval_is_annotation (r) == boolean_true_node)
     // TODO: or do we need to reflect_constant and get type of that?
     r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
+  else if (TREE_CODE (r) == FIELD_DECL && DECL_BIT_FIELD_TYPE (r))
+    r = DECL_BIT_FIELD_TYPE (r);
   else
     r = TREE_TYPE (r);
   return r;
@@ -4528,6 +4531,41 @@ eval_substitute (location_t loc, const constexpr_ctx *ctx,
   return get_reflection_raw (loc, ret);
 }
 
+/* Process std::meta::tuple_size.
+   Returns: tuple_size_v<T>, where T is the type represented by
+   dealias(type).  */
+
+static tree
+eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
+		 tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
+  /* It's UB to specialize tuple_size_v, so we can use this.  */
+  return get_tuple_size (type);
+}
+
+/* Process std::meta::tuple_element.
+   Returns: A reflection representing the type denoted by
+   tuple_element_t<I, T>, where T is the type represented by dealias(type)
+   and I is a constant equal to index.  */
+
+static tree
+eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
+		    tree type, tree *jump_target)
+{
+  const unsigned HOST_WIDE_INT index = tree_to_uhwi (i);
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
+  type = get_tuple_element_type (type, index);
+  if (type == error_mark_node)
+    return error_mark_node;
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
 /* Process std::meta::data_member_spec.
    Returns: A reflection of a data member description (T,N,A,W,NUA) where
    -- T is the type represented by dealias(type),
@@ -4911,39 +4949,171 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
   return get_reflection_raw (loc, ret, REFLECT_DATA_MEMBER_SPEC);
 }
 
-/* Process std::meta::tuple_size.
-   Returns: tuple_size_v<T>, where T is the type represented by
-   dealias(type).  */
+/* Process std::meta::define_aggregate.
+   Let C be the class represented by class_type and r_K be the Kth reflection
+   value in mdescrs.
+   For every r_K in mdescrs, let (T_K,N_K,A_K,W_K,NUA_K) be the corresponding
+   data member description represented by r_K.
+   Constant When:
+   -- C is incomplete from every point in the evaluation context;
+   -- is_data_member_spec(r_K) is true for every r_K;
+   -- is_complete_type(T_K) is true for every r_K; and
+   -- for every pair (r_K,r_L) where K<L, if N_K is not _|_ and N_L is not
+      _|_, then either:
+      -- N_K != N_L is true or
+      -- N_K == u8"_" is true.
+   Effects: Produces an injected declaration D that defines C and has
+   properties as follows:
+   -- The target scope of D is the scope to which C belongs.
+   -- The locus of D follows immediately after the core constant expression
+      currently under evaluation.
+   -- The characteristic sequence of D is the sequence of reflection values
+      r_K.
+   -- If C is a specialization of a templated class T, and C is not a local
+      class, then D is an explicit specialization of T.
+   -- For each r_K, there is a corresponding entity M_K belonging to the class
+      scope of D with the following properties:
+      -- If N_K is _|_, M_K is an unnamed bit-field.
+	 Otherwise, M_K is a non-static data member whose name is the
+	 determined by the character sequence encoded by N_K in UTF-8.
+      -- The type of M_K is T_K.
+      -- M_K is declared with the attribute [[no_unique_address]] if and only
+	 if NUA_K is true.
+      -- If W_K is not _|_, M_K is a bit-field whose width is that value.
+	 Otherwise, M_K is not a bit-field.
+      -- If A_K is not _|_, M_K has the alignment-specifier alignas(A_K).
+	 Otherwise, M_K has no alignment-specifier.
+   -- For every r_L in mdescrs such that K<L, the declaration corresponding to
+      r_K precedes the declaration corresponding to r_L.
+   Returns: class_type.  */
 
 static tree
-eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
-		 tree *jump_target)
+eval_define_aggregate (location_t loc, const constexpr_ctx *ctx,
+		       tree type, tree rvec, tree call, bool *non_constant_p)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
+  tree orig_type = type;
+  if (!CLASS_TYPE_P (type))
+    {
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "first %<define_aggregate%> argument is not a class "
+		       "type reflection");
+      *non_constant_p = true;
+      return call;
+    }
+  if (COMPLETE_TYPE_P (type))
+    {
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "first %<define_aggregate%> argument is a complete "
+		       "class type reflection");
+      *non_constant_p = true;
+      return call;
+    }
+  hash_set<tree> nameset;
+  for (int i = 0; i < TREE_VEC_LENGTH (rvec); ++i)
+    {
+      tree ra = TREE_VEC_ELT (rvec, i);
+      tree a = REFLECT_EXPR_HANDLE (ra);
+      if (REFLECT_EXPR_KIND (ra) != REFLECT_DATA_MEMBER_SPEC)
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "%<define_aggregate%> argument not a data member "
+			   "description");
+	  *non_constant_p = true;
+	  return call;
+	}
+      if (eval_is_complete_type (TREE_VEC_ELT (a, 0)) != boolean_true_node)
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "%<define_aggregate%> argument data member "
+			   "description without complete type");
+	  *non_constant_p = true;
+	  return call;
+	}
+      if (TREE_VEC_ELT (a, 1)
+	  && !id_equal (TREE_VEC_ELT (a, 1), "_")
+	  && nameset.add (TREE_VEC_ELT (a, 1)))
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "name %qD used in multiple data member "
+			   "descriptions", TREE_VEC_ELT (a, 1));
+	  *non_constant_p = true;
+	  return call;
+	}
+      if (TYPE_WARN_IF_NOT_ALIGN (type)
+	  && TREE_VEC_ELT (a, 3))
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "cannot declare bit-field in "
+			   "%<warn_if_not_aligned%> type");
+	  *non_constant_p = true;
+	  return call;
+	}
+    }
+  if (cxx_constexpr_manifestly_const_eval (ctx) != mce_true)
+    {
+      /* If define_aggregate is evaluated multiple times,
+	 the second invocation with the same arguments will
+	 necessarily fail.  Limit those to manifestly
+	 constant-evaluation.  */
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "%<define_aggregate%> used outside of "
+		       "manifestly constant-evaluation");
+      *non_constant_p = true;
+      return call;
+    }
+  iloc_sentinel ils = loc;
   type = strip_typedefs (type);
-  /* It's UB to specialize tuple_size_v, so we can use this.  */
-  return get_tuple_size (type);
-}
-
-/* Process std::meta::tuple_element.
-   Returns: A reflection representing the type denoted by
-   tuple_element_t<I, T>, where T is the type represented by dealias(type)
-   and I is a constant equal to index.  */
-
-static tree
-eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
-		    tree type, tree *jump_target)
-{
-  const unsigned HOST_WIDE_INT index = tree_to_uhwi (i);
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-  type = strip_typedefs (type);
-  type = get_tuple_element_type (type, index);
-  if (type == error_mark_node)
-    return error_mark_node;
-  type = strip_typedefs (type);
-  return get_reflection_raw (loc, type);
+  type = TYPE_MAIN_VARIANT (type);
+  if (primary_template_specialization_p (type))
+    {
+      type = maybe_process_partial_specialization (type);
+      if (type == error_mark_node)
+	{
+	  *non_constant_p = true;
+	  return call;
+	}
+    }
+  if (!TYPE_BINFO (type))
+    xref_basetypes (type, NULL_TREE);
+  pushclass (type);
+  gcc_assert (!TYPE_FIELDS (type));
+  tree fields = NULL_TREE;
+  for (int i = 0; i < TREE_VEC_LENGTH (rvec); ++i)
+    {
+      tree ra = TREE_VEC_ELT (rvec, i);
+      tree a = REFLECT_EXPR_HANDLE (ra);
+      tree f = build_decl (cp_expr_loc_or_input_loc (ra), FIELD_DECL,
+			   TREE_VEC_ELT (a, 1), TREE_VEC_ELT (a, 0));
+      DECL_CHAIN (f) = fields;
+      DECL_IN_AGGR_P (f) = 1;
+      DECL_CONTEXT (f) = type;
+      TREE_PUBLIC (f) = 1;
+      if (TREE_VEC_ELT (a, 3))
+	{
+	  /* Temporarily stash the width in DECL_BIT_FIELD_REPRESENTATIVE.
+	     check_bitfield_decl picks it from there later and sets DECL_SIZE
+	     accordingly.  */
+	  DECL_BIT_FIELD_REPRESENTATIVE (f) = TREE_VEC_ELT (a, 3);
+	  SET_DECL_C_BIT_FIELD (f);
+	}
+      else if (TREE_VEC_ELT (a, 2))
+	{
+	  SET_DECL_ALIGN (f, tree_to_uhwi (TREE_VEC_ELT (a, 2))
+			      * BITS_PER_UNIT);
+	  DECL_USER_ALIGN (f) = 1;
+	}
+      if (TREE_VEC_ELT (a, 4) == boolean_true_node)
+	{
+	  tree attr = build_tree_list (NULL_TREE,
+				       get_identifier ("no_unique_address"));
+	  attr = build_tree_list (attr, NULL_TREE);
+	  cplus_decl_attributes (&f, attr, 0);
+	}
+      fields = f;
+    }
+  TYPE_FIELDS (type) = fields;
+  finish_struct (type, NULL_TREE);
+  return get_reflection_raw (loc, orig_type);
 }
 
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.
@@ -5602,6 +5772,20 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (id_equal (name, "u8identifier_of"))
     return eval_identifier_of (loc, ctx, h, kind, jump_target,
 			       char8_type_node, TREE_TYPE (call));
+  if (id_equal (name, "tuple_size"))
+    {
+      tree tsize = eval_tuple_size (loc, ctx, h, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (!tsize)
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
+	  *non_constant_p = true;
+	  return call;
+	}
+      return tsize;
+    }
   if (id_equal (name, "can_substitute"))
     {
       tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
@@ -5635,18 +5819,15 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       return eval_data_member_spec (loc, ctx, h, opts, call,
 				    non_constant_p, overflow_p, jump_target);
     }
-  if (id_equal (name, "tuple_size"))
+  if (id_equal (name, "define_aggregate"))
     {
-      tree tsize = eval_tuple_size (loc, ctx, h, jump_target);
+      tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
+				overflow_p, jump_target);
       if (*jump_target)
 	return NULL_TREE;
-      if (!tsize)
-	{
-	  error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
-	  *non_constant_p = true;
-	  return call;
-	}
-      return tsize;
+      if (*non_constant_p)
+	return call;
+      return eval_define_aggregate (loc, ctx, h, hvec, call, non_constant_p);
     }
 
 not_found:

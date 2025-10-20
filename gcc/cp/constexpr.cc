@@ -1319,6 +1319,22 @@ struct constexpr_ctx {
   mce_value manifestly_const_eval;
 };
 
+/* Return ctx->quiet.  For use in reflect.cc.  */
+
+bool
+cxx_constexpr_quiet_p (const constexpr_ctx *ctx)
+{
+  return ctx->quiet;
+}
+
+/* Return ctx->manifestly_const_eval.  For use in reflect.cc.  */
+
+mce_value
+cxx_constexpr_manifestly_const_eval (const constexpr_ctx *ctx)
+{
+  return ctx->manifestly_const_eval;
+}
+
 /* Predicates for the meaning of *jump_target.  */
 
 static bool

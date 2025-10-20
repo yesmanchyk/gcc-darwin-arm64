@@ -328,6 +328,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     };
     consteval info data_member_spec(info, data_member_options);
     consteval bool is_data_member_spec(info);
+    template<reflection_range _R = initializer_list<info>>
+      consteval info define_aggregate(info, _R&&);
 
     // associated with [meta.unary.cat], primary type categories
     consteval bool is_void_type(info);

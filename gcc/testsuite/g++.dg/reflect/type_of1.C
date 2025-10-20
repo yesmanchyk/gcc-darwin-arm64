@@ -24,6 +24,7 @@ struct T {
 };
 struct U {
   int u;
+  int v : 5;
 };
 template<auto> struct TCls {};
 template<auto> void TFn();
@@ -113,6 +114,7 @@ static_assert (type_of (^^fn) == ^^void ());
 static_assert (type_of (^^Enum::A) == ^^Enum);
 static_assert (type_of (^^A) == ^^Enum);
 static_assert (type_of (^^S::mem) == ^^int);
+static_assert (type_of (^^U::v) == ^^int);
 //static_assert (type_of (std::meta::members_of (^^S, ctx)[1]) == ??);
 //static_assert (type_of (std::meta::bases_of (^^S, ctx)[0]) == ??);
 static_assert (type_of (std::meta::data_member_spec (^^int, { .name = "member" })) == ^^int);

@@ -9164,6 +9164,8 @@ enum value_cat {
 extern tree cxx_eval_constant_expression	(const constexpr_ctx *, tree,
 						 value_cat, bool *, bool *,
 						 tree *);
+extern bool cxx_constexpr_quiet_p		(const constexpr_ctx *);
+extern mce_value cxx_constexpr_manifestly_const_eval (const constexpr_ctx *);
 
 /* An RAII sentinel used to restrict constexpr evaluation so that it
    doesn't do anything that causes extra DECL_UID generation.  */
