@@ -4566,6 +4566,69 @@ eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
   return get_reflection_raw (loc, type);
 }
 
+/* Process std::meta::variant_size.
+   Returns: variant_size_v<T>, where T is the type represented by
+   dealias(type).  */
+
+static tree
+eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
+		   tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
+
+  /* Create std::variant_size<TYPE>::value.  */
+  tree args = make_tree_vec (1);
+  TREE_VEC_ELT (args, 0) = type;
+  tree inst = lookup_template_class (get_identifier ("variant_size"), args,
+				     /*in_decl*/NULL_TREE, /*context*/std_node,
+				     tf_warning_or_error);
+  inst = complete_type (inst);
+  if (inst == error_mark_node
+      || !COMPLETE_TYPE_P (inst)
+      || !CLASS_TYPE_P (type))
+    return NULL_TREE;
+  tree val = lookup_qualified_name (inst, value_identifier,
+				    LOOK_want::NORMAL, /*complain*/true);
+  if (val == error_mark_node)
+    return NULL_TREE;
+  if (VAR_P (val) || TREE_CODE (val) == CONST_DECL)
+    val = maybe_constant_value (val, NULL_TREE, mce_true);
+  if (TREE_CODE (val) == INTEGER_CST)
+    return val;
+  else
+    return NULL_TREE;
+}
+
+/* Process std::meta::variant_alternative.
+   Returns: A reflection representing the type denoted by
+   variant_alternative_t<I, T>, where T is the type represented by
+   dealias(type) and I is a constant equal to index.  */
+
+static tree
+eval_variant_alternative (location_t loc, const constexpr_ctx *ctx, tree i,
+			  tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  type = strip_typedefs (type);
+  /* Create std::variant_alternative<I,TYPE>::type.  */
+  tree args = make_tree_vec (2);
+  TREE_VEC_ELT (args, 0) = i;
+  TREE_VEC_ELT (args, 1) = type;
+  tree inst = lookup_template_class (get_identifier ("variant_alternative"),
+				     args, /*in_decl*/NULL_TREE,
+				     /*context*/std_node,
+				     tf_warning_or_error);
+  type = make_typename_type (inst, type_identifier,
+			     none_type, tf_warning_or_error);
+  if (type == error_mark_node)
+    return error_mark_node;
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
 /* Process std::meta::data_member_spec.
    Returns: A reflection of a data member description (T,N,A,W,NUA) where
    -- T is the type represented by dealias(type),
@@ -5162,7 +5225,8 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 			     id_equal (name, "symbol_of") ? char_type_node
 			     : char8_type_node, TREE_TYPE (call));
     }
-  if (id_equal (name, "tuple_element"))
+  if (id_equal (name, "tuple_element")
+      || id_equal (name, "variant_alternative"))
     {
       tree i = get_nth_callarg (call, 0);
       i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
@@ -5179,7 +5243,10 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       if (*non_constant_p)
 	return call;
       type = REFLECT_EXPR_HANDLE (type);
-      type = eval_tuple_element (loc, ctx, i, type, jump_target);
+      if (id_equal (name, "tuple_element"))
+	type = eval_tuple_element (loc, ctx, i, type, jump_target);
+      else
+	type = eval_variant_alternative (loc, ctx, i, type, jump_target);
       if (type == error_mark_node)
 	{
 	  *non_constant_p = true;
@@ -5777,10 +5844,24 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       tree tsize = eval_tuple_size (loc, ctx, h, jump_target);
       if (*jump_target)
 	return NULL_TREE;
-      if (!tsize)
+      if (!tsize || tsize == error_mark_node)
 	{
 	  if (!cxx_constexpr_quiet_p (ctx))
 	    error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
+	  *non_constant_p = true;
+	  return call;
+	}
+      return tsize;
+    }
+  if (id_equal (name, "variant_size"))
+    {
+      tree tsize = eval_variant_size (loc, ctx, h, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (!tsize)
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "couldn%'t compute %qs of %qT", "variant_size", h);
 	  *non_constant_p = true;
 	  return call;
 	}
