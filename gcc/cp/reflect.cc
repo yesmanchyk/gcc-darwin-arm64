@@ -4911,6 +4911,43 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
   return get_reflection_raw (loc, ret, REFLECT_DATA_MEMBER_SPEC);
 }
 
+/* Process std::meta::tuple_size.
+   Returns: tuple_size_v<T>, where T is the type represented by
+   dealias(type).  */
+
+static tree
+eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
+		 tree *jump_target)
+{
+  type = eval_dealias (loc, ctx, type, jump_target);
+  if (*jump_target)
+    return type;
+  type = REFLECT_EXPR_HANDLE (type);
+  /* It's UB to specialize tuple_size_v, so we can use this.  */
+  return get_tuple_size (type);
+}
+
+/* Process std::meta::tuple_element.
+   Returns: A reflection representing the type denoted by
+   tuple_element_t<I, T>, where T is the type represented by dealias(type)
+   and I is a constant equal to index.  */
+
+static tree
+eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
+		    tree type, tree *jump_target)
+{
+  const unsigned HOST_WIDE_INT index = tree_to_uhwi (i);
+  type = eval_dealias (loc, ctx, type, jump_target);
+  if (*jump_target)
+    return type;
+  type = REFLECT_EXPR_HANDLE (type);
+  type = get_tuple_element_type (type, index);
+  if (type == error_mark_node)
+    return error_mark_node;
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
 /* Expand a call to a metafunction.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -4957,6 +4994,32 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       return eval_symbol_of (loc, ctx, expr, jump_target,
 			     id_equal (name, "symbol_of") ? char_type_node
 			     : char8_type_node, TREE_TYPE (call));
+    }
+  if (id_equal (name, "tuple_element"))
+    {
+      tree i = get_nth_callarg (call, 0);
+      location_t loc = cp_expr_loc_or_input_loc (i);
+      i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
+					non_constant_p, overflow_p,
+					jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      tree type = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			    jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      type = REFLECT_EXPR_HANDLE (type);
+      type = eval_tuple_element (loc, ctx, i, type, jump_target);
+      if (type == error_mark_node)
+	{
+	  *non_constant_p = true;
+	  return call;
+	}
+      return type;
     }
 
   tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
@@ -5576,6 +5639,23 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	return call;
       return eval_data_member_spec (loc, ctx, h, opts, call,
 				    non_constant_p, overflow_p, jump_target);
+    }
+  if (id_equal (name, "tuple_size"))
+    {
+      tree tsize = eval_tuple_size (loc, ctx, h, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (!tsize)
+	{
+	  if (TYPE_P (h))
+	    error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
+	  else
+	    error_at (loc, "couldn%'t compute %qs of non-type %qE",
+		      "tuple_size", h);
+	  *non_constant_p = true;
+	  return call;
+	}
+      return tsize;
     }
 
 not_found:

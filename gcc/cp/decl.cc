@@ -10360,7 +10360,7 @@ find_decomp_class_base (location_t loc, tree type, tree ret,
 
 /* Return std::tuple_size<TYPE>::value.  */
 
-static tree
+tree
 get_tuple_size (tree type)
 {
   tree args = make_tree_vec (1);
@@ -10388,7 +10388,7 @@ get_tuple_size (tree type)
 
 /* Return std::tuple_element<I,TYPE>::type.  */
 
-static tree
+tree
 get_tuple_element_type (tree type, unsigned HOST_WIDE_INT i)
 {
   tree args = make_tree_vec (2);

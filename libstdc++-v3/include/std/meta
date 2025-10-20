@@ -466,6 +466,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval info decay(info);
     consteval info underlying_type(info);
 
+    consteval size_t tuple_size(info);
+    consteval info tuple_element(size_t, info);
+
     consteval strong_ordering type_order(info, info);
 
     // [meta.reflection.annotation], annotation reflection

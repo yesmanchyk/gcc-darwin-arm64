@@ -7374,6 +7374,8 @@ extern bool check_array_initializer		(tree, tree, tree);
 extern void omp_declare_variant_finalize	(tree, tree);
 struct cp_decomp { tree decl; unsigned int count; };
 extern void cp_finish_decl			(tree, tree, bool, tree, int, cp_decomp * = nullptr);
+extern tree get_tuple_size			(tree);
+extern tree get_tuple_element_type		(tree, unsigned HOST_WIDE_INT);
 extern tree lookup_decomp_type			(tree);
 HOST_WIDE_INT cp_decomp_size			(location_t, tree, tsubst_flags_t);
 extern bool cp_finish_decomp			(tree, cp_decomp *, bool = false);
