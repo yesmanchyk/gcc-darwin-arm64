@@ -4957,13 +4957,13 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 {
   tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
   const char *ident = IDENTIFIER_POINTER (name);
+  const location_t loc = cp_expr_loc_or_input_loc (call);
 
   if (id_equal (name, "reflect_constant")
       || id_equal (name, "reflect_object")
       || id_equal (name, "reflect_function"))
     {
       tree expr = get_nth_callarg (call, 0);
-      location_t loc = cp_expr_loc_or_input_loc (expr);
       tree decl = cp_get_callee_fndecl_nofold (call);
       tree type = TREE_VEC_ELT (get_template_innermost_arguments (decl), 0);
       expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
@@ -4983,7 +4983,6 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (id_equal (name, "symbol_of") || id_equal (name, "u8symbol_of"))
     {
       tree expr = get_nth_callarg (call, 0);
-      location_t loc = cp_expr_loc_or_input_loc (expr);
       expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
 					   non_constant_p, overflow_p,
 					   jump_target);
@@ -4996,7 +4995,6 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
   if (id_equal (name, "tuple_element"))
     {
       tree i = get_nth_callarg (call, 0);
-      location_t loc = cp_expr_loc_or_input_loc (i);
       i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
 					non_constant_p, overflow_p,
 					jump_target);
@@ -5027,7 +5025,6 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
     return call;
   tree h = REFLECT_EXPR_HANDLE (info);
   auto kind = static_cast<reflect_kind>(REFLECT_EXPR_KIND (info));
-  const location_t loc = cp_expr_loc_or_input_loc (info);
 
   /* There still could be a TEMPLATE_ID_EXPR denoting a function template.  */
   h = resolve_nondeduced_context (h, tf_warning_or_error);
