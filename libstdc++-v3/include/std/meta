@@ -305,6 +305,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       requires (is_function_v<remove_reference_t<_Tp>>)
     consteval info reflect_function(_Tp&);
 
+    // [meta.reflection.array], promoting to static storage arrays
+    template<ranges::input_range _R>
+      consteval info reflect_constant_string(_R&&);
+
     // [meta.reflection.define.aggregate], class definition generation
     struct data_member_options {
       struct _Name {
