@@ -121,6 +121,30 @@ eval (int n)
     case 35:
       is_nothrow_invocable_type (^^S, { ^^S, ^^n, ^^S });
       break;
+    case 36:
+      is_invocable_r_type (^^n, ^^S, {});
+      break;
+    case 37:
+      is_invocable_r_type (^^S, ^^n, {});
+      break;
+    case 38:
+      is_invocable_r_type (^^S, ^^S, { ^^S, ^^n, ^^S });
+      break;
+    case 39:
+      is_nothrow_invocable_r_type (^^n, ^^S, {});
+      break;
+    case 40:
+      is_nothrow_invocable_r_type (^^S, ^^n, {});
+      break;
+    case 41:
+      is_nothrow_invocable_r_type (^^S, ^^S, { ^^S, ^^n, ^^S });
+      break;
+    case 42:
+      invoke_result (^^n, {});
+      break;
+    case 43:
+      invoke_result (^^S, { ^^S, ^^n, ^^S });
+      break;
     default:
       break;
     }
@@ -171,3 +195,11 @@ static_assert (test (32));
 static_assert (test (33));
 static_assert (test (34));
 static_assert (test (35));
+static_assert (test (36));
+static_assert (test (37));
+static_assert (test (38));
+static_assert (test (39));
+static_assert (test (40));
+static_assert (test (41));
+static_assert (test (42));
+static_assert (test (43));

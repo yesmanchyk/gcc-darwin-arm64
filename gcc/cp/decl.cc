@@ -10372,7 +10372,7 @@ get_tuple_size (tree type)
   inst = complete_type (inst);
   if (inst == error_mark_node
       || !COMPLETE_TYPE_P (inst)
-      || !CLASS_TYPE_P (type))
+      || !CLASS_TYPE_P (inst))
     return NULL_TREE;
   tree val = lookup_qualified_name (inst, value_identifier,
 				    LOOK_want::NORMAL, /*complain*/false);

@@ -434,9 +434,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     template<reflection_range _R = initializer_list<info>>
       consteval bool is_invocable_type(info, _R&&);
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_invocable_r_type(info, info, _R&&);
 
     template<reflection_range _R = initializer_list<info>>
       consteval bool is_nothrow_invocable_type(info, _R&&);
+    template<reflection_range _R = initializer_list<info>>
+      consteval bool is_nothrow_invocable_r_type(info, info, _R&&);
 
     // associated with [meta.trans.cv], const-volatile modifications
     consteval info remove_const(info);
@@ -466,7 +470,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // associated with [meta.trans.other], other transformations
     consteval info remove_cvref(info);
     consteval info decay(info);
+    template<reflection_range _R = initializer_list<info>>
+      consteval info common_type(_R&&);
+    template<reflection_range _R = initializer_list<info>>
+      consteval info common_reference(_R&&);
     consteval info underlying_type(info);
+    template<reflection_range _R = initializer_list<info>>
+      consteval info invoke_result(info, _R&&);
 
     consteval size_t tuple_size(info);
     consteval info tuple_element(size_t, info);

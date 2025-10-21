@@ -2,7 +2,9 @@
 // { dg-additional-options "-freflection" }
 // Test reflection type traits [meta.reflection.traits], type properties.
 
+#include <functional>
 #include <meta>
+
 using namespace std::meta;
 
 class ClassType { };
@@ -304,6 +306,7 @@ static_assert (!is_invocable_type (^^memfun_type_iic, { ^^const W &, ^^int &, ^^
 static_assert (is_invocable_type (^^memfun_type_iic, { ^^const W &, ^^int & }));
 static_assert (is_invocable_type (^^memfun_type_iic, { ^^const W *, ^^int & }));
 static_assert (!is_invocable_type (^^F, { ^^int, ^^int }));
+
 static_assert (!is_nothrow_invocable_type (^^func_type, {}));
 static_assert (is_nothrow_invocable_type (^^func_type_nt, {}));
 static_assert (!is_nothrow_invocable_type (^^mem_type, {}));
@@ -328,3 +331,117 @@ static_assert (is_nothrow_invocable_type (^^CF2, { ^^int }));
 static_assert (is_nothrow_invocable_type (^^CF2 &, { ^^int }));
 static_assert (!is_nothrow_invocable_type (^^F2, { ^^int, ^^int }));
 static_assert (is_nothrow_invocable_type (^^FW, {}));
+
+static_assert (is_invocable_r_type (^^void, ^^func_type_v0, {}));
+static_assert (!is_invocable_r_type (^^void *, ^^func_type_v0, {}));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_v0, {}));
+static_assert (!is_invocable_r_type (^^void, ^^func_type_v0, { ^^int }));
+static_assert (!is_invocable_r_type (^^void *, ^^func_type_v0, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_v0, { ^^int }));
+static_assert (is_invocable_r_type (^^void, ^^func_type_i0, {}));
+static_assert (is_invocable_r_type (^^int, ^^func_type_i0, {}));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_i0, {}));
+static_assert (is_invocable_r_type (^^long, ^^func_type_i0, {}));
+static_assert (!is_invocable_r_type (^^void, ^^func_type_i0, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_i0, { ^^int }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_i0, { ^^int }));
+static_assert (!is_invocable_r_type (^^long, ^^func_type_i0, { ^^int }));
+static_assert (is_invocable_r_type (^^void, ^^func_type_l0, {}));
+static_assert (is_invocable_r_type (^^int, ^^func_type_l0, {}));
+static_assert (is_invocable_r_type (^^int &, ^^func_type_l0, {}));
+static_assert (!is_invocable_r_type (^^int &&, ^^func_type_l0, {}));
+static_assert (is_invocable_r_type (^^long, ^^func_type_l0, {}));
+static_assert (!is_invocable_r_type (^^long &, ^^func_type_l0, {}));
+static_assert (!is_invocable_r_type (^^void, ^^func_type_l0, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_l0, { ^^int }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_l0, { ^^int }));
+static_assert (!is_invocable_r_type (^^long, ^^func_type_l0, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_ii, {}));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_ii, {}));
+static_assert (!is_invocable_r_type (^^long, ^^func_type_ii, {}));
+static_assert (is_invocable_r_type (^^int, ^^func_type_ii, { ^^int }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_ii, { ^^int }));
+static_assert (is_invocable_r_type (^^long, ^^func_type_ii, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_il, { ^^int }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_il, { ^^int }));
+static_assert (!is_invocable_r_type (^^long, ^^func_type_il, { ^^int }));
+static_assert (is_invocable_r_type (^^int, ^^func_type_il, { ^^int & }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_il, { ^^int & }));
+static_assert (is_invocable_r_type (^^long, ^^func_type_il, { ^^int & }));
+static_assert (is_invocable_r_type (^^int, ^^func_type_ir, { ^^int }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_ir, { ^^int }));
+static_assert (is_invocable_r_type (^^long, ^^func_type_ir, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^func_type_ir, { ^^int & }));
+static_assert (!is_invocable_r_type (^^int &, ^^func_type_ir, { ^^int & }));
+static_assert (!is_invocable_r_type (^^long, ^^func_type_ir, { ^^int & }));
+static_assert (!is_invocable_r_type (^^int, ^^mem_type_i, { ^^int }));
+static_assert (!is_invocable_r_type (^^int &, ^^mem_type_i, { ^^int }));
+static_assert (!is_invocable_r_type (^^long, ^^mem_type_i, { ^^int }));
+static_assert (!is_invocable_r_type (^^int, ^^mem_type_i, { ^^int & }));
+static_assert (!is_invocable_r_type (^^int &, ^^mem_type_i, { ^^int & }));
+static_assert (!is_invocable_r_type (^^long, ^^mem_type_i, { ^^int & }));
+static_assert (is_invocable_r_type (^^int, ^^mem_type_i, { ^^W & }));
+static_assert (is_invocable_r_type (^^int &, ^^mem_type_i, { ^^W & }));
+static_assert (is_invocable_r_type (^^long, ^^mem_type_i, { ^^W & }));
+static_assert (is_invocable_r_type (^^int, ^^memfun_type_i, { ^^W & }));
+static_assert (!is_invocable_r_type (^^int &, ^^memfun_type_i, { ^^W & }));
+static_assert (is_invocable_r_type (^^long, ^^memfun_type_i, { ^^W & }));
+static_assert (!is_invocable_r_type (^^int, ^^memfun_type_i, { ^^const W & }));
+static_assert (is_invocable_r_type (^^int, ^^memfun_type_iic, { ^^const W &, ^^int & }));
+static_assert (is_invocable_r_type (^^int &, ^^memfun_type_iic, { ^^const W &, ^^int & }));
+static_assert (is_invocable_r_type (^^long, ^^memfun_type_iic, { ^^const W &, ^^int & }));
+static_assert (!is_invocable_r_type (^^long &, ^^memfun_type_iic, { ^^const W &, ^^int & }));
+static_assert (is_invocable_r_type (^^int &, ^^F, {}));
+static_assert (is_invocable_r_type (^^int &, ^^F &, {}));
+static_assert (is_invocable_r_type (^^long &, ^^CF, {}));
+static_assert (is_invocable_r_type (^^long &, ^^CF &, {}));
+static_assert (is_invocable_r_type (^^short &, ^^F, { ^^int }));
+static_assert (is_invocable_r_type (^^char &, ^^F &, { ^^int }));
+static_assert (is_invocable_r_type (^^char &, ^^CF, { ^^int }));
+static_assert (is_invocable_r_type (^^char &, ^^CF &, { ^^int }));
+
+static_assert (is_nothrow_invocable_r_type (^^int, ^^mem_type, { ^^W & }));
+static_assert (is_nothrow_invocable_r_type (^^int &, ^^mem_type, { ^^W & }));
+static_assert (is_nothrow_invocable_r_type (^^long, ^^mem_type, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^long &, ^^mem_type, { ^^W & }));
+static_assert (is_nothrow_invocable_r_type (^^int &, ^^mem_type, { ^^W * }));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^mem_type, { ^^W & }));
+static_assert (is_nothrow_invocable_r_type (^^NT, ^^mem_type, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^mem_type, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^memfun_type, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^NT, ^^memfun_type, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^memfun_type, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^memfun_type_nt, { ^^W & }));
+static_assert (is_nothrow_invocable_r_type (^^NT, ^^memfun_type_nt, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^memfun_type_nt, { ^^W & }));
+static_assert (!is_nothrow_invocable_r_type (^^int &, ^^F2, {}));
+static_assert (is_nothrow_invocable_r_type (^^long &, ^^CF2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^F2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^NT, ^^F2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^F2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^void, ^^F2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^CF2, {}));
+static_assert (is_nothrow_invocable_r_type (^^NT, ^^CF2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^CF2, {}));
+static_assert (is_nothrow_invocable_r_type (^^void, ^^CF2, {}));
+static_assert (!is_nothrow_invocable_r_type (^^short &, ^^F2, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^char &, ^^F2 &, { ^^int }));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^F2 &, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^NT, ^^F2 &, { ^^int }));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^F2 &, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^char &, ^^CF2, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^char &, ^^CF2 &, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^void, ^^CF2 &, { ^^int }));
+static_assert (!is_nothrow_invocable_r_type (^^T, ^^CF2 &, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^NT, ^^CF2 &, { ^^int }));
+static_assert (!is_nothrow_invocable_r_type (^^Ex, ^^CF2 &, { ^^int }));
+static_assert (is_nothrow_invocable_r_type (^^void, ^^CF2 &, { ^^int }));
+static_assert (!is_nothrow_invocable_r_type (^^void, ^^F2, { ^^int, ^^int }));
+static_assert (!is_nothrow_invocable_r_type (^^V, ^^FW, {}));
+
+static_assert (invoke_result (^^std::copyable_function <void ()>, {}) == ^^void);
+static_assert (invoke_result (^^std::copyable_function <int ()>, {}) == ^^int);
+static_assert (invoke_result (^^std::copyable_function <int & ()>, {}) == ^^int &);
+static_assert (invoke_result (^^std::copyable_function <void (long, int)>, { ^^long, ^^int }) == ^^void);
+static_assert (invoke_result (^^std::copyable_function <int (double, unsigned)>, { ^^double, ^^unsigned }) == ^^int);
+static_assert (invoke_result (^^std::copyable_function <int & (int &)>, { ^^int & }) == ^^int &);

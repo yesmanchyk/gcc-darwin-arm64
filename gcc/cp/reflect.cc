@@ -4028,6 +4028,54 @@ eval_is_invocable_type (location_t loc, const constexpr_ctx *ctx,
   return r;
 }
 
+/* Process std::meta::is_{,nothrow_}invocable_r_type.  */
+
+static tree
+eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
+			  tree tres, tree type, tree tvec, tree call,
+			  bool *non_constant_p, tree *jump_target,
+			  const char *name)
+{
+  if (eval_is_type (tres) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, tres, jump_target);
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+
+  /* Create std::is_invocable_r<TYPE>::value.  */
+  tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 2);
+  TREE_VEC_ELT (args, 0) = tres;
+  TREE_VEC_ELT (args, 1) = type;
+  for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
+    TREE_VEC_ELT (args, i + 2) = TREE_VEC_ELT (tvec, i);
+  tree inst = lookup_template_class (get_identifier (name), args,
+				     /*in_decl*/NULL_TREE, /*context*/std_node,
+				     tf_warning_or_error);
+  inst = complete_type (inst);
+  if (inst == error_mark_node
+      || !COMPLETE_TYPE_P (inst)
+      || !CLASS_TYPE_P (inst))
+    {
+    fail:
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::value%>",
+		  name, args);
+      *non_constant_p = true;
+      return call;
+    }
+  tree val = lookup_qualified_name (inst, value_identifier,
+				    LOOK_want::NORMAL, /*complain*/true);
+  if (val == error_mark_node)
+    goto fail;
+  if (VAR_P (val) || TREE_CODE (val) == CONST_DECL)
+    val = maybe_constant_value (val, NULL_TREE, mce_true);
+  if (integer_zerop (val))
+    return boolean_false_node;
+  else if (integer_nonzerop (val))
+    return boolean_true_node;
+  else
+    goto fail;
+}
+
 /* Process std::meta::is_nothrow_invocable_type.  */
 
 static tree
@@ -4070,6 +4118,30 @@ eval_decay (location_t loc, const constexpr_ctx *ctx, tree type,
   return get_reflection_raw (loc, type);
 }
 
+/* Process std::meta::common_{type,reference}.  */
+
+static tree
+eval_common_type (location_t loc, const constexpr_ctx *ctx, tree tvec,
+		  tree call, bool *non_constant_p, const char *name)
+{
+  tree inst = lookup_template_class (get_identifier (name), tvec,
+				     /*in_decl*/NULL_TREE,
+				     /*context*/std_node,
+				     tf_warning_or_error);
+  tree type = make_typename_type (inst, type_identifier,
+				  none_type, tf_warning_or_error);
+  if (type == error_mark_node)
+    {
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::type%>",
+		  name, tvec);
+      *non_constant_p = true;
+      return call;
+    }
+  type = strip_typedefs (type);
+  return get_reflection_raw (loc, type);
+}
+
 /* Process std::meta::underlying_type.  */
 
 static tree
@@ -4086,6 +4158,38 @@ eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
   type = finish_underlying_type (type);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::invoke_result.  */
+
+static tree
+eval_invoke_result (location_t loc, const constexpr_ctx *ctx, tree type,
+		    tree tvec, tree call, bool *non_constant_p,
+		    tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+
+  tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 1);
+  TREE_VEC_ELT (args, 0) = type;
+  for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
+    TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (tvec, i);
+  tree inst = lookup_template_class (get_identifier ("invoke_result"), args,
+				     /*in_decl*/NULL_TREE,
+				     /*context*/std_node,
+				     tf_warning_or_error);
+  tree tret = make_typename_type (inst, type_identifier,
+				  none_type, tf_warning_or_error);
+  if (tret == error_mark_node)
+    {
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::type%>",
+		  "invoke_result", args);
+      *non_constant_p = true;
+      return call;
+    }
+  tret = strip_typedefs (tret);
+  return get_reflection_raw (loc, tret);
 }
 
 /* Process std::meta::type_order.  */
@@ -4587,7 +4691,7 @@ eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
   inst = complete_type (inst);
   if (inst == error_mark_node
       || !COMPLETE_TYPE_P (inst)
-      || !CLASS_TYPE_P (type))
+      || !CLASS_TYPE_P (inst))
     return NULL_TREE;
   tree val = lookup_qualified_name (inst, value_identifier,
 				    LOOK_want::NORMAL, /*complain*/true);
@@ -5254,6 +5358,16 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	}
       return type;
     }
+  if (id_equal (name, "common_type") || id_equal (name, "common_reference"))
+    {
+      tree hvec = get_type_info_vec (loc, ctx, call, 0, non_constant_p,
+				     overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
+    }
 
   tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
   if (*jump_target)
@@ -5627,6 +5741,28 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	  return eval_is_nothrow_invocable_type (loc, ctx, h, hvec,
 						 jump_target);
 	}
+      if (!strcmp (ident, "invocable_r_type")
+	  || !strcmp (ident, "nothrow_invocable_r_type"))
+	{
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
+	  tree hvec = get_type_info_vec (loc, ctx, call, 2, non_constant_p,
+					 overflow_p, jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_invocable_r_type (loc, ctx, h, h1, hvec, call,
+					   non_constant_p, jump_target,
+					   ident[0] == 'n'
+					   ? "is_nothrow_invocable_r"
+					   : "is_invocable_r");
+	}
       if (!strcmp (ident, "assignable_type"))
 	{
 	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
@@ -5866,6 +6002,17 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
 	  return call;
 	}
       return tsize;
+    }
+  if (!strcmp (ident, "invoke_result"))
+    {
+      tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+				     overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      return eval_invoke_result (loc, ctx, h, hvec, call,
+				 non_constant_p, jump_target);
     }
   if (id_equal (name, "can_substitute"))
     {
