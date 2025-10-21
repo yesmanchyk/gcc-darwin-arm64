@@ -9213,7 +9213,7 @@ extern tree co_await_get_resume_call		(tree await_expr);
 /* In reflect.cc */
 extern void init_reflection ();
 extern bool metafunction_p (tree) ATTRIBUTE_PURE;
-extern tree process_metafunction (const constexpr_ctx *, tree,
+extern tree process_metafunction (const constexpr_ctx *, tree, tree,
 				  bool *, bool *, tree *);
 extern tree get_reflection (location_t, tree, reflect_kind = REFLECT_UNDEF);
 extern tree get_null_reflection () ATTRIBUTE_PURE;

@@ -5283,16 +5283,16 @@ eval_define_aggregate (location_t loc, const constexpr_ctx *ctx,
   return get_reflection_raw (loc, orig_type);
 }
 
-/* Expand a call to a metafunction.  CALL is the CALL_EXPR.
+/* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
 // TODO Use gperf?
 tree
-process_metafunction (const constexpr_ctx *ctx, tree call,
+process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 		      bool *non_constant_p, bool *overflow_p,
 		      tree *jump_target)
 {
-  tree name = DECL_NAME (cp_get_callee_fndecl_nofold (call));
+  tree name = DECL_NAME (fun);
   const char *ident = IDENTIFIER_POINTER (name);
   const location_t loc = cp_expr_loc_or_input_loc (call);
 
@@ -5301,8 +5301,7 @@ process_metafunction (const constexpr_ctx *ctx, tree call,
       || id_equal (name, "reflect_function"))
     {
       tree expr = get_nth_callarg (call, 0);
-      tree decl = cp_get_callee_fndecl_nofold (call);
-      tree type = TREE_VEC_ELT (get_template_innermost_arguments (decl), 0);
+      tree type = TREE_VEC_ELT (get_template_innermost_arguments (fun), 0);
       expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
 					   non_constant_p, overflow_p,
 					   jump_target);
