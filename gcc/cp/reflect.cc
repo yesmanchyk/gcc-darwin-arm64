@@ -4511,6 +4511,30 @@ eval_add_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
   return get_reflection_raw (loc, type);
 }
 
+/* Process std::meta::is_lvalue_reference_qualified and
+   std::meta::is_rvalue_reference_qualified.
+   Let T be type_of(r) if has-type(r) is true.  Otherwise, let T be
+   dealias(r).
+   Returns: true if T represents an lvalue- or rvalue-qualified
+   function type, respectively.  Otherwise, false.
+   RVALUE_P is true if we're processing is_rvalue_*, false if we're
+   processing is_lvalue_*.  */
+
+static tree
+eval_is_lrvalue_reference_qualified (tree r, reflect_kind kind,
+				     bool rvalue_p)
+{
+  if (has_type (r, kind))
+    r = type_of (r, kind);
+  else if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  if (FUNC_OR_METHOD_TYPE_P (r) && FUNCTION_REF_QUALIFIED (r))
+    if (rvalue_p == FUNCTION_RVALUE_QUALIFIED (r))
+      return boolean_true_node;
+
+  return boolean_false_node;
+}
+
 /* Process std::meta::can_substitute.
    Let Z be the template represented by templ and let Args... be a sequence of
    prvalue constant expressions that compute the reflections held by the
@@ -5799,6 +5823,12 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	}
       if (!strcmp (ident, "data_member_spec"))
 	return eval_is_data_member_spec (h, kind);
+      if (!strcmp (ident, "lvalue_reference_qualified"))
+	return eval_is_lrvalue_reference_qualified (h, kind,
+						    /*rvalue_p=*/false);
+      if (!strcmp (ident, "rvalue_reference_qualified"))
+	return eval_is_lrvalue_reference_qualified (h, kind,
+						    /*rvalue_p=*/true);
       goto not_found;
     }
 

@@ -189,6 +189,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_const(info);
     consteval bool is_volatile(info);
     consteval bool is_mutable_member(info);
+    consteval bool is_lvalue_reference_qualified(info);
+    consteval bool is_rvalue_reference_qualified(info);
 
     consteval bool has_static_storage_duration(info);
     consteval bool has_thread_storage_duration(info);
