@@ -423,6 +423,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_nothrow_destructible_type(info);
     consteval bool is_nothrow_relocatable_type(info);
 
+    consteval bool is_implicit_lifetime_type(info);
+
     consteval bool has_virtual_destructor(info);
 
     consteval bool has_unique_object_representations(info);

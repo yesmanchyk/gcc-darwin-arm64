@@ -251,6 +251,9 @@ eval (int n)
     case 79:
       underlying_type (^^n);
       break;
+    case 80:
+      is_implicit_lifetime_type (^^n);
+      break;
    default:
       break;
     }
@@ -345,3 +348,4 @@ static_assert (test (76));
 static_assert (test (77));
 static_assert (test (78));
 static_assert (test (79));
+static_assert (test (80));

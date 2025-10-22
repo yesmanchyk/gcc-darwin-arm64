@@ -5719,6 +5719,20 @@ eval_reflect_constant_array (location_t loc, const constexpr_ctx *ctx,
   return get_reflection_raw (loc, decl);
 }
 
+/* Process std::meta::is_implicit_lifetime_type.  */
+
+static tree
+eval_is_implicit_lifetime_type (location_t loc, const constexpr_ctx *ctx,
+				tree type, tree *jump_target)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+  if (implicit_lifetime_type_p (type))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -6249,6 +6263,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       if (!strcmp (ident, "rvalue_reference_qualified"))
 	return eval_is_lrvalue_reference_qualified (h, kind,
 						    /*rvalue_p=*/true);
+      if (!strcmp (ident, "implicit_lifetime_type"))
+	return eval_is_implicit_lifetime_type (loc, ctx, h, jump_target);
       goto not_found;
     }
 
