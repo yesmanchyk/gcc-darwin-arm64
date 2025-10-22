@@ -106,7 +106,7 @@ foo (int a, const long b, T c, int d[4], T &e)
 
 static_assert (type_of (std::meta::reflect_constant (42)) == ^^int);
 static_assert (type_of (std::meta::reflect_constant (42.0)) == ^^double);
-//static_assert (type_of (std::meta::reflect_constant (U { 42 })) == ^^U);
+static_assert (type_of (std::meta::reflect_constant (U { 42 })) == ^^const U);
 static_assert (type_of (std::meta::reflect_object (arr[1])) == ^^int);
 using int3 = int[3];
 static_assert (type_of (^^arr) == dealias (^^int3));
@@ -180,3 +180,11 @@ static_assert (type_of (^^E34) == ^^Enum3);
 static_assert (type_of (^^E35) == ^^Enum3);
 static_assert (type_of (^^E36) == ^^Enum3);
 static_assert (type_of (^^E37) == ^^Enum3);
+
+constexpr auto a = reflect_constant_string ("abcd");
+static_assert (type_of (a) == ^^const char [5]);
+auto as = &[: a :];
+static_assert (type_of (^^as) == ^^const char (*) [5]);
+struct V { int a, b, c; };
+auto bs = &[: reflect_constant (V { 2, 3, 4 }) :];
+static_assert (type_of (^^bs) == ^^const V *);
