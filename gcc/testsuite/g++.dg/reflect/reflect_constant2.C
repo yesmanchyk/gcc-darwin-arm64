@@ -6,7 +6,7 @@
 
 using namespace std::meta;
 
-constexpr auto one = std::meta::reflect_constant(1);
+constexpr auto one = reflect_constant(1);
 static_assert ([:one:] == 1);
 
 template<info> struct S {};
