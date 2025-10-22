@@ -1922,6 +1922,8 @@ enum reflect_kind : addr_space_t {
   REFLECT_UNDEF,
   /* The reflection represents an object.  */
   REFLECT_OBJECT,
+  /* The reflection represents a value.  */
+  REFLECT_VALUE,
   /* The reflection represents a function parameter.  */
   REFLECT_PARM,
   /* The reflection represents a data member description.  */

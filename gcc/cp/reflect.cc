@@ -1227,6 +1227,18 @@ eval_is_object (reflect_kind kind)
     return boolean_false_node;
 }
 
+/* Process std::meta::is_value.
+   Returns: true if r represents a value.  Otherwise, false.  */
+
+static tree
+eval_is_value (reflect_kind kind)
+{
+  if (kind == REFLECT_VALUE)
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Like get_info_vec, but throw exception if any of the elements aren't
    eval_is_type reflections and change their content to the corresponding
    REFLECT_EXPR_HANDLE.  */
@@ -3063,6 +3075,17 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return build_cplus_new (ret_type, ret, tf_warning_or_error);
 }
 
+/* Determine the reflection kind for R.  */
+
+static reflect_kind
+get_reflection_kind (tree r)
+{
+  if (eval_is_type (r) == boolean_true_node
+      || eval_is_template (r) == boolean_true_node)
+    return REFLECT_UNDEF;
+  return obvalue_p (r) ? REFLECT_OBJECT : REFLECT_VALUE;
+}
+
 /* Get the reflection of template argument ARG as per
    std::meta::template_arguments_of.  */
 
@@ -3072,7 +3095,7 @@ get_reflection_of_targ (tree arg)
   const location_t loc = location_of (arg);
   /* canonicalize_type_argument already strip_typedefs.  */
   arg = STRIP_REFERENCE_REF (arg);
-  return get_reflection_raw (loc, arg);
+  return get_reflection_raw (loc, arg, get_reflection_kind (arg));
 }
 
 /* Process std::meta::template_arguments_of.
@@ -3252,7 +3275,7 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree type,
   expr = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (expr == error_mark_node)
     throw_exception_generic (loc, ctx, type, jump_target);
-  return get_reflection_raw (loc, expr);
+  return get_reflection_raw (loc, expr, get_reflection_kind (expr));
 }
 
 /* Process std::meta::reflect_object.
@@ -4981,6 +5004,7 @@ eval_substitute (location_t loc, const constexpr_ctx *ctx,
     {
       ret = build_concept_check (r, rvec, tf_none);
       ret = evaluate_concept_check (ret);
+      return get_reflection_raw (loc, ret, REFLECT_VALUE);
     }
   else if (variable_template_p (r))
     {
@@ -5828,6 +5852,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	return eval_is_concept (h);
       if (!strcmp (ident, "object"))
 	return eval_is_object (kind);
+      if (!strcmp (ident, "value"))
+	return eval_is_value (kind);
       if (!strcmp (ident, "structured_binding"))
 	return eval_is_structured_binding (h);
       if (!strcmp (ident, "class_member"))

@@ -20,6 +20,7 @@ fn_int_ref ()
   static constexpr auto R = reflect_object(P);
 
   static_assert(is_object(R));
+  static_assert(!is_value(R));
   static_assert(!is_variable(R));
   if constexpr (is_const(R)) {
     static_assert(type_of(R) == ^^const int);
@@ -36,6 +37,7 @@ fn_int_subobject_ref ()
   static constexpr auto R = reflect_object(P);
 
   static_assert(is_object(R));
+  static_assert(!is_value(R));
   static_assert(!is_variable(R));
   static_assert(type_of(R) == ^^const int);
   static_assert([:R:] == 3);
@@ -48,6 +50,7 @@ fn_cls_value ()
   static constexpr auto R = reflect_object(P);
 
   static_assert(is_object(R));
+  static_assert(!is_value(R));
   static_assert(!is_variable(R));
   static_assert(type_of(R) == ^^const S);
   static_assert([:R:].m == 5);
@@ -60,6 +63,7 @@ fn_cls_ref ()
   static constexpr auto R = reflect_object(P);
 
   static_assert(is_object(R));
+  static_assert(!is_value(R));
   static_assert(!is_variable(R));
   static_assert(type_of(R) == ^^S);
 }

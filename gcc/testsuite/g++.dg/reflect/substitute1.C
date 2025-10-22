@@ -162,6 +162,8 @@ static_assert (!could_substitute (^^S, {}));
 static_assert (substitute (^^S, { ^^int }) == ^^S <int>);
 static_assert (substitute (^^S, { ^^V }) == ^^S <V>);
 static_assert (substitute (^^S, { ^^NS }) == ^^S <NS>);
+static_assert (!is_value (substitute (^^S, { ^^int })));
+static_assert (!is_object (substitute (^^S, { ^^int })));
 static_assert (!could_substitute (^^S, { ^^int, ^^long }));
 static_assert (!could_substitute (^^S, { reflect_constant (42) }));
 static_assert (!could_substitute (^^S, { ^^n }));
@@ -169,12 +171,20 @@ static_assert (!could_substitute (^^T, {}));
 static_assert (!could_substitute (^^T, { ^^float, ^^int }));
 constexpr float fv = 42.0f;
 static_assert (substitute (^^T, { ^^fv, reflect_constant (42) }) == ^^T <42.0f, 42>);
+static_assert (!is_value (substitute (^^T, { ^^fv, reflect_constant (42) })));
+static_assert (!is_object (substitute (^^T, { ^^fv, reflect_constant (42) })));
 static_assert (substitute (^^T, { ^^fv, reflect_constant (0) }) == ^^T <42.0f, 0>);
+static_assert (!is_value (substitute (^^T, { ^^fv, reflect_constant (0) })));
+static_assert (!is_object (substitute (^^T, { ^^fv, reflect_constant (0) })));
 static_assert (substitute (^^T, { ^^fv, ^^n }) == ^^T <42.0f, 42>);
+static_assert (!is_value (substitute (^^T, { ^^fv, ^^n })));
+static_assert (!is_object (substitute (^^T, { ^^fv, ^^n })));
 static_assert (!could_substitute (^^T, { ^^n, ^^fv }));
 static_assert (!could_substitute (^^T, { ^^fv, ^^n, ^^fv }));
 
 static_assert (substitute (^^U, {}) == ^^U <>);
+static_assert (!is_value (substitute (^^U, {})));
+static_assert (!is_object (substitute (^^U, {})));
 static_assert (substitute (^^U, { ^^int }) == ^^U <int>);
 static_assert (substitute (^^U, { ^^int, ^^long, ^^const int &, ^^float, ^^double }) == ^^U <int, long, const int &, float, double>);
 static_assert (substitute (^^U, std::vector <info> { ^^int, ^^long, ^^const int &, ^^float, ^^double } | std::views::reverse) == ^^U <double, float, const int &, long, int>);
@@ -182,18 +192,29 @@ static_assert (!could_substitute (^^U, { ^^int, ^^long, ^^const int &, ^^n, ^^fl
 
 static_assert (!could_substitute (^^v, {}));
 static_assert (substitute (^^v, { reflect_constant (15) }) == ^^v <15>);
+static_assert (!is_value (substitute (^^v, { reflect_constant (15) })));
+static_assert (!is_object (substitute (^^v, { reflect_constant (15) })));
 static_assert (substitute (^^v, { ^^n }) == ^^v <42>);
+static_assert (!is_value (substitute (^^v, { ^^n })));
+static_assert (!is_object (substitute (^^v, { ^^n })));
 static_assert (!could_substitute (^^v, { ^^n, ^^n }));
 static_assert (!could_substitute (^^v, { ^^int }));
 
 static_assert (!could_substitute (^^C, {}));
 static_assert (substitute (^^C, { ^^int }) == reflect_constant (false));
+static_assert (is_value (substitute (^^C, { ^^int })));
+static_assert (!is_object (substitute (^^C, { ^^int })));
 static_assert (substitute (^^C, { ^^V }) == reflect_constant (true));
+static_assert (is_value (substitute (^^C, { ^^V })));
+static_assert (!is_object (substitute (^^C, { ^^V })));
 static_assert (!could_substitute (^^C, { ^^int, ^^int }));
 static_assert (!could_substitute (^^C, { reflect_constant (42) }));
 static_assert (!could_substitute (^^C, { ^^n }));
 
 static_assert (!could_substitute (^^foo, {}));
+static_assert (substitute (^^foo, { ^^int }) == ^^foo <int>);
+static_assert (!is_value (substitute (^^foo, { ^^int })));
+static_assert (!is_object (substitute (^^foo, { ^^int })));
 static_assert (substitute (^^foo, { ^^int }) == ^^foo <int>);
 static_assert (substitute (^^foo, { ^^V }) == ^^foo <V>);
 static_assert (substitute (^^foo, { ^^NS }) == ^^foo <NS>);
@@ -212,4 +233,6 @@ T <U, V> baz () { return T <U, V> {}; }
 static_assert (return_type_of (^^baz <TU1, int, long>) == ^^TU1 <int, long>);
 static_assert (return_type_of (^^baz <TU2, double, int>) == ^^TU2 <double, int>);
 static_assert (substitute (^^baz, { ^^TU1, ^^int, ^^long }) == ^^baz <TU1, int, long>);
+static_assert (!is_value (substitute (^^baz, { ^^TU1, ^^int, ^^long })));
+static_assert (!is_object (substitute (^^baz, { ^^TU1, ^^int, ^^long })));
 static_assert (substitute (^^baz, { ^^TU2, ^^double, ^^int }) == ^^baz <TU2, double, int>);

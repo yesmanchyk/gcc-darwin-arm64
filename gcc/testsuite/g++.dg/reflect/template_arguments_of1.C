@@ -23,8 +23,12 @@ int i;
 template<int, int&, S, template<class> class>
   struct X { };
 constexpr auto T = ^^X<1, i, S{}, PairPtr>;
-// TODO
-//static_assert(is_value(template_arguments_of(T)[0]));
-//static_assert(is_object(template_arguments_of(T)[1]));
-//static_assert(is_object(template_arguments_of(T)[2]));
+static_assert(is_value(template_arguments_of(T)[0]));
+static_assert(!is_object(template_arguments_of(T)[0]));
+static_assert(!is_value(template_arguments_of(T)[1]));
+static_assert(is_object(template_arguments_of(T)[1]));
+static_assert(is_object(template_arguments_of(T)[2]));
+static_assert(!is_value(template_arguments_of(T)[2]));
+static_assert(!is_value(template_arguments_of(T)[3]));
+static_assert(!is_object(template_arguments_of(T)[3]));
 static_assert(template_arguments_of(T)[3] == ^^PairPtr);

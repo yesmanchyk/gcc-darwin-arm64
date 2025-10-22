@@ -6,7 +6,7 @@
 
 using namespace std::meta;
 
-consteval int
+consteval size_t
 invoke (size_t (*fp)(info))
 {
   return fp (^^int);

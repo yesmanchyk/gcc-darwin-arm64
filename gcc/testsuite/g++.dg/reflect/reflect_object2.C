@@ -18,14 +18,17 @@ static_assert ([:rceobj:] == 42);
 static_assert (reflect_object (obj) != ^^obj);
 static_assert (type_of (reflect_object (obj)) == ^^int);
 static_assert (is_object (reflect_object (obj)));
+static_assert (!is_value (reflect_object (obj)));
 static_assert (!is_variable (reflect_object (obj)));
 static_assert (reflect_object (cobj) != ^^cobj);
 static_assert (type_of (reflect_object (cobj)) == ^^const int);
 static_assert (is_object (reflect_object (cobj)));
+static_assert (!is_value (reflect_object (cobj)));
 static_assert (!is_variable (reflect_object (cobj)));
 static_assert (reflect_object (ceobj) != ^^ceobj);
 static_assert (type_of (reflect_object (ceobj)) == ^^const int);
 static_assert (is_object (reflect_object (ceobj)));
+static_assert (!is_value (reflect_object (ceobj)));
 static_assert (!is_variable (reflect_object (ceobj)));
 
 static_assert (!is_const (reflect_object (obj)));
@@ -36,6 +39,7 @@ const int &ref = obj;
 static_assert (reflect_object (ref) != ^^obj);
 static_assert (type_of (reflect_object (ref)) == ^^int);
 static_assert (is_object (reflect_object (ref)));
+static_assert (!is_value (reflect_object (ref)));
 static_assert (!is_variable (reflect_object (ref)));
 static_assert (!is_const (reflect_object (ref)));
 
@@ -43,6 +47,7 @@ constexpr const int *pobj = &ceobj;
 static_assert (reflect_object (pobj) != ^^pobj);
 static_assert (type_of (reflect_object (pobj)) == ^^const int *const);
 static_assert (is_object (reflect_object (pobj)));
+static_assert (!is_value (reflect_object (pobj)));
 static_assert (!is_variable (reflect_object (pobj)));
 static_assert (is_const (reflect_object (pobj)));
 
@@ -56,6 +61,10 @@ static_assert (type_of (reflect_object (p.first)) == ^^const int);
 static_assert (&[:reflect_object (p.second):] == &p.second);
 static_assert ([:reflect_object (p.second):] == 2);
 static_assert (type_of(reflect_object (p.second)) == ^^const short);
+static_assert (is_object (reflect_object (p)));
+static_assert (!is_value (reflect_object (p)));
+static_assert (is_object (reflect_object (p.first)));
+static_assert (!is_value (reflect_object (p.first)));
 
 struct B {};
 struct D : B {};

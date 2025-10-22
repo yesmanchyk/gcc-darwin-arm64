@@ -11,7 +11,7 @@ void foo ();
 static_assert (reflect_function (::foo) == ^^::foo);
 static_assert (is_function (reflect_function (::foo)));
 static_assert (!is_object (reflect_function (::foo)));
-//static_assert (!is_value (reflect_function (::foo)));
+static_assert (!is_value (reflect_function (::foo)));
 static_assert (type_of (reflect_function (::foo)) == ^^void ());
 static_assert (identifier_of (reflect_function (::foo)) == "foo"sv);
 
@@ -19,7 +19,7 @@ const auto &ref = ::foo;
 static_assert (reflect_function (ref) == ^^::foo);
 static_assert (is_function (reflect_function (ref)));
 static_assert (!is_object (reflect_function (ref)));
-//static_assert (!is_value (reflect_function (ref)));
+static_assert (!is_value (reflect_function (ref)));
 static_assert (type_of (reflect_function (ref)) == ^^void());
 static_assert (identifier_of (reflect_function (ref)) == "foo"sv);
 
@@ -27,7 +27,7 @@ constexpr void (*fp)() = ::foo;
 static_assert (reflect_function (*fp) == ^^::foo);
 static_assert (is_function (reflect_function (*fp)));
 static_assert (!is_object (reflect_function (*fp)));
-//static_assert (!is_value (reflect_function (*fp)));
+static_assert (!is_value (reflect_function (*fp)));
 static_assert (type_of (reflect_function (*fp)) == ^^void());
 static_assert (identifier_of (reflect_function (*fp)) == "foo"sv);
 
