@@ -2167,8 +2167,15 @@ type_of (tree r, reflect_kind kind)
   else if (kind == REFLECT_DATA_MEMBER_SPEC)
     r = TREE_VEC_ELT (r, 0);
   else if (eval_is_annotation (r) == boolean_true_node)
-    // TODO: or do we need to reflect_constant and get type of that?
-    r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
+    {
+      r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
+      if (CLASS_TYPE_P (r))
+	{
+	  int quals = cp_type_quals (r);
+	  quals |= TYPE_QUAL_CONST;
+	  r = cp_build_qualified_type (r, quals);
+	}
+    }
   else if (TREE_CODE (r) == FIELD_DECL && DECL_BIT_FIELD_TYPE (r))
     r = DECL_BIT_FIELD_TYPE (r);
   else
@@ -3069,6 +3076,15 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	}
       CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
 			      get_reflection_raw (location_of (val), a));
+    }
+  if (elts)
+    {
+      /* Reverse the order.  */
+      unsigned l = elts->length ();
+      constructor_elt *ptr = elts->address ();
+
+      for (unsigned i = 0; i < l / 2; i++)
+	std::swap (ptr[i], ptr[l - i - 1]);
     }
   return get_vector_of_info_elts (elts);
 }
