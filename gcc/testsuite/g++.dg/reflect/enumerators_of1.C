@@ -46,27 +46,35 @@ class S {
 static_assert (!has_enumerators_of (^^S));
 
 enum class E {
-  A = (has_enumerators_of (^^E) || has_enumerators_of (^^TE)) ? 1 : 2
+//  A1 = (has_enumerators_of (^^E) || has_enumerators_of (^^TE)) ? 1 : 2,
+  A2 = has_enumerators_of (^^E) ? 10 : 20,
+  A3 = has_enumerators_of (^^TE) ? 20 : 30
 };
-//static_assert (has_enumerators_of (^^E));
-static_assert (static_cast <int> (E::A) == 2);
-//static_assert (has_enumerators_of (^^TE));
+static_assert (has_enumerators_of (^^E));
+//static_assert (static_cast <int> (E::A1) == 2);
+static_assert (static_cast <int> (E::A2) == 20);
+static_assert (static_cast <int> (E::A3) == 30);
+static_assert (has_enumerators_of (^^TE));
 
 enum F : int;
 using TF = F;
 static_assert (!has_enumerators_of (^^F));
 static_assert (!has_enumerators_of (^^TF));
 enum F : int {
-  B = (has_enumerators_of (^^F) || has_enumerators_of (^^TF)) ? 3 : 4
+//  B1 = (has_enumerators_of (^^F) || has_enumerators_of (^^TF)) ? 3 : 4,
+  B2 = has_enumerators_of (^^F) ? 30 : 40,
+  B3 = has_enumerators_of (^^TF) ? 40 : 42
 };
-//static_assert (has_enumerators_of (^^F));
-static_assert (B == 4);
-//static_assert (has_enumerators_of (^^TF));
+static_assert (has_enumerators_of (^^F));
+//static_assert (B1 == 4);
+static_assert (B2 == 40);
+static_assert (B3 == 42);
+static_assert (has_enumerators_of (^^TF));
 
 enum G {
   C = has_enumerators_of (^^G) ? 5 : 6
 };
-//static_assert (has_enumerators_of (^^G));
+static_assert (has_enumerators_of (^^G));
 static_assert (C == 6);
 
 enum H : int;
@@ -75,16 +83,16 @@ static_assert (!has_enumerators_of (^^H));
 static_assert (!has_enumerators_of (^^TH));
 
 enum H : int {};
-//static_assert (has_enumerators_of (^^H));
-//static_assert (has_enumerators_of (^^TH));
+static_assert (has_enumerators_of (^^H));
+static_assert (has_enumerators_of (^^TH));
 
 enum I : short;
 using TI = I;
 static_assert (!has_enumerators_of (^^I));
 static_assert (!has_enumerators_of (^^TI));
 enum I : short {};
-//static_assert (has_enumerators_of (^^I));
-//static_assert (has_enumerators_of (^^TI));
+static_assert (has_enumerators_of (^^I));
+static_assert (has_enumerators_of (^^TI));
 
 template <typename T>
 void
@@ -101,9 +109,9 @@ qux ()
     D = (has_enumerators_of (^^J) || has_enumerators_of (^^K))
 	? sizeof (T) * 2 : sizeof (T)
   };
-//  static_assert (has_enumerators_of (^^J));
+  static_assert (has_enumerators_of (^^J));
   static_assert (D == sizeof (T));
-//  static_assert (has_enumerators_of (^^K));
+  static_assert (has_enumerators_of (^^K));
 }
 
 void

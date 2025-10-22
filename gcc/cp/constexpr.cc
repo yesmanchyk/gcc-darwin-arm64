@@ -1201,11 +1201,21 @@ public:
   unsigned heap_dealloc_count;
   /* Number of uncaught exceptions.  */
   unsigned uncaught_exceptions;
+  /* Some metafunctions aren't dependent just on their arguments, but also
+     on various other dependencies, e.g. has_identifier on a function parameter
+     reflection can change depending on further declarations of corresponding
+     function, is_complete_type depends on type definitions and template
+     specializations in between the calls, define_aggregate even defines
+     class types, etc.  Thus, we need to arrange for calls which call
+     at least some metafunctions to be non-cacheable, because their behavior
+     might not be the same.  Until we figure out which exact metafunctions
+     need this and which don't, do it for all of them.  */
+  bool metafns_called;
 
   /* Constructor.  */
   constexpr_global_ctx ()
     : constexpr_ops_count (0), cleanups (NULL), modifiable (nullptr),
-      heap_dealloc_count (0), uncaught_exceptions (0) {}
+      heap_dealloc_count (0), uncaught_exceptions (0), metafns_called (false) {}
 
   bool is_outside_lifetime (tree t)
   {
@@ -3823,6 +3833,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  *non_constant_p = true;
 	  return t;
 	}
+      ctx->global->metafns_called = true;
       tree e = process_metafunction (ctx, fun, t, non_constant_p, overflow_p,
 				     jump_target);
       if (*jump_target || *non_constant_p)
@@ -4282,6 +4293,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  call_ctx.call = &new_call;
 	  unsigned save_heap_alloc_count = ctx->global->heap_vars.length ();
 	  unsigned save_heap_dealloc_count = ctx->global->heap_dealloc_count;
+	  bool save_metafns_called = ctx->global->metafns_called;
 
 	  /* Make sure we fold std::is_constant_evaluated to true in an
 	     immediate function.  */
@@ -4312,6 +4324,8 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	      if (*jump_target)
 		return NULL_TREE;
 	    }
+
+	  ctx->global->metafns_called = false;
 
 	  tree jmp_target = NULL_TREE;
 	  cxx_eval_constant_expression (&call_ctx, body,
@@ -4345,6 +4359,10 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 		  *non_constant_p = true;
 		}
 	    }
+
+	  if (ctx->global->metafns_called)
+	    cacheable = false;
+	  ctx->global->metafns_called |= save_metafns_called;
 
 	  /* At this point, the object's constructor will have run, so
 	     the object is no longer under construction, and its possible
