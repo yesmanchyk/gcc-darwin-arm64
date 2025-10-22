@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "attribs.h"
 #include "c-family/c-pragma.h" // for parse_in
+#include "gimplify.h" // for unshare_expr
 
 static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
 				   tree *);
@@ -301,6 +302,9 @@ replace_parm_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+static tree throw_exception (location_t, const constexpr_ctx *, const char *,
+			     tree, tree *);
+
 /* Kinds for get_range_elts.  */
 
 enum get_range_elts_kind {
@@ -384,10 +388,11 @@ fail_ret:
 	  && valuet != char16_type_node
 	  && valuet != char32_type_node)
 	{
-	  error_at (loc, "%<reflect_constant_string%> called with %qT "
-			 "%<std::ranges::range_value_t%> rather than "
-			 "%<char%>, %<wchar_t%>, %<char8_t%>, %<char16_t%> "
-			 "or %<char32_t%>", valuet);
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "%<reflect_constant_string%> called with %qT "
+			   "%<std::ranges::range_value_t%> rather than "
+			   "%<char%>, %<wchar_t%>, %<char8_t%>, %<char16_t%> "
+			   "or %<char32_t%>", valuet);
 	  *non_constant_p = true;
 	  return call;
 	}
@@ -416,6 +421,60 @@ fail_ret:
 	      && tree_int_cst_equal (maxv, TYPE_MAX_VALUE (TYPE_DOMAIN (at))))
 	    return TREE_OPERAND (a, 0);
 	}
+      if (kind == REFLECT_CONSTANT_ARRAY)
+	{
+	  if (!structural_type_p (valuet))
+	    {
+	      if (!cxx_constexpr_quiet_p (ctx))
+		{
+		  auto_diagnostic_group d;
+		  error_at (loc, "%<reflect_constant_array%> argument with "
+				 "%qT %<std::ranges::range_value_t%> which "
+				 "is not a structural type", valuet);
+		  structural_type_p (valuet, true);
+		}
+	      *non_constant_p = true;
+	      return call;
+	    }
+	  tree cvaluet
+	    = cp_build_qualified_type (valuet, cp_type_quals (valuet)
+					       | TYPE_QUAL_CONST);
+	  TREE_VEC_ELT (args, 0)
+	    = cp_build_reference_type (cvaluet, /*rval=*/false);
+	  if (!is_xible (INIT_EXPR, valuet, args))
+	    {
+	      if (!cxx_constexpr_quiet_p (ctx))
+		error_at (loc, "%<reflect_constant_array%> argument with %qT "
+			       "%<std::ranges::range_value_t%> which is not "
+			       "copy constructible", valuet);
+	      *non_constant_p = true;
+	      return call;
+	    }
+	  TREE_VEC_ELT (args, 0) = TREE_TYPE (type);
+	  inst = lookup_template_class (get_identifier ("range_reference_t"),
+					args, /*in_decl*/NULL_TREE,
+					/*context*/ranges_ns,
+					tf_warning_or_error);
+	  inst = complete_type (inst);
+	  if (inst == error_mark_node)
+	    {
+	      *non_constant_p = true;
+	      return call;
+	    }
+	  tree referencet = TYPE_MAIN_VARIANT (inst);
+	  TREE_VEC_ELT (args, 0) = referencet;
+	  if (!is_xible (INIT_EXPR, valuet, args))
+	    {
+	      if (!cxx_constexpr_quiet_p (ctx))
+		error_at (loc, "%<reflect_constant_array%> argument with %qT "
+			       "%<std::ranges::range_value_t%> which is not "
+			       "constructible from %qT "
+			       "%<std::ranges::range_reference_t%>",
+			valuet, referencet);
+	      *non_constant_p = true;
+	      return call;
+	    }
+	}
     }
   auto_vec<tree, 32> retvec;
   tree p = convert_from_reference (parm);
@@ -435,22 +494,68 @@ fail_ret:
     return call;
   };
   auto ret_retvec = [=, &retvec] () {
+    unsigned HOST_WIDE_INT sz = retvec.length ();
+    for (size_t i = 0; i < sz; ++i)
+      {
+	if (INTEGRAL_TYPE_P (valuet))
+	  {
+	    if (TREE_CODE (retvec[i]) != INTEGER_CST)
+	      return throw_exception (loc, ctx,
+				      N_("array element not a constant integer"),
+				      retvec[i], jump_target);
+	  }
+	else
+	  {
+	    gcc_assert (kind == REFLECT_CONSTANT_ARRAY);
+	    tree expr = convert_reflect_constant_arg (valuet, retvec[i]);
+	    if (expr == error_mark_node)
+	      return throw_exception (loc, ctx, N_("reflect_constant failed"),
+				      retvec[i], jump_target);
+	    if (VAR_P (expr))
+	      expr = unshare_expr (DECL_INITIAL (expr));
+	    retvec[i] = expr;
+	  }
+      }
+    if (kind == REFLECT_CONSTANT_ARRAY && sz == 0)
+      {
+	/* Return std::array <valuet, 0> {}.  */
+	tree args = make_tree_vec (2);
+	TREE_VEC_ELT (args, 0) = valuet;
+	TREE_VEC_ELT (args, 1) = size_zero_node;
+	tree inst = lookup_template_class (get_identifier ("array"), args,
+					   /*in_decl*/NULL_TREE,
+					   /*context*/std_node,
+					   tf_warning_or_error);
+	tree type = complete_type (inst);
+	if (type == error_mark_node)
+	  {
+	    *non_constant_p = true;
+	    return call;
+	  }
+	tree ctor = build_constructor (init_list_type_node, nullptr);
+	CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
+	TREE_CONSTANT (ctor) = true;
+	TREE_STATIC (ctor) = true;
+	tree r = finish_compound_literal (type, ctor, tf_warning_or_error,
+					  fcl_functional);
+	if (TREE_CODE (r) == TARGET_EXPR)
+	  r = TARGET_EXPR_INITIAL (r);
+	return r;
+      }
+    unsigned esz = tree_to_uhwi (TYPE_SIZE_UNIT (valuet));
+    unsigned last = kind == REFLECT_CONSTANT_STRING ? esz : 0;
+    tree index = build_index_type (size_int (last ? sz : sz - 1));
+    tree at = build_array_type (valuet, index);
+    at = cp_build_qualified_type (at, TYPE_QUAL_CONST);
     if (kind == REFLECT_CONSTANT_STRING
         || ((valuet == char_type_node
 	     || valuet == wchar_type_node
 	     || valuet == char8_type_node
 	     || valuet == char16_type_node
 	     || valuet == char32_type_node)
-	    && !retvec.is_empty ()
 	    && integer_zerop (retvec.last ())))
       {
-	unsigned HOST_WIDE_INT sz = retvec.length ();
-	unsigned esz = tree_to_uhwi (TYPE_SIZE_UNIT (valuet));
 	unsigned HOST_WIDE_INT szt = sz * esz;
-	unsigned last = kind == REFLECT_CONSTANT_STRING ? esz : 0;
-	tree index = build_index_type (size_int (last ? sz : sz - 1));
-	tree at = build_array_type (valuet, index);
-	at = cp_build_qualified_type (at, TYPE_QUAL_CONST);
 	char *p;
 	if (szt < 4096)
 	  p = XALLOCAVEC (char, szt + last);
@@ -470,7 +575,10 @@ fail_ret:
 	  XDELETEVEC (p);
 	return ret;
       }
-    return NULL_TREE;
+    vec<constructor_elt, va_gc> *elts = nullptr;
+    for (unsigned i = 0; i < sz; ++i)
+      CONSTRUCTOR_APPEND_ELT (elts, bitsize_int (i), retvec[i]);
+    return build_constructor (at, elts);
   };
   /* If true, call std::ranges::data (p) and std::ranges::size (p)
      and if that works out and what the former returns can be handled,
@@ -496,7 +604,11 @@ fail_ret:
       if (!tree_fits_uhwi_p (size) || tree_to_uhwi (size) > INT_MAX)
 	goto non_contiguous;
       if (integer_zerop (size))
-	return make_tree_vec (0);
+	{
+	  if (kind == GET_INFO_VEC)
+	    return make_tree_vec (0);
+	  return ret_retvec ();
+	}
       STRIP_NOPS (data);
       unsigned HOST_WIDE_INT minidx = 0, pplus = 0;
       if (TREE_CODE (data) == POINTER_PLUS_EXPR
@@ -537,12 +649,34 @@ fail_ret:
 	  if (minidx > INT_MAX
 	      || (unsigned) TREE_STRING_LENGTH (data) < sz + minidx * esz)
 	    goto non_contiguous;
-	  tree index = build_index_type (fold_convert (sizetype, size));
+	  if (kind == REFLECT_CONSTANT_ARRAY && sz == 0)
+	    return ret_retvec ();
+	  tree index
+	    = build_index_type (size_int ((kind == REFLECT_CONSTANT_ARRAY
+					   ? -1 : 0) + tree_to_uhwi (size)));
 	  tree at = build_array_type (valuet, index);
 	  at = cp_build_qualified_type (at, TYPE_QUAL_CONST);
 	  const unsigned char *q
 	    = (const unsigned char *) TREE_STRING_POINTER (data);
 	  q += minidx * esz;
+	  if (kind == REFLECT_CONSTANT_ARRAY)
+	    {
+	      unsigned HOST_WIDE_INT i;
+	      for (i = 0; i < esz; ++i)
+		if (q[sz - esz + i])
+		  break;
+	      if (i != esz)
+		{
+		  /* Not a NUL terminated string.  Build a CONSTRUCTOR
+		     instead.  */
+		  for (i = 0; i < sz; i += esz)
+		    {
+		      tree t = native_interpret_expr (valuet, q + i, sz);
+		      retvec.safe_push (t);
+		    }
+		  return ret_retvec ();
+		}
+	    }
 	  char *p;
 	  if (sz < 4096)
 	    p = XALLOCAVEC (char, sz + esz);
@@ -550,7 +684,8 @@ fail_ret:
 	    p = XNEWVEC (char, sz + esz);
 	  memcpy (p, q, sz);
 	  memset (p + sz, '\0', esz);
-	  ret = build_string (sz + esz, p);
+	  ret = build_string (sz + (kind == REFLECT_CONSTANT_ARRAY
+				    ? 0 : esz), p);
 	  TREE_TYPE (ret) = at;
 	  TREE_CONSTANT (ret) = 1;
 	  TREE_READONLY (ret) = 1;
@@ -5532,6 +5667,37 @@ eval_reflect_constant_string (location_t loc, const constexpr_ctx *ctx,
   return get_reflection_raw (loc, decl);
 }
 
+/* Implement std::meta::reflect_constant_array.
+   Let T be ranges::range_value_t<R>.
+   Mandates: T is a structural type,
+   is_constructible_v<T, ranges::range_reference_t<R>> is true, and
+   is_copy_constructible_v<T> is true.
+   Let V be the pack of values of type info of the same size as r, where the
+   ith element is reflect_constant(e_i), where e_i is the ith element of r.
+   Let P be
+   -- If sizeof...(V) > 0 is true, then the template parameter object of type
+      const T[sizeof...(V)] initialized with {[:V:]...}.
+   -- Otherwise, the template parameter object of type array<T, 0> initialized
+      with {}.
+   Returns: ^^P.  */
+
+static tree
+eval_reflect_constant_array (location_t loc, const constexpr_ctx *ctx,
+			      tree call, bool *non_constant_p,
+			      bool *overflow_p, tree *jump_target)
+{
+  tree str = get_range_elts (loc, ctx, call, 0, non_constant_p, overflow_p,
+			     jump_target, REFLECT_CONSTANT_ARRAY);
+  if (*jump_target)
+    return NULL_TREE;
+  if (*non_constant_p)
+    return call;
+  tree decl = get_template_parm_object (str,
+					mangle_template_parm_object (str));
+  DECL_MERGEABLE (decl) = 1;
+  return get_reflection_raw (loc, decl);
+}
+
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -5619,6 +5785,9 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
   if (id_equal (name, "reflect_constant_string"))
     return eval_reflect_constant_string (loc, ctx, call, non_constant_p,
 					 overflow_p, jump_target);
+  if (id_equal (name, "reflect_constant_array"))
+    return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
+					overflow_p, jump_target);
 
   tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
   if (*jump_target)

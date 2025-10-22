@@ -33,6 +33,7 @@
 #pragma GCC system_header
 #endif
 
+#include <array>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -308,6 +309,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.array], promoting to static storage arrays
     template<ranges::input_range _R>
       consteval info reflect_constant_string(_R&&);
+
+    template<ranges::input_range _R>
+      consteval info reflect_constant_array(_R&&);
 
     // [meta.reflection.define.aggregate], class definition generation
     struct data_member_options {
