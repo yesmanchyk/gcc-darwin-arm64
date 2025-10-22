@@ -1551,10 +1551,7 @@ eval_has_ellipsis_parameter (tree r)
   r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TREE_CODE (r) == FUNCTION_DECL)
     r = TREE_TYPE (r);
-  if (FUNC_OR_METHOD_TYPE_P (r)
-      // TODO: TYPE_ARG_TYPES check shouldn't be necessary once we
-      // implement va_start (ap) support and set TYPE_NO_NAMED_ARGS_STDARG_P.
-      && (stdarg_p (r) || TYPE_ARG_TYPES (r) == NULL_TREE))
+  if (FUNC_OR_METHOD_TYPE_P (r) && stdarg_p (r))
     return boolean_true_node;
   else
     return boolean_false_node;
