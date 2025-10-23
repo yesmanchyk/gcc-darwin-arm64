@@ -103,8 +103,7 @@ template<auto V>
 consteval bool
 fn ()
 {
-  // TODO: reflect_constant should use REFLECT_OBJECT for !prvalue
-  return true || reflect_constant (V) == reflect_object (V);
+  return reflect_constant (V) == reflect_object (V);
 }
 static_assert (fn<s>());
 
