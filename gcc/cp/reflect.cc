@@ -263,8 +263,18 @@ metafunction_p (tree fndecl)
     return false;
 
   /* Is the call from std::meta?  */
-  fndecl = decl_namespace_context (fndecl);
-  return DECL_NAMESPACE_STD_META_P (fndecl);
+  tree ctx = decl_namespace_context (fndecl);
+  if (!DECL_NAMESPACE_STD_META_P (ctx))
+    return false;
+
+  /* They should be user provided and not defined.  */
+  if (!user_provided_p (fndecl)
+      || (DECL_NAMESPACE_SCOPE_P (fndecl) && DECL_DELETED_FN (fndecl)))
+    return false;
+  if (DECL_INITIAL (fndecl))
+    return false;
+
+  return true;
 }
 
 /* Extract the N-th reflection argument from a metafunction call CALL.  */
@@ -5733,6 +5743,65 @@ eval_is_implicit_lifetime_type (location_t loc, const constexpr_ctx *ctx,
     return boolean_false_node;
 }
 
+/* Process std::meta::access_context::current.  */
+
+static tree
+eval_access_context_current (location_t loc, const constexpr_ctx *ctx,
+			     tree call, bool *non_constant_p)
+{
+  tree scope = cxx_constexpr_caller (ctx);
+  /* Ignore temporary current_function_decl changes caused by
+     push_access_scope.  */
+  if (scope == NULL_TREE && current_function_decl)
+    scope = current_function_decl_without_access_scope ();
+  if (scope && DECL_INHERITED_CTOR (scope))
+    scope = DECL_CONTEXT (scope);
+  if (scope == NULL_TREE)
+    {
+      if (cxx_constexpr_manifestly_const_eval (ctx) != mce_true)
+	{
+	  /* Outside of functions limit this to manifestly constant-evaluation
+	     so that we don't fold it prematurely.  */
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "%<access_context::current%> used outside of "
+			   "manifestly constant-evaluation");
+	  *non_constant_p = true;
+	  return call;
+	}
+      if (current_class_type)
+	scope = current_class_type;
+      else if (current_namespace)
+	scope = current_namespace;
+      else
+	scope = global_namespace;
+    }
+  tree lam;
+  while (LAMBDA_FUNCTION_P (scope)
+	 && (lam = CLASSTYPE_LAMBDA_EXPR (CP_DECL_CONTEXT (scope)))
+	 && LAMBDA_EXPR_CONSTEVAL_BLOCK_P (lam))
+    scope = CP_TYPE_CONTEXT (CP_DECL_CONTEXT (scope));
+  tree access_context = TREE_TYPE (call);
+  if (TREE_CODE (access_context) != RECORD_TYPE)
+    {
+    fail:
+      error_at (loc, "unexpected return type of %qs",
+		"std::meta::access_context::current");
+      return build_zero_cst (access_context);
+    }
+  tree scopef = next_aggregate_field (TYPE_FIELDS (access_context));
+  if (!scopef || !REFLECTION_TYPE_P (TREE_TYPE (scopef)))
+    goto fail;
+  tree classf = next_aggregate_field (DECL_CHAIN (scopef));
+  if (!classf || !REFLECTION_TYPE_P (TREE_TYPE (classf)))
+    goto fail;
+  if (next_aggregate_field (DECL_CHAIN (classf)))
+    goto fail;
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  CONSTRUCTOR_APPEND_ELT (elts, scopef, get_reflection_raw (loc, scope));
+  CONSTRUCTOR_APPEND_ELT (elts, classf, get_null_reflection ());
+  return build_constructor (access_context, elts);
+}
+
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -5823,6 +5892,14 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
   if (id_equal (name, "reflect_constant_array"))
     return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
 					overflow_p, jump_target);
+  if (id_equal (name, "current")
+      && DECL_CLASS_SCOPE_P (fun)
+      && TYPE_NAME (DECL_CONTEXT (fun))
+      && TREE_CODE (TYPE_NAME (DECL_CONTEXT (fun))) == TYPE_DECL
+      && DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun)))
+      && id_equal (DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun))),
+		   "access_context"))
+    return eval_access_context_current (loc, ctx, call, non_constant_p);
 
   tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
   if (*jump_target)

@@ -7892,6 +7892,7 @@ extern void remove_dummy_lambda_op (tree, tree);
 extern tree canonical_type_parameter		(tree);
 extern void push_access_scope			(tree);
 extern void pop_access_scope			(tree);
+extern tree current_function_decl_without_access_scope ();
 extern bool check_template_shadow		(tree);
 extern tree get_innermost_template_args		(tree, int);
 extern void maybe_begin_member_template_processing (tree);
@@ -9168,6 +9169,7 @@ extern tree cxx_eval_constant_expression	(const constexpr_ctx *, tree,
 						 tree *);
 extern bool cxx_constexpr_quiet_p		(const constexpr_ctx *);
 extern mce_value cxx_constexpr_manifestly_const_eval (const constexpr_ctx *);
+extern tree cxx_constexpr_caller		(const constexpr_ctx *);
 
 /* An RAII sentinel used to restrict constexpr evaluation so that it
    doesn't do anything that causes extra DECL_UID generation.  */

@@ -1345,6 +1345,18 @@ cxx_constexpr_manifestly_const_eval (const constexpr_ctx *ctx)
   return ctx->manifestly_const_eval;
 }
 
+/* Return ctx->call->fundef->decl or NULL_TREE.  For use in
+   reflect.cc.  */
+
+tree
+cxx_constexpr_caller (const constexpr_ctx *ctx)
+{
+  if (ctx->call)
+    return ctx->call->fundef->decl;
+  else
+    return NULL_TREE;
+}
+
 /* Predicates for the meaning of *jump_target.  */
 
 static bool
@@ -10505,7 +10517,7 @@ find_heap_var_refs (tree *tp, int *walk_subtrees, void */*data*/)
 /* Find immediate function decls in *TP if any.  */
 
 static tree
-find_immediate_fndecl (tree *tp, int */*walk_subtrees*/, void */*data*/)
+find_immediate_fndecl (tree *tp, int *walk_subtrees, void */*data*/)
 {
   if (TREE_CODE (*tp) == FUNCTION_DECL && DECL_IMMEDIATE_FUNCTION_P (*tp))
     return *tp;
@@ -10513,6 +10525,8 @@ find_immediate_fndecl (tree *tp, int */*walk_subtrees*/, void */*data*/)
       && TREE_CODE (PTRMEM_CST_MEMBER (*tp)) == FUNCTION_DECL
       && DECL_IMMEDIATE_FUNCTION_P (PTRMEM_CST_MEMBER (*tp)))
     return PTRMEM_CST_MEMBER (*tp);
+  if (TREE_CODE (*tp) == REFLECT_EXPR)
+    *walk_subtrees = 0;
   return NULL_TREE;
 }
 

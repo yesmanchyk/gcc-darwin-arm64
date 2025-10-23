@@ -1,6 +1,6 @@
 // { dg-do compile { target c++26 } }
 // { dg-additional-options "-freflection" }
-// Test std::meta::has_parent.
+// Test std::meta::parent_of.
 
 #include <meta>
 

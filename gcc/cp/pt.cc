@@ -277,6 +277,18 @@ pop_access_scope (tree t)
     pop_from_top_level ();
 }
 
+/* Return current function, ignoring temporary overrides
+   of current_function_decl by push_access_scope.  */
+
+tree
+current_function_decl_without_access_scope ()
+{
+  if (vec_safe_length (saved_access_scope))
+    return (*saved_access_scope)[0];
+  else
+    return current_function_decl;
+}
+
 /* Do any processing required when DECL (a member template
    declaration) is finished.  Returns the TEMPLATE_DECL corresponding
    to DECL, unless it is a specialization, in which case the DECL

@@ -87,20 +87,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.exception], class exception
     class exception : public std::exception {
     private:
-      //optional<string> what_;     // exposition only
-      std::string_view what_;
-      u8string u8what_;           // exposition only
-      info from_;                 // exposition only
-      source_location where_;     // exposition only
+      //optional<string> _M_what;
+      std::string_view _M_what;
+      u8string _M_u8what;
+      info _M_from;
+      source_location _M_where;
 
     public:
-      consteval exception(u8string_view what, info from,
-			  source_location where = source_location::current()) noexcept
-	: u8what_{what}, from_{from}, where_{where} { }
+      consteval exception(u8string_view __what, info __from,
+			  source_location __where
+			  = source_location::current()) noexcept
+	: _M_u8what{__what}, _M_from{__from}, _M_where{__where} { }
 
-      consteval exception(string_view what, info from,
-			  source_location where = source_location::current()) noexcept
-	: what_{what}, from_{from}, where_{where} { }
+      consteval exception(string_view __what, info __from,
+			  source_location __where
+			  = source_location::current()) noexcept
+	: _M_what{__what}, _M_from{__from}, _M_where{__where} { }
 
       exception(const exception&) = default;
       exception(exception&&) = default;
@@ -108,10 +110,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       exception& operator=(const exception&) = default;
       exception& operator=(exception&&) = default;
 
-      constexpr const char *what() const noexcept override { return what_.data (); }
-      consteval u8string_view u8what() const noexcept { return u8what_; }
-      consteval info from() const noexcept { return from_; }
-      consteval source_location where() const noexcept { return where_; }
+      constexpr const char *what() const noexcept override
+      { return _M_what.data (); }
+      consteval u8string_view u8what() const noexcept { return _M_u8what; }
+      consteval info from() const noexcept { return _M_from; }
+      consteval source_location where() const noexcept { return _M_where; }
     };
 
     // [meta.reflection.operators], operator representations
@@ -265,6 +268,30 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval vector<info> parameters_of(info);
     consteval info variable_of(info);
     consteval info return_type_of(info);
+
+    // [meta.reflection.access.context], access control context
+    struct access_context {
+    private:
+      consteval access_context(info __scope, info __designating_class) noexcept
+	: _M_scope{__scope}, _M_designating_class{__designating_class} { }
+    public:
+      access_context() = delete;
+      consteval access_context(const access_context &) = default;
+      consteval access_context(access_context &&) = default;
+
+      consteval info scope() const { return _M_scope; }
+      consteval info designating_class() const { return _M_designating_class; }
+
+      static consteval access_context current() noexcept;
+      static consteval access_context unprivileged() noexcept
+      { return access_context { ^^::, info {} }; }
+      static consteval access_context unchecked() noexcept
+      { return access_context { info {}, info {} }; }
+      consteval access_context via(info) const;
+
+      info _M_scope;
+      info _M_designating_class;
+    };
 
     // [meta.reflection.member.queries], reflection member queries
     consteval vector<info> enumerators_of(info);
@@ -501,6 +528,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.annotation], annotation reflection
     consteval vector<info> annotations_of(info);
     consteval vector<info> annotations_of_with_type(info, info);
+
+    consteval access_context
+    access_context::via(info __cls) const
+    {
+      if (__cls != info {}
+	  && (!std::meta::is_class_type(__cls)
+	      || !std::meta::is_complete_type(__cls)))
+	{
+#if __cpp_exceptions
+	  throw std::meta::exception(u8"via argument other than null "
+				       "or complete class type reflection",
+				     ^^access_context::via);
+#else
+	  return *this;
+#endif
+	}
+      return access_context { _M_scope, __cls };
+    }
+
   } // namespace meta
 
 _GLIBCXX_END_NAMESPACE_VERSION
