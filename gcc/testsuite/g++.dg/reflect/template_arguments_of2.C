@@ -72,7 +72,7 @@ static_assert([:template_arguments_of(^^WithAutoParamPack<4, S{3}>)[1]:] == S{3}
 template <float> struct WithFloat {};
 template <const float *> struct WithPtr {};
 template <const int &> struct WithRef {};
-template <std::meta::info> struct WithReflection {};
+template <info> struct WithReflection {};
 
 constexpr float F = 4.5f;
 static_assert(template_arguments_of(^^WithFloat<F>).size() == 1);
@@ -91,13 +91,11 @@ static_assert(template_arguments_of(dealias(^^T)).size() == 1);
 static_assert([:template_arguments_of(^^WithRef<I>)[0]:] == I);
 
 static_assert(template_arguments_of(^^WithReflection<^^int>).size() == 1);
-static_assert(template_arguments_of(^^WithReflection<^^int>)[0]
-	      == std::meta::reflect_constant(^^int));
+static_assert(template_arguments_of(^^WithReflection<^^int>)[0] == reflect_constant(^^int));
 
 template <int &> void fn();
 int p[2];
-// TODO
-//static_assert(template_arguments_of(^^fn<p[1]>)[0] == std::meta::reflect_object(p[1]))
+static_assert(template_arguments_of(^^fn<p[1]>)[0] == reflect_object(p[1]));
 
 template<class T> struct X {};
 X<int> obj1;

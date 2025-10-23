@@ -3093,6 +3093,21 @@ get_reflection_kind (tree r)
   return obvalue_p (r) ? REFLECT_OBJECT : REFLECT_VALUE;
 }
 
+/* If R is (const T &) &foo, get foo.  */
+
+static tree
+maybe_get_reference_referent (tree r)
+{
+  if (TREE_CODE (r) == NOP_EXPR
+      && TYPE_REF_P (TREE_TYPE (r))
+      && TREE_CODE (TREE_OPERAND (r, 0)) == ADDR_EXPR)
+    {
+      STRIP_NOPS (r);
+      r = TREE_OPERAND (r, 0);
+    }
+  return r;
+}
+
 /* Get the reflection of template argument ARG as per
    std::meta::template_arguments_of.  */
 
@@ -3102,6 +3117,7 @@ get_reflection_of_targ (tree arg)
   const location_t loc = location_of (arg);
   /* canonicalize_type_argument already strip_typedefs.  */
   arg = STRIP_REFERENCE_REF (arg);
+  arg = maybe_get_reference_referent (arg);
   return get_reflection_raw (loc, arg, get_reflection_kind (arg));
 }
 
@@ -3306,8 +3322,7 @@ eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
     throw_exception_generic (loc, ctx, type, jump_target);
   /* We got (const T &) &foo.  Get the referent, since we want the object
      designated by EXPR.  */
-  STRIP_NOPS (expr);
-  expr = TREE_OPERAND (expr, 0);
+  expr = maybe_get_reference_referent (expr);
   return get_reflection_raw (loc, expr, REFLECT_OBJECT);
 }
 
@@ -3331,8 +3346,7 @@ eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
   if (e == error_mark_node)
     throw_exception_generic (loc, ctx, type, jump_target);
   /* We got (void (&<Ta885>) (void)) fn.  Get the function.  */
-  STRIP_NOPS (expr);
-  expr = TREE_OPERAND (expr, 0);
+  expr = maybe_get_reference_referent (expr);
   return get_reflection_raw (loc, expr);
 }
 
@@ -6845,6 +6859,14 @@ compare_reflections (tree lhs, tree rhs)
 	    && tree_int_cst_equal (TREE_VEC_ELT (lhs, 3),
 				   TREE_VEC_ELT (rhs, 3))
 	    && TREE_VEC_ELT (lhs, 4) == TREE_VEC_ELT (rhs, 4));
+  /* Sometimes the ARRAY_REFs differ only in that one has a location
+     and the other doesn't.  ??? Maybe strip the location and fall back
+     to ==?  */
+  else if (TREE_CODE (lhs) == ARRAY_REF
+	   && TREE_CODE (lhs) == ARRAY_REF)
+    return (TREE_TYPE (lhs) == TREE_TYPE (rhs)
+	    && TREE_OPERAND (lhs, 0) == TREE_OPERAND (rhs, 0)
+	    && TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1));
 
   return lhs == rhs;
 }

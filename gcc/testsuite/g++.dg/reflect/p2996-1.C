@@ -4,8 +4,7 @@
 
 #include <meta>
 
-// TODO
-//static_assert(std::meta::is_type(^^int()));  // ^^ applies to the type-id "int()"
+static_assert(std::meta::is_type(^^int()));  // ^^ applies to the type-id "int()"
 
 template<bool> struct X {};
 consteval bool operator<(std::meta::info, X<false>) { return false; }
