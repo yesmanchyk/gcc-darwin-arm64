@@ -2365,6 +2365,54 @@ eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_reflection_raw (loc, type_of (r, kind));
 }
 
+/* If R is (const T &) &foo, get foo.  */
+
+static tree
+maybe_get_reference_referent (tree r)
+{
+  if (TREE_CODE (r) == NOP_EXPR
+      && TYPE_REF_P (TREE_TYPE (r))
+      && TREE_CODE (TREE_OPERAND (r, 0)) == ADDR_EXPR)
+    {
+      STRIP_NOPS (r);
+      r = TREE_OPERAND (r, 0);
+    }
+  return r;
+}
+
+/* Process std::meta::object_of.
+   Returns:
+   -- If r represents an object, then r.
+   -- Otherwise, if r represents a reference, then a reflection of the object
+      referred to by that reference.
+   -- Otherwise, r represents a variable; a reflection of the object declared
+      by that variable.
+   Throws: meta::exception unless r is a reflection representing either
+   -- an object with static storage duration, or
+   -- a variable that either declares or refers to such an object, and if that
+      variable is a reference R, then either
+      -- R is usable in constant expressions, or
+      -- the lifetime of R began within the core constant expression currently
+	 under evaluation.  */
+
+static tree
+eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		reflect_kind kind, tree *jump_target)
+{
+  tree orig = r;
+  if (TYPE_REF_P (TREE_TYPE (r)))
+    r = DECL_INITIAL (r);
+  r = maybe_get_reference_referent (r);
+  if (eval_has_static_storage_duration (orig, kind) == boolean_false_node
+      && (orig == r
+	  || eval_has_static_storage_duration (r, kind) == boolean_false_node))
+    return throw_exception (loc, ctx, N_("reflection does not represent an"
+					 " object with static storage duration,"
+					 " or a reference to such an object"),
+			    r, jump_target);
+  return get_reflection_raw (loc, r, REFLECT_OBJECT);
+}
+
 /* Process std::meta::dealias.
    Returns: A reflection representing the underlying entity of what r
    represents.
@@ -3091,21 +3139,6 @@ get_reflection_kind (tree r)
       || eval_is_template (r) == boolean_true_node)
     return REFLECT_UNDEF;
   return obvalue_p (r) ? REFLECT_OBJECT : REFLECT_VALUE;
-}
-
-/* If R is (const T &) &foo, get foo.  */
-
-static tree
-maybe_get_reference_referent (tree r)
-{
-  if (TREE_CODE (r) == NOP_EXPR
-      && TYPE_REF_P (TREE_TYPE (r))
-      && TREE_CODE (TREE_OPERAND (r, 0)) == ADDR_EXPR)
-    {
-      STRIP_NOPS (r);
-      r = TREE_OPERAND (r, 0);
-    }
-  return r;
 }
 
 /* Get the reflection of template argument ARG as per
@@ -6466,6 +6499,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     }
   if (id_equal (name, "type_of"))
     return eval_type_of (loc, ctx, h, kind, jump_target);
+  if (id_equal (name, "object_of"))
+    return eval_object_of (loc, ctx, h, kind, jump_target);
   if (!strcmp (ident, "operator_of"))
     return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
   if (id_equal (name, "parent_of"))
@@ -6866,7 +6901,8 @@ compare_reflections (tree lhs, tree rhs)
 	   && TREE_CODE (lhs) == ARRAY_REF)
     return (TREE_TYPE (lhs) == TREE_TYPE (rhs)
 	    && TREE_OPERAND (lhs, 0) == TREE_OPERAND (rhs, 0)
-	    && TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1));
+	    && TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1)
+	    && TREE_OPERAND (lhs, 2) == TREE_OPERAND (rhs, 2));
 
   return lhs == rhs;
 }
