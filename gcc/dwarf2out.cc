@@ -282,6 +282,9 @@ static GTY(()) dw_die_ref auto_die;
 /* The DIE for C++14 'decltype(auto)' in a function return type.  */
 static GTY(()) dw_die_ref decltype_auto_die;
 
+/* The DIE for C++26 'decltype(^^int)' fundamental type.  */
+static GTY(()) dw_die_ref meta_type_die;
+
 /* Forward declarations for functions defined in this file.  */
 
 static void output_call_frame_info (int);
@@ -13460,6 +13463,20 @@ is_cxx_auto (tree type)
   return false;
 }
 
+/* Return true for C++ std::meta::info fundamental type.  */
+
+static inline bool
+is_cxx_meta_type (tree type)
+{
+  if (is_cxx ())
+    {
+      tree name = TYPE_IDENTIFIER (type);
+      if (name == get_identifier ("decltype(^^int)"))
+	return true;
+    }
+  return false;
+}
+
 /* Given a pointer to an arbitrary ..._TYPE tree node, return true if the
    given input type is a Dwarf "fundamental" type.  Otherwise return null.  */
 
@@ -13495,6 +13512,8 @@ is_base_type (tree type)
 
     default:
       if (is_cxx_auto (type))
+	return false;
+      if (is_cxx_meta_type (type))
 	return false;
       gcc_unreachable ();
     }
@@ -26947,6 +26966,18 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 	      add_name_attribute (*die, IDENTIFIER_POINTER (name));
 	    }
 	  equate_type_number_to_die (type, *die);
+	  break;
+	}
+      if (is_cxx_meta_type (type))
+	{
+	  tree name = TYPE_IDENTIFIER (type);
+	  if (!meta_type_die)
+	    {
+	      meta_type_die = new_die (DW_TAG_unspecified_type,
+				       comp_unit_die (), NULL_TREE);
+	      add_name_attribute (meta_type_die, IDENTIFIER_POINTER (name));
+	    }
+	  equate_type_number_to_die (type, meta_type_die);
 	  break;
 	}
       gcc_unreachable ();
