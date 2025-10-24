@@ -6007,6 +6007,415 @@ eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
     return boolean_true_node;
 }
 
+/* Returns true if R is C-members-of-representable from
+   current point P.  */
+
+static bool
+members_of_representable_p (tree c, tree r)
+{
+  if (TREE_CODE (r) == CONST_DECL)
+    return false;
+  if (LAMBDA_TYPE_P (c) && !LAMBDA_FUNCTION_P (r))
+    return false;
+  if (TYPE_P (r))
+    {
+      if (CP_DECL_CONTEXT (TYPE_NAME (r)) != c)
+	return false;
+      if (LAMBDA_TYPE_P (r))
+	return false;
+      if (OVERLOAD_TYPE_P (r))
+	return true;
+      if (typedef_variant_p (r))
+	return true;
+    }
+  else if (DECL_P (r))
+    {
+      if (CP_DECL_CONTEXT (r) != c)
+	return false;
+      if (DECL_CLASS_TEMPLATE_P (r)
+	  || DECL_FUNCTION_TEMPLATE_P (r)
+	  || variable_template_p (r)
+	  || DECL_ALIAS_TEMPLATE_P (r)
+	  || concept_definition_p (r)
+	  || TREE_CODE (r) == FIELD_DECL
+	  || TREE_CODE (r) == NAMESPACE_DECL)
+	return true;
+      if (VAR_P (r) && !undeduced_auto_decl (r))
+	return true;
+      if (TREE_CODE (r) == FUNCTION_DECL)
+	{
+	  if (undeduced_auto_decl (r))
+	    return false;
+	  // TODO: check if constraints are satisfied.
+	  return true;
+	}
+    }
+  return false;
+}
+
+/* Callback for vector qsort to compare members by ascending DECL_UID.  */
+
+static int
+members_cmp (const void *a, const void *b)
+{
+  const constructor_elt *ea = (const constructor_elt *) a;
+  const constructor_elt *eb = (const constructor_elt *) b;
+  tree vala = REFLECT_EXPR_HANDLE (ea->value);
+  tree valb = REFLECT_EXPR_HANDLE (eb->value);
+  if (TYPE_P (vala))
+    vala = TYPE_NAME (vala);
+  if (TYPE_P (valb))
+    valb = TYPE_NAME (valb);
+  if (DECL_UID (vala) < DECL_UID (valb))
+    return -1;
+  if (DECL_UID (vala) > DECL_UID (valb))
+    return 1;
+  gcc_assert (ea == eb);
+  return 0;
+}
+
+/* Enumerate members of namespace NS for eval_members_of.  */
+
+static vec<constructor_elt, va_gc> *
+namespace_members_of (location_t loc, tree ns)
+{
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  for (tree b : *DECL_NAMESPACE_BINDINGS (ns))
+    {
+      tree m = b;
+      if (VAR_P (b) && DECL_ANON_UNION_VAR_P (b))
+	continue;
+      if (TREE_CODE (b) == TYPE_DECL)
+	m = TREE_TYPE (b);
+      if (!members_of_representable_p (ns, m))
+	continue;
+      if (DECL_DECOMPOSITION_P (m) && !DECL_DECOMP_IS_BASE (m))
+	continue;
+      /* I don't see much point in calling eval_is_accessible here,
+	 won't it always return true?  */
+      CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+			      get_reflection_raw (loc, m));
+    }
+  if (elts)
+    elts->qsort (members_cmp);
+  return elts;
+}
+
+/* Enumerate members of class R for eval_*members_of.  KIND is
+   0 for members_of, 1 for static_members_of, 2 for
+   nonstatic_members_of and 3 for has_inaccessible_nonstatic_data_members.
+   For KIND 3 don't append any elts except for the first one for
+   which is_accessible returned false.  */
+
+static vec<constructor_elt, va_gc> *
+class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		  tree actx, tree call, bool *non_constant_p,
+		  tree *jump_target, int kind)
+{
+  if (kind == 0)
+    {
+      if (modules_p ())
+	lazy_load_pendings (TYPE_NAME (r));
+      if (CLASSTYPE_LAZY_DEFAULT_CTOR (r))
+        lazily_declare_fn (sfk_constructor, r);
+      if (CLASSTYPE_LAZY_COPY_CTOR (r))
+        lazily_declare_fn (sfk_copy_constructor, r);
+      if (CLASSTYPE_LAZY_MOVE_CTOR (r))
+        lazily_declare_fn (sfk_move_constructor, r);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (r))
+        lazily_declare_fn (sfk_destructor, r);
+      if (CLASSTYPE_LAZY_COPY_ASSIGN (r))
+        lazily_declare_fn (sfk_copy_assignment, r);
+      if (CLASSTYPE_LAZY_MOVE_ASSIGN (r))
+        lazily_declare_fn (sfk_move_assignment, r);
+    }
+  auto_vec <tree, 6> implicitly_declared;
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  for (tree field = TYPE_FIELDS (r); field; field = DECL_CHAIN (field))
+    {
+      tree m = field;
+      if (TREE_CODE (field) == FIELD_DECL && DECL_ARTIFICIAL (field))
+	continue; /* Ignore bases.  */
+      else if (DECL_SELF_REFERENCE_P (field))
+	continue;
+      else if (TREE_CODE (field) == TYPE_DECL)
+	m = TREE_TYPE (field);
+      else if (TREE_CODE (field) == FUNCTION_DECL)
+	{
+	  /* Ignore cloned cdtors.  */
+	  if (DECL_COMPLETE_CONSTRUCTOR_P (field)
+	      || DECL_BASE_CONSTRUCTOR_P (field)
+	      || DECL_COMPLETE_DESTRUCTOR_P (field)
+	      || DECL_BASE_DESTRUCTOR_P (field)
+	      || DECL_DELETING_DESTRUCTOR_P (field))
+	    continue;
+	}
+      if (members_of_representable_p (r, m))
+	{
+	  if (kind == 1
+	      && eval_is_variable (m, REFLECT_UNDEF) != boolean_true_node)
+	    continue; /* For static_data_members_of only include
+			 is_variable.  */
+	  else if ((kind == 2 || kind == 3)
+		   && eval_is_nonstatic_data_member (m) != boolean_true_node)
+	    continue; /* For nonstatic_data_members_of only include
+			 is_nonstatic_data_member.  */
+	  tree a = eval_is_accessible (loc, ctx, m, actx, call, non_constant_p,
+				       jump_target);
+	  if (*jump_target || *non_constant_p)
+	    return nullptr;
+	  if (a == boolean_false_node)
+	    {
+	      if (kind == 3 && elts == nullptr)
+		CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, boolean_true_node);
+	      continue;
+	    }
+	  gcc_assert (a == boolean_true_node);
+	  if (kind == 0
+	      && TREE_CODE (m) == FUNCTION_DECL
+	      && DECL_ARTIFICIAL (m))
+	    {
+	      /* Implicitly-declared special members appear after any user
+		 declared members   */
+	      implicitly_declared.safe_push (m);
+	      continue;
+	    }
+	  else if (kind == 3)
+	    continue;
+	  CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				  get_reflection_raw (loc, m));
+	}
+    }
+  /* TYPE_DECLs in TYPE_FIELDS come after other decls, so for members_of
+     the declaration order is not preserved.  */
+  if (kind == 0 && elts)
+    elts->qsort (members_cmp);
+  if (kind == 0 && !implicitly_declared.is_empty ())
+    {
+      gcc_assert (implicitly_declared.length () <= 6);
+      for (tree m : implicitly_declared)
+	if (default_ctor_p (m))
+	  {
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_raw (loc, m));
+	    break;
+	  }
+      for (tree m : implicitly_declared)
+	if (DECL_COPY_CONSTRUCTOR_P (m))
+	  {
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_raw (loc, m));
+	    break;
+	  }
+      for (tree m : implicitly_declared)
+	if (special_function_p (m) == sfk_copy_assignment)
+	  {
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_raw (loc, m));
+	    break;
+	  }
+      for (tree m : implicitly_declared)
+	if (DECL_MOVE_CONSTRUCTOR_P (m))
+	  {
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_raw (loc, m));
+	    break;
+	  }
+      for (tree m : implicitly_declared)
+	if (special_function_p (m) == sfk_move_assignment)
+	  {
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_raw (loc, m));
+	    break;
+	  }
+      for (tree m : implicitly_declared)
+	if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (m))
+	  {
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				    get_reflection_raw (loc, m));
+	    break;
+	  }
+    }
+  return elts;
+}
+
+/* Implement std::meta::members_of.
+   A declaration D members-of-precedes a point P if D precedes either P or the
+   point immediately following the class-specifier of the outermost class for
+   which P is in a complete-class context.
+   A declaration D of a member M of a class or namespace Q is
+   Q-members-of-eligible if
+   -- the host scope of D is the class scope or namespace scope associated
+      with Q,
+   -- D is not a friend declaration,
+   -- M is not a closure type,
+   -- M is not a specialization of a template,
+   -- if Q is a class that is not a closure type, then M is a direct member of
+      Q that is not a variant member of a nested anonymous union of Q, and
+   -- if Q is a closure type, then M is a function call operator or function
+      call operator template.
+   It is implementation-defined whether declarations of other members of a
+   closure type Q are Q-members-of-eligible.
+   A member M of a class or namespace Q is Q-members-of-representable from a
+   point P if a Q-members-of-eligible declaration of M members-of-precedes P,
+   and M is
+   -- a class or enumeration type
+   -- a type alias
+   -- a class template, function template, variable template, alias template,
+      or concept,
+   -- a variable or reference V for which the type of V does not contain an
+      undeduced placeholder type,
+   -- a function F for which
+      -- the type of F does not contain an undeduced placeholder type,
+      -- the constraints (if any) of F are satisfied, and
+      -- if F is a prospective destructor, F is the selected destructor,
+   -- a non-static data member,
+   -- a namespace, or
+   -- a namespace alias.
+   Returns: A vector containing reflections of all members M of the entity Q
+   represented by dealias(r) for which
+   -- M is Q-members-of-representable from some point in the evaluation
+      context and
+   -- is_accessible(^^M, ctx) is true.
+   If dealias(r) represents a class C, then the vector also contains
+   reflections representing all unnamed bit-fields B whose declarations
+   inhabit the class scope corresponding to C for which
+   is_accessible(^^B, ctx) is true.
+   Reflections of class members and unnamed bit-fields that are declared
+   appear in the order in which they are declared.
+   Throws: meta::exception unless dealias(r) is a reflection representing
+   either a class type that is complete from some point in the evaluation
+   context or a namespace.  */
+
+static tree
+eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		 tree actx, tree call, bool *non_constant_p,
+		 tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  else if (TREE_CODE (r) == NAMESPACE_DECL)
+    r = ORIGINAL_NAMESPACE (r);
+  vec<constructor_elt, va_gc> *elts;
+  if (TREE_CODE (r) == NAMESPACE_DECL)
+    elts = namespace_members_of (loc, r);
+  else if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
+			       jump_target, 0);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("neither complete class type nor namespace"),
+			    r, jump_target);
+  return get_vector_of_info_elts (elts);
+}
+
+/* Implement std::meta::static_data_members_of.
+   Returns: A vector containing each element e of members_of(type, ctx) such
+   that is_variable(e) is true, preserving their order.
+   Throws: meta::exception unless dealias(type) represents a class type that
+   is complete from some point in the evaluation context.  */
+
+static tree
+eval_static_data_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
+			     tree actx, tree call, bool *non_constant_p,
+			     tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
+			       jump_target, 1);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("not a complete class type"),
+			    r, jump_target);
+  return get_vector_of_info_elts (elts);
+}
+
+/* Implement std::meta::nonstatic_data_members_of.
+   Returns: A vector containing each element e of members_of(type, ctx) such
+   that is_nonstatic_data_member(e) is true, preserving their order.
+   Throws: meta::exception unless dealias(type) represents a class type that
+   is complete from some point in the evaluation context.  */
+
+static tree
+eval_nonstatic_data_members_of (location_t loc, const constexpr_ctx *ctx,
+				tree r, tree actx, tree call,
+				bool *non_constant_p, tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
+			       jump_target, 2);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("not a complete class type"),
+			    r, jump_target);
+  return get_vector_of_info_elts (elts);
+}
+
+/* Implement std::meta::has_inaccessible_nonstatic_data_members.
+   Returns: true if is_accessible(R, ctx) is false for any R in
+   nonstatic_data_members_of(r, access_context::unchecked()).
+   Otherwise, false.
+   Throws: meta::exception unless
+   -- nonstatic_data_members_of(r, access_context::unchecked()) is a constant
+      subexpression and
+   -- r does not represent a closure type.  */
+
+static tree
+eval_has_inaccessible_nonstatic_data_members (location_t loc,
+					      const constexpr_ctx *ctx,
+					      tree r, tree actx, tree call,
+					      bool *non_constant_p,
+					      tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      if (LAMBDA_TYPE_P (r))
+	return throw_exception (loc, ctx, N_("closure type"), r,
+				jump_target);
+      elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
+			       jump_target, 3);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("not a complete class type"),
+			    r, jump_target);
+  if (elts == nullptr)
+    return boolean_false_node;
+  else
+    return boolean_true_node;
+}
+
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -6600,6 +7009,21 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	return eval_has_thread_storage_duration (h, kind);
       if (!strcmp (ident, "automatic_storage_duration"))
 	return eval_has_automatic_storage_duration (h, kind);
+      if (!strcmp (ident, "inaccessible_nonstatic_data_members"))
+	{
+	  tree actx = get_nth_callarg (call, 1);
+	  actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
+					       non_constant_p, overflow_p,
+					       jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_has_inaccessible_nonstatic_data_members (loc, ctx, h,
+							       actx, call,
+							       non_constant_p,
+							       jump_target);
+	}
       goto not_found;
     }
 
@@ -6818,6 +7242,28 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       if (*non_constant_p)
 	return call;
       return eval_define_aggregate (loc, ctx, h, hvec, call, non_constant_p);
+    }
+  if (id_equal (name, "members_of")
+      || id_equal (name, "static_data_members_of")
+      || id_equal (name, "nonstatic_data_members_of"))
+    {
+      tree actx = get_nth_callarg (call, 1);
+      actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
+					   non_constant_p, overflow_p,
+					   jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      if (id_equal (name, "members_of"))
+	return eval_members_of (loc, ctx, h, actx, call, non_constant_p,
+				jump_target);
+      else if (id_equal (name, "static_data_members_of"))
+	return eval_static_data_members_of (loc, ctx, h, actx, call,
+					    non_constant_p, jump_target);
+      else if (id_equal (name, "nonstatic_data_members_of"))
+	return eval_nonstatic_data_members_of (loc, ctx, h, actx, call,
+					       non_constant_p, jump_target);
     }
 
 not_found:

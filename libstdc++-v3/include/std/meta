@@ -296,8 +296,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     // [meta.reflection.access.queries], member accessibility queries
     consteval bool is_accessible(info, access_context);
+    consteval bool has_inaccessible_nonstatic_data_members(info,
+							   access_context);
 
     // [meta.reflection.member.queries], reflection member queries
+    consteval vector<info> members_of(info, access_context);
+    consteval vector<info> static_data_members_of(info, access_context);
+    consteval vector<info> nonstatic_data_members_of(info, access_context);
     consteval vector<info> enumerators_of(info);
 
     // [meta.reflection.layout], reflection layout queries
