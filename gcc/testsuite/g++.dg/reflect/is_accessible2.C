@@ -366,6 +366,7 @@ thud ()
   static_assert (is_accessible (D::rg, ctx));
   static_assert (is_accessible (D::rj, ctx));
   static_assert (!is_accessible (D::re, ctx));
+  // TODO: clang++ disagrees with GCC on the D::r{G,H,H12,h,k} cases.
   static_assert (is_accessible (D::rG, ctx));
   static_assert (is_accessible (D::rH, ctx));
   static_assert (is_accessible (D::rH1, ctx));
@@ -382,6 +383,32 @@ thud ()
   static_assert (!is_accessible (D::ri, ctx));
   static_assert (!is_accessible (D::rl, ctx));
   static_assert (is_accessible (D::rwaldo, ctx));
+  static constexpr auto ctx2 = access_context::current ().via (^^L);
+  static_assert (is_accessible (D::rd, ctx2));
+  static_assert (is_accessible (D::rE, ctx2));
+  static_assert (is_accessible (D::rF, ctx2));
+  static_assert (is_accessible (D::rF1, ctx2));
+  static_assert (is_accessible (D::rbar, ctx2));
+  static_assert (is_accessible (D::rbaz, ctx2));
+  static_assert (is_accessible (D::rg, ctx2));
+  static_assert (is_accessible (D::rj, ctx2));
+  static_assert (is_accessible (D::re, ctx2));
+  static_assert (is_accessible (D::rG, ctx2));
+  static_assert (is_accessible (D::rH, ctx2));
+  static_assert (is_accessible (D::rH1, ctx2));
+  static_assert (is_accessible (D::rqux, ctx2));
+  static_assert (is_accessible (D::rfreddy, ctx2));
+  static_assert (is_accessible (D::rh, ctx2));
+  static_assert (is_accessible (D::rk, ctx2));
+  static_assert (!is_accessible (D::rf, ctx2));
+  static_assert (!is_accessible (D::rI, ctx2));
+  static_assert (!is_accessible (D::rJ, ctx2));
+  static_assert (!is_accessible (D::rJ1, ctx2));
+  static_assert (!is_accessible (D::rcorge, ctx2));
+  static_assert (!is_accessible (D::rgarply, ctx2));
+  static_assert (!is_accessible (D::ri, ctx2));
+  static_assert (!is_accessible (D::rl, ctx2));
+  static_assert (is_accessible (D::rwaldo, ctx2));
 }
 
 struct M : D
@@ -405,11 +432,11 @@ static_assert (is_accessible (^^a, uctx));
 
 struct N
 {
-  union { union { union { int a; }; }; };
+  union { int a; };
 protected:
-  union { union { union { int b; }; }; };
+  union { int b; };
 private:
-  union { union { union { int c; }; }; };
+  union { int c; };
 public:
   static constexpr auto ctx = access_context::current ();
   static constexpr info ra = ^^a;
@@ -423,9 +450,11 @@ struct O : public N
 };
 
 static_assert (is_accessible (N::ra, gctx));
+// TODO: clang++ disagrees with g++ on the N::r{b,c} cases with gctx and O::ctx.
 static_assert (!is_accessible (N::rb, gctx));
 static_assert (!is_accessible (N::rc, gctx));
 static_assert (is_accessible (N::ra, N::ctx));
+// TODO: This case ICEs.
 //static_assert (is_accessible (N::rb, N::ctx));
 static_assert (is_accessible (N::rc, N::ctx));
 static_assert (is_accessible (N::ra, N::ctx.via (^^N)));
@@ -437,3 +466,5 @@ static_assert (!is_accessible (N::rc, O::ctx));
 static_assert (is_accessible (N::ra, O::ctx.via (^^O)));
 static_assert (is_accessible (N::rb, O::ctx.via (^^O)));
 static_assert (!is_accessible (N::rc, O::ctx.via (^^O)));
+static_assert (is_accessible (^^A::a, O::ctx));
+static_assert (!is_accessible (^^A::a, O::ctx.via (^^O)));

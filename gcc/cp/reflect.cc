@@ -5875,13 +5875,18 @@ extract_access_context (location_t loc, tree actx, tree *scope,
       error_at (loc, "unexpected %<access_context::scope()%>");
       return false;
     }
+  else if (CLASS_TYPE_P (*scope))
+    *scope = TYPE_MAIN_VARIANT (*scope);
   if (*designating_class == unknown_type_node)
     *designating_class = NULL_TREE;
-  else if (!CLASS_TYPE_P (*scope) || !COMPLETE_TYPE_P (*scope))
+  else if (!CLASS_TYPE_P (*designating_class)
+	   || !COMPLETE_TYPE_P (*designating_class))
     {
       error_at (loc, "unexpected %<access_context::designating_class()%>");
       return false;
     }
+  else
+    *designating_class = TYPE_MAIN_VARIANT (*designating_class);
   return true;
 }
 
@@ -5964,9 +5969,13 @@ eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
 				r, jump_target);
       if (designating_class)
 	{
-	  // TODO: Check here for:
-	  // a class member that is not a (possibly indirect or variant)
-	  // member of DESIGNATING-CLS(r, ctx).
+	  tree p = c;
+	  while (ANON_AGGR_TYPE_P (p) && p != designating_class)
+	    p = CP_TYPE_CONTEXT (p);
+	  if (p != designating_class
+	      && (!CLASS_TYPE_P (p)
+		  || !DERIVED_FROM_P (p, designating_class)))
+	    return boolean_false_node;
 	}
       if (scope == NULL_TREE)
 	return boolean_true_node;
