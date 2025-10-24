@@ -5849,6 +5849,155 @@ eval_access_context_current (location_t loc, const constexpr_ctx *ctx,
   return build_constructor (access_context, elts);
 }
 
+/* Helper function to extract scope and designating class from
+   access_context ACTX.  */
+
+static bool
+extract_access_context (location_t loc, tree actx, tree *scope,
+			tree *designating_class)
+{
+  if (TREE_CODE (actx) != CONSTRUCTOR
+      || CONSTRUCTOR_NELTS (actx) != 2
+      || TREE_CODE (CONSTRUCTOR_ELT (actx, 0)->value) != REFLECT_EXPR
+      || TREE_CODE (CONSTRUCTOR_ELT (actx, 1)->value) != REFLECT_EXPR)
+    {
+      error_at (loc, "invalid %<access_context%> argument");
+      return false;
+    }
+  *scope = REFLECT_EXPR_HANDLE (CONSTRUCTOR_ELT (actx, 0)->value);
+  *designating_class = REFLECT_EXPR_HANDLE (CONSTRUCTOR_ELT (actx, 1)->value);
+  if (*scope == unknown_type_node)
+    *scope = NULL_TREE;
+  else if (TREE_CODE (*scope) != FUNCTION_DECL
+	   && TREE_CODE (*scope) != NAMESPACE_DECL
+	   && !CLASS_TYPE_P (*scope))
+    {
+      error_at (loc, "unexpected %<access_context::scope()%>");
+      return false;
+    }
+  if (*designating_class == unknown_type_node)
+    *designating_class = NULL_TREE;
+  else if (!CLASS_TYPE_P (*scope) || !COMPLETE_TYPE_P (*scope))
+    {
+      error_at (loc, "unexpected %<access_context::designating_class()%>");
+      return false;
+    }
+  return true;
+}
+
+/* Process std::meta::is_accessible.
+   Let PARENT-CLS(r) be:
+   -- If parent_of(r) represents a class C, then C.
+   -- Otherwise, PARENT-CLS(parent_of(r)).
+   Let DESIGNATING-CLS(r, ctx) be:
+   -- If ctx.designating_class() represents a class C, then C.
+   -- Otherwise, PARENT-CLS(r).
+   Returns:
+   -- If r represents an unnamed bit-field F, then is_accessible(r_H, ctx),
+      where r_H represents a hypothetical non-static data member of the class
+      represented by PARENT-CLS(r) with the same access as F.
+   -- Otherwise, if r does not represent a class member or a direct base class
+      relationship, then true.
+   -- Otherwise, if r represents
+      -- a class member that is not a (possibly indirect or variant) member of
+	 DESIGNATING-CLS(r, ctx) or
+      -- a direct base class relationship such that parent_of(r) does not
+	 represent DESIGNATING-CLS(r, ctx) or a (direct or indirect) base
+	 class thereof,
+      then false.
+   -- Otherwise, if ctx.scope() is the null reflection, then true.
+   -- Otherwise, letting P be a program point whose immediate scope is the
+      function parameter scope, class scope, or namespace scope corresponding
+      to the function, class, or namespace represented by ctx.scope():
+      -- If r represents a direct base class relationship (D,B), then true if
+	 base class B of DESIGNATING-CLS(r, ctx) is accessible at P;
+	 otherwise false.
+      -- Otherwise, r represents a class member M; true if M would be
+	 accessible at P with the designating class (as DESIGNATING-CLS(r, ctx)
+	 if the effect of any using-declarations were ignored.  Otherwise,
+	 false.
+   Throws: meta::exception if
+   -- r represents a class member for which PARENT-CLS(r) is an incomplete
+      class or
+   -- r represents a direct base class relationship (D,B) for which D is
+      incomplete.  */
+
+static tree
+eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
+		    tree actx, tree call, bool *non_constant_p,
+		    tree *jump_target)
+{
+  tree scope = NULL_TREE, designating_class = NULL_TREE;
+  if (!extract_access_context (loc, actx, &scope, &designating_class))
+    {
+      *non_constant_p = true;
+      return call;
+    }
+
+  if (eval_is_class_member (r) == boolean_true_node)
+    {
+      r = MAYBE_BASELINK_FUNCTIONS (r);
+      r = OVL_FIRST (r);
+      tree c = r;
+      if (TREE_CODE (r) == CONST_DECL && UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
+	c = DECL_CONTEXT (r);
+      if (TYPE_P (c))
+	{
+	  if (TYPE_NAME (c) && DECL_P (TYPE_NAME (c)))
+	    c = CP_DECL_CONTEXT (TYPE_NAME (c));
+	  else
+	    c = CP_TYPE_CONTEXT (c);
+	}
+      else if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+	{
+	  tree v = DECL_VALUE_EXPR (r);
+	  if (v != error_mark_node && TREE_CODE (v) == COMPONENT_REF)
+	    c = CP_DECL_CONTEXT (TREE_OPERAND (v, 1));
+	  else
+	    c = CP_DECL_CONTEXT (r);
+	}
+      else
+	c = CP_DECL_CONTEXT (r);
+      if (!CLASS_TYPE_P (c) || !COMPLETE_TYPE_P (c))
+	return throw_exception (loc, ctx,
+				N_("incomplete parent class"),
+				r, jump_target);
+      if (designating_class)
+	{
+	  // TODO: Check here for:
+	  // a class member that is not a (possibly indirect or variant)
+	  // member of DESIGNATING-CLS(r, ctx).
+	}
+      if (scope == NULL_TREE)
+	return boolean_true_node;
+      if (designating_class == NULL_TREE)
+	designating_class = c;
+      if (TREE_CODE (scope) == NAMESPACE_DECL)
+	push_to_top_level ();
+      else if (TYPE_P (scope))
+	push_access_scope (TYPE_NAME (scope));
+      else
+	push_access_scope (scope);
+      tree ret;
+      tree o = TYPE_P (r) ? TYPE_NAME (r) : r;
+      if (accessible_p (TYPE_BINFO (designating_class), o,
+			/*consider_local_p=*/true))
+	ret = boolean_true_node;
+      else
+	ret = boolean_false_node;
+      if (TREE_CODE (scope) == NAMESPACE_DECL)
+	pop_from_top_level ();
+      else if (TYPE_P (scope))
+	pop_access_scope (TYPE_NAME (scope));
+      else
+	pop_access_scope (scope);
+      return ret;
+    }
+  // TODO: Handle direct base class relationship.
+  else
+    return boolean_true_node;
+}
+
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
@@ -6389,6 +6538,19 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 						    /*rvalue_p=*/true);
       if (!strcmp (ident, "implicit_lifetime_type"))
 	return eval_is_implicit_lifetime_type (loc, ctx, h, jump_target);
+      if (!strcmp (ident, "accessible"))
+	{
+	  tree actx = get_nth_callarg (call, 1);
+	  actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
+					       non_constant_p, overflow_p,
+					       jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  return eval_is_accessible (loc, ctx, h, actx, call, non_constant_p,
+				     jump_target);
+	}
       goto not_found;
     }
 

@@ -294,6 +294,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       info _M_designating_class;
     };
 
+    // [meta.reflection.access.queries], member accessibility queries
+    consteval bool is_accessible(info, access_context);
+
     // [meta.reflection.member.queries], reflection member queries
     consteval vector<info> enumerators_of(info);
 
