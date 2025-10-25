@@ -32,7 +32,7 @@ template<auto> concept Concept = requires { true; };
 namespace NS {};
 namespace NSAlias = NS;
 
-// constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 consteval bool
 has_variable_of (info r)
@@ -52,7 +52,7 @@ static_assert (!has_variable_of (^^Enum::A));
 static_assert (!has_variable_of (^^Alias));
 static_assert (!has_variable_of (^^S));
 static_assert (!has_variable_of (^^S::mem));
-//static_assert (!has_variable_of (std::meta::members_of (^^S, ctx)[1]));
+static_assert (!has_variable_of (std::meta::members_of (^^S, ctx)[1]));
 static_assert (!has_variable_of (^^TCls));
 static_assert (!has_variable_of (^^TFn));
 static_assert (!has_variable_of (^^TVar));

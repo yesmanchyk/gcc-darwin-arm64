@@ -33,7 +33,7 @@ template<auto> concept Concept = requires { true; };
 namespace NS {};
 namespace NSAlias = NS;
 
-// constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 consteval bool
 has_type (info r)
@@ -53,7 +53,7 @@ static_assert (has_type (^^Enum::A));
 static_assert (!has_type (^^Alias));
 static_assert (!has_type (^^S));
 static_assert (has_type (^^S::mem));
-//static_assert (has_type (std::meta::members_of (^^S, ctx)[1]));
+static_assert (has_type (std::meta::members_of (^^S, ctx)[1]));
 static_assert (!has_type (^^TCls));
 static_assert (!has_type (^^TFn));
 static_assert (!has_type (^^TVar));
@@ -115,7 +115,7 @@ static_assert (type_of (^^Enum::A) == ^^Enum);
 static_assert (type_of (^^A) == ^^Enum);
 static_assert (type_of (^^S::mem) == ^^int);
 static_assert (type_of (^^U::v) == ^^int);
-//static_assert (type_of (std::meta::members_of (^^S, ctx)[1]) == ??);
+static_assert (type_of (std::meta::members_of (^^S, ctx)[1]) == ^^int);
 //static_assert (type_of (std::meta::bases_of (^^S, ctx)[0]) == ??);
 static_assert (type_of (std::meta::data_member_spec (^^int, { .name = "member" })) == ^^int);
 static_assert (type_of (std::meta::data_member_spec (^^const long, { .name = "member", .bit_width = 8 })) == ^^const long);

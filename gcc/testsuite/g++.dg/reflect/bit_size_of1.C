@@ -36,7 +36,7 @@ namespace NS {};
 namespace NSAlias = NS;
 int &ref = arr[0];
 
-// constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 consteval bool
 has_bit_size_of (info r)
@@ -56,7 +56,7 @@ static_assert (!has_bit_size_of (^^Enum::A));
 static_assert (has_bit_size_of (^^Alias));
 static_assert (has_bit_size_of (^^S));
 static_assert (has_bit_size_of (^^S::mem));
-//static_assert (has_bit_size_of (std::meta::members_of (^^S, ctx)[1]));
+static_assert (has_bit_size_of (std::meta::members_of (^^S, ctx)[1]));
 static_assert (!has_bit_size_of (^^TCls));
 static_assert (!has_bit_size_of (^^TFn));
 static_assert (!has_bit_size_of (^^TVar));

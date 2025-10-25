@@ -3,6 +3,7 @@
 // Test std::meta::is_conversion_function_template.
 
 #include <meta>
+#include <ranges>
 
 using namespace std::meta;
 
@@ -35,8 +36,8 @@ int operator""_a(const char *);
 template<char...>
 int operator""_b();
 
-//constexpr auto conversion_template =
-//    (members_of(^^T, ctx) | std::views::filter(std::meta::is_template)).front();
+constexpr auto conversion_template
+  = (members_of (^^T, access_context::current ()) | std::views::filter (is_template)).front ();
 
 static_assert (!is_conversion_function_template (null_reflection));
 static_assert (!is_conversion_function_template (^^int));
@@ -47,7 +48,7 @@ static_assert (!is_conversion_function_template (^^operator&&));
 static_assert (!is_conversion_function_template (^^operator||));
 static_assert (!is_conversion_function_template (^^S::operator-));
 static_assert (!is_conversion_function_template (^^S::operator int));
-//static_assert (is_conversion_function_template (conversion_template));
+static_assert (is_conversion_function_template (conversion_template));
 static_assert (!is_conversion_function_template (^^S::fn));
 static_assert (!is_conversion_function_template (^^operator""_a));
 static_assert (!is_conversion_function_template (^^operator""_b));

@@ -111,6 +111,8 @@ static_assert (is_bit_field (dms2));
 constexpr auto dms3 = data_member_spec (^^int, { .name = "dms", .bit_width = 15 });
 static_assert (is_bit_field (dms3));
 
+constexpr auto ctx = access_context::current ();
+
 struct Base {};
 struct Derived : Base {};
 //static_assert (!is_bit_field (bases_of (^^Derived, ctx)[0]));
@@ -123,8 +125,8 @@ struct S {
 };
 static_assert (is_bit_field (^^S::bf));
 static_assert (is_bit_field (^^S::bf2));
-//static_assert (is_bit_field (members_of (^^S, ctx)[2]));
-//static_assert (is_bit_field (members_of (^^S, ctx)[3]));
+static_assert (is_bit_field (members_of (^^S, ctx)[2]));
+static_assert (is_bit_field (members_of (^^S, ctx)[3]));
 
 void
 foo (int x)

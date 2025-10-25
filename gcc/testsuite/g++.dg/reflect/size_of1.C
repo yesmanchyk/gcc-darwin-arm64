@@ -55,7 +55,7 @@ static_assert (!has_size_of (^^Enum::A));
 static_assert (has_size_of (^^Alias));
 static_assert (has_size_of (^^S));
 static_assert (has_size_of (^^S::mem));
-//static_assert (has_size_of (std::meta::members_of (^^S, ctx)[1]));
+static_assert (!has_size_of (members_of (^^S, access_context::current ())[1]));
 static_assert (!has_size_of (^^TCls));
 static_assert (!has_size_of (^^TFn));
 static_assert (!has_size_of (^^TVar));

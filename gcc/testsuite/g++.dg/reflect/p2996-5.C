@@ -21,7 +21,7 @@ template <auto> concept Concept = requires { true; };
 namespace NS {};
 namespace NSAlias = NS;
 
-//constexpr auto r1 = std::meta::reflect_value(42);  // represents int value of 42
+constexpr auto r1 = std::meta::reflect_constant(42);  // represents int value of 42
 
 constexpr auto r2 = std::meta::reflect_object(arr[1]);  // represents int object
 
@@ -33,7 +33,7 @@ constexpr auto r7 = ^^Alias;    // represents a type alias
 constexpr auto r8 = ^^S;        // represents a type
 constexpr auto r9 = ^^S::mem;   // represents a class member
 
-//constexpr auto r10 = std::meta::members_of(^^S)[1];
+constexpr auto r10 = std::meta::members_of (^^S, std::meta::access_context::current ())[1];
     // represents an unnamed bit-field
 
 constexpr auto r11 = ^^TCls;     // represents a class template

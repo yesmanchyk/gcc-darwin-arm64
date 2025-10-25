@@ -32,7 +32,7 @@ template<auto> concept Concept = requires { true; };
 namespace NS {};
 namespace NSAlias = NS;
 
-// constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 static_assert (!is_volatile (std::meta::reflect_constant (42)));
 static_assert (!is_volatile (std::meta::reflect_object (arr[1])));
@@ -44,7 +44,7 @@ static_assert (!is_volatile (^^Enum::A));
 static_assert (!is_volatile (^^Alias));
 static_assert (!is_volatile (^^S));
 static_assert (!is_volatile (^^S::mem));
-//static_assert (!is_volatile (std::meta::members_of (^^S, ctx)[1]));
+static_assert (!is_volatile (std::meta::members_of (^^S, ctx)[1]));
 static_assert (!is_volatile (^^TCls));
 static_assert (!is_volatile (^^TFn));
 static_assert (!is_volatile (^^TVar));

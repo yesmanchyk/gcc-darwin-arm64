@@ -37,7 +37,7 @@ using fn5 = U (...);
 auto fn6 (int);
 auto &fn7 (long long);
 
-// constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 consteval bool
 has_return_type_of (info r)
@@ -69,7 +69,7 @@ static_assert (!has_return_type_of (^^Enum::A));
 static_assert (!has_return_type_of (^^Alias));
 static_assert (!has_return_type_of (^^S));
 static_assert (!has_return_type_of (^^S::mem));
-//static_assert (!has_return_type_of (std::meta::members_of (^^S, ctx)[1]));
+static_assert (!has_return_type_of (members_of (^^S, ctx)[1]));
 static_assert (!has_return_type_of (^^TCls));
 static_assert (!has_return_type_of (^^TFn));
 static_assert (!has_return_type_of (^^TVar));
