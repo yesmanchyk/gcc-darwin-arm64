@@ -174,6 +174,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval string_view identifier_of(info);
     consteval u8string_view u8identifier_of(info);
 
+    consteval string_view display_string_of(info);
+    consteval u8string_view u8display_string_of(info);
+
     consteval source_location source_location_of(info);
 
     // [meta.reflection.queries], reflection queries

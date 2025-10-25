@@ -3228,6 +3228,90 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return build_cplus_new (ret_type, ret, tf_warning_or_error);
 }
 
+/* Process std::meta::{,u8}display_string_of.
+   Returns: An implementation-defined string_view or u8string_view,
+   respectively.
+   Recommended practice: Where possible, implementations should return a
+   string suitable for identifying the represented construct.  */
+
+static tree
+eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
+			reflect_kind kind, tree *jump_target,
+			tree elt_type, tree ret_type)
+{
+#if __GNUC__ >= 10
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  pretty_printer pp, *refpp = global_dc->get_reference_printer ();
+  pp_format_decoder (&pp) = pp_format_decoder (refpp);
+  pp.set_format_postprocessor (pp_format_postprocessor (refpp)->clone ());
+  if (r == unknown_type_node)
+    pp_printf (&pp, "<null reflection>");
+  else if (TYPE_P (r))
+    pp_printf (&pp, "%T", r);
+  else if (kind == REFLECT_PARM)
+    {
+      r = maybe_update_function_parm (r);
+      tree fn = DECL_CONTEXT (r);
+      if (DECL_NAME (r))
+	pp_printf (&pp, "<parameter %D of %D>", r, fn);
+      else
+	{
+	  int idx = 1;
+	  for (tree args = FUNCTION_FIRST_USER_PARM (fn);
+	       r != args; args = DECL_CHAIN (args))
+	    ++idx;
+	  pp_printf (&pp, "<unnamed parameter %d of %D>", idx, fn);
+	}
+    }
+  else if (kind == REFLECT_VALUE || kind == REFLECT_OBJECT)
+    pp_printf (&pp, "%E", r);
+  else if (DECL_P (r) && (DECL_NAME (r) || TREE_CODE (r) == NAMESPACE_DECL))
+    pp_printf (&pp, "%D", r);
+  else if (TREE_CODE (r) == FIELD_DECL)
+    pp_printf (&pp, "%T::<unnamed bit-field>", DECL_CONTEXT (r));
+  else if (kind == REFLECT_BASE)
+    {
+      tree c = r;
+      while (BINFO_INHERITANCE_CHAIN (c))
+        c = BINFO_INHERITANCE_CHAIN (c);
+      pp_printf (&pp, "(%T, %T)", BINFO_TYPE (c), BINFO_TYPE (r));
+    }
+  else if (kind == REFLECT_DATA_MEMBER_SPEC)
+    pp_printf (&pp, "(%T, %E, %E, %E, %s)", TREE_VEC_ELT (r, 0),
+	       TREE_VEC_ELT (r, 1), TREE_VEC_ELT (r, 2), TREE_VEC_ELT (r, 3),
+	       TREE_VEC_ELT (r, 4) == boolean_true_node
+	       ? "true" : "false");
+  else if (eval_is_annotation (r) == boolean_true_node)
+    pp_printf (&pp, "[[=%E]]", TREE_VALUE (TREE_VALUE (r)));
+  else
+    pp_string (&pp, "<unsupported reflection>");
+#if __GNUC__ >= 10
+#pragma GCC diagnostic pop
+#endif
+  tree str = temp_string_literal (pp_formatted_text (&pp), elt_type);
+  if (str == NULL_TREE)
+    {
+      if (elt_type == char_type_node)
+	return throw_exception (loc, ctx, N_("identifier_of not representable"
+					     " in ordinary literal encoding"),
+				r, jump_target);
+      else
+	return throw_exception (loc, ctx, N_("u8identifier_of not representable"
+					     " in UTF-8"),
+				r, jump_target);
+    }
+  releasing_vec args (make_tree_vector_single (str));
+  tree ret = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					&args, ret_type, LOOKUP_NORMAL,
+					tf_warning_or_error);
+  return build_cplus_new (ret_type, ret, tf_warning_or_error);
+}
+
 /* Determine the reflection kind for R.  */
 
 static reflect_kind
@@ -7449,6 +7533,12 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
   if (id_equal (name, "u8identifier_of"))
     return eval_identifier_of (loc, ctx, h, kind, jump_target,
 			       char8_type_node, TREE_TYPE (call));
+  if (id_equal (name, "display_string_of"))
+    return eval_display_string_of (loc, ctx, h, kind, jump_target,
+				   char_type_node, TREE_TYPE (call));
+  if (id_equal (name, "u8display_string_of"))
+    return eval_display_string_of (loc, ctx, h, kind, jump_target,
+				   char8_type_node, TREE_TYPE (call));
   if (id_equal (name, "tuple_size"))
     {
       tree tsize = eval_tuple_size (loc, ctx, h, jump_target);
