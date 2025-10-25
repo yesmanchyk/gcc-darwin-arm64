@@ -560,7 +560,7 @@ fail_ret:
     tree at = build_array_type (valuet, index);
     at = cp_build_qualified_type (at, TYPE_QUAL_CONST);
     if (kind == REFLECT_CONSTANT_STRING
-        || ((valuet == char_type_node
+	|| ((valuet == char_type_node
 	     || valuet == wchar_type_node
 	     || valuet == char8_type_node
 	     || valuet == char16_type_node
@@ -1374,6 +1374,22 @@ eval_is_static_member (tree r)
     return boolean_true_node;
   else if (VAR_P (r) && DECL_CLASS_SCOPE_P (r))
     return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
+/* Process std::meta::is_base.
+   Returns: true if r represents a direct base class relationship.
+   Otherwise, false.  */
+
+static tree
+eval_is_base (tree r, reflect_kind kind)
+{
+  if (kind == REFLECT_BASE)
+    {
+      gcc_assert (TREE_CODE (r) == TREE_BINFO);
+      return boolean_true_node;
+    }
   else
     return boolean_false_node;
 }
@@ -2294,9 +2310,9 @@ has_type (tree r, reflect_kind kind)
       || eval_is_annotation (r) == boolean_true_node
       || eval_is_function_parameter (r, kind) == boolean_true_node
       || eval_is_object (kind) == boolean_true_node
+      || kind == REFLECT_BASE
       || kind == REFLECT_DATA_MEMBER_SPEC)
     return true;
-  // TODO: direct base class relationship.
   return false;
 }
 
@@ -2320,6 +2336,8 @@ type_of (tree r, reflect_kind kind)
 	}
       r = TREE_VALUE (type);
     }
+  else if (kind == REFLECT_BASE)
+    r = BINFO_TYPE (r);
   else if (kind == REFLECT_DATA_MEMBER_SPEC)
     r = TREE_VEC_ELT (r, 0);
   else if (eval_is_annotation (r) == boolean_true_node)
@@ -2633,7 +2651,8 @@ eval_has_parent (tree r, reflect_kind kind)
     }
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
-  // TODO: Handle direct base class relationship.
+  if (kind == REFLECT_BASE)
+    return boolean_true_node;
   if (!DECL_P (r))
     return boolean_false_node;
   if (TREE_CODE (r) != NAMESPACE_DECL && DECL_LANGUAGE (r) == lang_c)
@@ -2685,7 +2704,13 @@ eval_parent_of (location_t loc, const constexpr_ctx *ctx, tree r,
       else
 	c = CP_DECL_CONTEXT (r);
     }
-  // TODO: Handle direct base class relationship.
+  else if (kind == REFLECT_BASE)
+    {
+      c = r;
+      while (BINFO_INHERITANCE_CHAIN (c))
+	c = BINFO_INHERITANCE_CHAIN (c);
+      c = BINFO_TYPE (c);
+    }
   else
     c = CP_DECL_CONTEXT (r);
   tree lam;
@@ -2806,15 +2831,30 @@ eval_return_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_offset_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		tree member_offset, tree *jump_target)
+		reflect_kind kind, tree member_offset, tree *jump_target)
 {
-  if (TREE_CODE (r) != FIELD_DECL
-      /* TODO: Handle direct base class relationship.  */)
+  tree byte_off = NULL_TREE, bit_off = NULL_TREE;
+  if (kind == REFLECT_BASE)
+    {
+      tree d = r;
+      while (BINFO_INHERITANCE_CHAIN (d))
+	d = BINFO_INHERITANCE_CHAIN (d);
+      d = BINFO_TYPE (d);
+      if (BINFO_VIRTUAL_P (r) && ABSTRACT_CLASS_TYPE_P (d))
+	return throw_exception (loc, ctx,
+				N_("reflection of virtual direct base "
+				   "relationship with abstract derived "
+				   "class"),
+				r, jump_target);
+      byte_off = BINFO_OFFSET (r);
+    }
+  else if (TREE_CODE (r) != FIELD_DECL)
     return throw_exception (loc, ctx,
 			    N_("reflection unsuitable for offset"),
 			    r, jump_target);
-  tree off = bit_position (r);
-  if (TREE_CODE (off) != INTEGER_CST)
+  else
+    bit_off = bit_position (r);
+  if (TREE_CODE (bit_off ? bit_off : byte_off) != INTEGER_CST)
     return throw_exception (loc, ctx,
 			    N_("non-constant offset for offset_of"),
 			    r, jump_target);
@@ -2832,10 +2872,20 @@ eval_offset_of (location_t loc, const constexpr_ctx *ctx, tree r,
     goto fail;
   if (next_aggregate_field (DECL_CHAIN (bits)))
     goto fail;
-  tree bytesv = size_binop (TRUNC_DIV_EXPR, off, bitsize_unit_node);
+  tree bytesv;
+  if (byte_off)
+    bytesv = byte_off;
+  else
+    bytesv = size_binop (TRUNC_DIV_EXPR, bit_off, bitsize_unit_node);
   bytesv = fold_convert (TREE_TYPE (bytes), bytesv);
-  tree bitsv = size_binop (TRUNC_MOD_EXPR, off, bitsize_unit_node);
-  bitsv = fold_convert (TREE_TYPE (bits), bitsv);
+  tree bitsv;
+  if (byte_off)
+    bitsv = build_zero_cst (TREE_TYPE (bits));
+  else
+    {
+      bitsv = size_binop (TRUNC_MOD_EXPR, bit_off, bitsize_unit_node);
+      bitsv = fold_convert (TREE_TYPE (bits), bitsv);
+    }
   vec<constructor_elt, va_gc> *elts = nullptr;
   CONSTRUCTOR_APPEND_ELT (elts, bytes, bytesv);
   CONSTRUCTOR_APPEND_ELT (elts, bits, bitsv);
@@ -2867,8 +2917,8 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       && (eval_is_variable (r, kind) != boolean_true_node
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
-      && (kind != REFLECT_DATA_MEMBER_SPEC || TREE_VEC_ELT (r, 3))
-      /* TODO: direct base class relationship.  */)
+      && kind != REFLECT_BASE
+      && (kind != REFLECT_DATA_MEMBER_SPEC || TREE_VEC_ELT (r, 3)))
     return throw_exception (loc, ctx,
 			    N_("reflection not suitable for size_of"),
 			    r, jump_target);
@@ -2922,8 +2972,8 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       && (eval_is_variable (r, kind) != boolean_true_node
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && TREE_CODE (r) != FIELD_DECL
-      && kind != REFLECT_DATA_MEMBER_SPEC
-      /* TODO: direct base class relationship.  */)
+      && kind != REFLECT_BASE
+      && kind != REFLECT_DATA_MEMBER_SPEC)
     return throw_exception (loc, ctx,
 			    N_("reflection not suitable for bit_size_of"),
 			    r, jump_target);
@@ -3001,6 +3051,11 @@ eval_has_identifier (tree r, reflect_kind kind)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
+  if (kind == REFLECT_BASE)
+    {
+      r = type_of (r, kind);
+      kind = REFLECT_UNDEF;
+    }
   if (DECL_P (r)
       && kind != REFLECT_PARM
       && (!DECL_NAME (r) || IDENTIFIER_ANON_P (DECL_NAME (r))))
@@ -3081,7 +3136,6 @@ eval_has_identifier (tree r, reflect_kind kind)
       || TREE_CODE (r) == FIELD_DECL
       || (TREE_CODE (r) == NAMESPACE_DECL && r != global_namespace))
     return boolean_true_node;
-  // TODO: direct base class relationship.
   if (kind == REFLECT_DATA_MEMBER_SPEC && TREE_VEC_ELT (r, 1))
     return boolean_true_node;
   return boolean_false_node;
@@ -3123,6 +3177,11 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
   const char *name = NULL;
+  if (kind == REFLECT_BASE)
+    {
+      r = type_of (r, kind);
+      kind = REFLECT_UNDEF;
+    }
   if (eval_is_function_parameter (r, kind) == boolean_true_node)
     {
       r = maybe_update_function_parm (r);
@@ -3146,7 +3205,6 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
       else
 	name = IDENTIFIER_POINTER (TYPE_NAME (r));
     }
-  // TODO: direct base class relationship.
   else if (kind == REFLECT_DATA_MEMBER_SPEC)
     name = IDENTIFIER_POINTER (TREE_VEC_ELT (r, 1));
   else
@@ -5969,10 +6027,10 @@ extract_access_context (location_t loc, tree actx, tree *scope,
 
 static tree
 eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
-		    tree actx, tree call, bool *non_constant_p,
-		    tree *jump_target)
+		    reflect_kind kind, tree actx, tree call,
+		    bool *non_constant_p, tree *jump_target)
 {
-  tree scope = NULL_TREE, designating_class = NULL_TREE;
+  tree scope = NULL_TREE, designating_class = NULL_TREE, c;
   if (!extract_access_context (loc, actx, &scope, &designating_class))
     {
       *non_constant_p = true;
@@ -5983,7 +6041,7 @@ eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
     {
       r = MAYBE_BASELINK_FUNCTIONS (r);
       r = OVL_FIRST (r);
-      tree c = r;
+      c = r;
       if (TREE_CODE (r) == CONST_DECL && UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
 	c = DECL_CONTEXT (r);
       if (TYPE_P (c))
@@ -6003,48 +6061,61 @@ eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
 	}
       else
 	c = CP_DECL_CONTEXT (r);
-      if (!CLASS_TYPE_P (c) || !COMPLETE_TYPE_P (c))
-	return throw_exception (loc, ctx,
-				N_("incomplete parent class"),
-				r, jump_target);
-      if (designating_class)
-	{
-	  tree p = c;
-	  while (ANON_AGGR_TYPE_P (p) && p != designating_class)
-	    p = CP_TYPE_CONTEXT (p);
-	  if (p != designating_class
-	      && (!CLASS_TYPE_P (p)
-		  || !DERIVED_FROM_P (p, designating_class)))
-	    return boolean_false_node;
-	}
-      if (scope == NULL_TREE)
-	return boolean_true_node;
-      if (designating_class == NULL_TREE)
-	designating_class = c;
-      if (TREE_CODE (scope) == NAMESPACE_DECL)
-	push_to_top_level ();
-      else if (TYPE_P (scope))
-	push_access_scope (TYPE_NAME (scope));
-      else
-	push_access_scope (scope);
-      tree ret;
+    }
+  else if (kind == REFLECT_BASE)
+    {
+      c = r;
+      while (BINFO_INHERITANCE_CHAIN (c))
+	c = BINFO_INHERITANCE_CHAIN (c);
+      c = BINFO_TYPE (c);
+      r = BINFO_TYPE (r);
+    }
+  else
+    return boolean_true_node;
+  if (!CLASS_TYPE_P (c) || !COMPLETE_TYPE_P (c))
+    return throw_exception (loc, ctx,
+			    N_("incomplete parent class"),
+			    r, jump_target);
+  if (designating_class)
+    {
+      tree p = c;
+      while (ANON_AGGR_TYPE_P (p) && p != designating_class)
+	p = CP_TYPE_CONTEXT (p);
+      if (p != designating_class
+	  && (!CLASS_TYPE_P (p)
+	      || !DERIVED_FROM_P (p, designating_class)))
+	return boolean_false_node;
+    }
+  if (scope == NULL_TREE)
+    return boolean_true_node;
+  if (designating_class == NULL_TREE)
+    designating_class = c;
+  if (TREE_CODE (scope) == NAMESPACE_DECL)
+    push_to_top_level ();
+  else if (TYPE_P (scope))
+    push_access_scope (TYPE_NAME (scope));
+  else
+    push_access_scope (scope);
+  tree ret = boolean_false_node;
+  if (kind == REFLECT_BASE)
+    {
+      if (accessible_base_p (designating_class, r, /*consider_local_p=*/true))
+	ret = boolean_true_node;
+    }
+  else
+    {
       tree o = TYPE_P (r) ? TYPE_NAME (r) : r;
       if (accessible_p (TYPE_BINFO (designating_class), o,
 			/*consider_local_p=*/true))
 	ret = boolean_true_node;
-      else
-	ret = boolean_false_node;
-      if (TREE_CODE (scope) == NAMESPACE_DECL)
-	pop_from_top_level ();
-      else if (TYPE_P (scope))
-	pop_access_scope (TYPE_NAME (scope));
-      else
-	pop_access_scope (scope);
-      return ret;
     }
-  // TODO: Handle direct base class relationship.
+  if (TREE_CODE (scope) == NAMESPACE_DECL)
+    pop_from_top_level ();
+  else if (TYPE_P (scope))
+    pop_access_scope (TYPE_NAME (scope));
   else
-    return boolean_true_node;
+    pop_access_scope (scope);
+  return ret;
 }
 
 /* Returns true if R is C-members-of-representable from
@@ -6142,8 +6213,8 @@ namespace_members_of (location_t loc, tree ns)
 }
 
 /* Enumerate members of class R for eval_*members_of.  KIND is
-   0 for members_of, 1 for static_members_of, 2 for
-   nonstatic_members_of and 3 for has_inaccessible_nonstatic_data_members.
+   0 for members_of, 1 for static_data_members_of, 2 for
+   nonstatic_data_members_of and 3 for has_inaccessible_nonstatic_data_members.
    For KIND 3 don't append any elts except for the first one for
    which is_accessible returned false.  */
 
@@ -6157,17 +6228,17 @@ class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
       if (modules_p ())
 	lazy_load_pendings (TYPE_NAME (r));
       if (CLASSTYPE_LAZY_DEFAULT_CTOR (r))
-        lazily_declare_fn (sfk_constructor, r);
+	lazily_declare_fn (sfk_constructor, r);
       if (CLASSTYPE_LAZY_COPY_CTOR (r))
-        lazily_declare_fn (sfk_copy_constructor, r);
+	lazily_declare_fn (sfk_copy_constructor, r);
       if (CLASSTYPE_LAZY_MOVE_CTOR (r))
-        lazily_declare_fn (sfk_move_constructor, r);
+	lazily_declare_fn (sfk_move_constructor, r);
       if (CLASSTYPE_LAZY_DESTRUCTOR (r))
-        lazily_declare_fn (sfk_destructor, r);
+	lazily_declare_fn (sfk_destructor, r);
       if (CLASSTYPE_LAZY_COPY_ASSIGN (r))
-        lazily_declare_fn (sfk_copy_assignment, r);
+	lazily_declare_fn (sfk_copy_assignment, r);
       if (CLASSTYPE_LAZY_MOVE_ASSIGN (r))
-        lazily_declare_fn (sfk_move_assignment, r);
+	lazily_declare_fn (sfk_move_assignment, r);
     }
   auto_vec <tree, 6> implicitly_declared;
   vec<constructor_elt, va_gc> *elts = nullptr;
@@ -6200,8 +6271,8 @@ class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		   && eval_is_nonstatic_data_member (m) != boolean_true_node)
 	    continue; /* For nonstatic_data_members_of only include
 			 is_nonstatic_data_member.  */
-	  tree a = eval_is_accessible (loc, ctx, m, actx, call, non_constant_p,
-				       jump_target);
+	  tree a = eval_is_accessible (loc, ctx, m, REFLECT_UNDEF, actx, call,
+				       non_constant_p, jump_target);
 	  if (*jump_target || *non_constant_p)
 	    return nullptr;
 	  if (a == boolean_false_node)
@@ -6275,6 +6346,39 @@ class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 				    get_reflection_raw (loc, m));
 	    break;
 	  }
+    }
+  return elts;
+}
+
+/* Enumerate bases of class R for eval_*of.  KIND is 0 for
+   bases_of and 1 for has_inaccessible_bases.  */
+
+static vec<constructor_elt, va_gc> *
+class_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		tree actx, tree call, bool *non_constant_p,
+		tree *jump_target, int kind)
+{
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  tree binfo = TYPE_BINFO (r), base_binfo;
+  unsigned int i;
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+    {
+      tree a = eval_is_accessible (loc, ctx, base_binfo, REFLECT_BASE, actx,
+				   call, non_constant_p, jump_target);
+      if (*jump_target || *non_constant_p)
+	return nullptr;
+      if (a == boolean_false_node)
+	{
+	  if (kind == 1 && elts == nullptr)
+	    CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, boolean_true_node);
+	  continue;
+	}
+      gcc_assert (a == boolean_true_node);
+      if (kind == 1)
+	continue;
+      CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+			      get_reflection_raw (loc, base_binfo,
+						  REFLECT_BASE));
     }
   return elts;
 }
@@ -6355,6 +6459,39 @@ eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_vector_of_info_elts (elts);
 }
 
+/* Implement std::meta::bases_of.
+   Returns: Let C be the class represented by dealias(type).
+   A vector containing the reflections of all the direct base class
+   relationships B, if any, of C such that is_accessible(^^B, ctx) is true.
+   The direct base class relationships appear in the order in which the
+   corresponding base classes appear in the base-specifier-list of C.
+   Throws: meta::exception unless dealias(type) represents a class type that
+   is complete from some point in the evaluation context.  */
+
+static tree
+eval_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
+	       tree actx, tree call, bool *non_constant_p,
+	       tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
+			     jump_target, 0);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("not a complete class type"),
+			    r, jump_target);
+  return get_vector_of_info_elts (elts);
+}
+
 /* Implement std::meta::static_data_members_of.
    Returns: A vector containing each element e of members_of(type, ctx) such
    that is_variable(e) is true, preserving their order.
@@ -6415,6 +6552,48 @@ eval_nonstatic_data_members_of (location_t loc, const constexpr_ctx *ctx,
   return get_vector_of_info_elts (elts);
 }
 
+/* Implement std::meta::subobjects_of.
+   Returns: A vector containing each element of bases_of(type, ctx) followed
+   by each element of nonstatic_data_members_of(type, ctx), preserving their
+   order.
+   Throws: meta::exception unless dealias(type) represents a class type that
+   is complete from some point in the evaluation context.  */
+
+static tree
+eval_subobjects_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		    tree actx, tree call, bool *non_constant_p,
+		    tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
+			     jump_target, 0);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+      vec<constructor_elt, va_gc> *elts2
+	= class_members_of (loc, ctx, r, actx, call, non_constant_p,
+			    jump_target, 2);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+      if (elts == nullptr)
+	elts = elts2;
+      else if (elts2)
+	vec_safe_splice (elts, elts2);
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("not a complete class type"),
+			    r, jump_target);
+  return get_vector_of_info_elts (elts);
+}
+
 /* Implement std::meta::has_inaccessible_nonstatic_data_members.
    Returns: true if is_accessible(R, ctx) is false for any R in
    nonstatic_data_members_of(r, access_context::unchecked()).
@@ -6454,6 +6633,62 @@ eval_has_inaccessible_nonstatic_data_members (location_t loc,
     return boolean_false_node;
   else
     return boolean_true_node;
+}
+
+/* Implement std::meta::has_inaccessible_bases.
+   Returns: true if is_accessible(R, ctx) is false for any R in
+   bases_of(r, access_context::unchecked()).  Otherwise, false.
+   Throws: meta::exception unless bases_of(r, access_context::unchecked())
+   is a constant subexpression.  */
+
+static tree
+eval_has_inaccessible_bases (location_t loc, const constexpr_ctx *ctx,
+			     tree r, tree actx, tree call,
+			     bool *non_constant_p, tree *jump_target)
+{
+  if (TYPE_P (r) && typedef_variant_p (r))
+    r = strip_typedefs (r);
+  vec<constructor_elt, va_gc> *elts = nullptr;
+  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+    {
+      elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
+			     jump_target, 1);
+      if (*jump_target)
+	return NULL_TREE;
+      else if (*non_constant_p)
+	return call;
+    }
+  else
+    return throw_exception (loc, ctx,
+			    N_("not a complete class type"),
+			    r, jump_target);
+  if (elts == nullptr)
+    return boolean_false_node;
+  else
+    return boolean_true_node;
+}
+
+/* Implement std::meta::has_inaccessible_subobjects.
+   Effects: Equivalent to:
+   return has_inaccessible_bases(r, ctx)
+	  || has_inaccessible_nonstatic_data_members(r, ctx);  */
+
+static tree
+eval_has_inaccessible_subobjects (location_t loc, const constexpr_ctx *ctx,
+				  tree r, tree actx, tree call,
+				  bool *non_constant_p, tree *jump_target)
+{
+  tree b = eval_has_inaccessible_bases (loc, ctx, r, actx, call,
+					non_constant_p, jump_target);
+  if (*jump_target)
+    return NULL_TREE;
+  else if (*non_constant_p)
+    return call;
+  if (b == boolean_true_node)
+    return b;
+  return eval_has_inaccessible_nonstatic_data_members (loc, ctx, r, actx,
+						       call, non_constant_p,
+						       jump_target);
 }
 
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
@@ -6606,6 +6841,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	return eval_is_nonstatic_data_member (h);
       if (!strcmp (ident, "static_member"))
 	return eval_is_static_member (h);
+      if (!strcmp (ident, "base"))
+	return eval_is_base (h, kind);
       if (!strcmp (ident, "mutable_member"))
 	return eval_is_mutable_member (h);
       if (!strcmp (ident, "template"))
@@ -7006,8 +7243,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	    return NULL_TREE;
 	  if (*non_constant_p)
 	    return call;
-	  return eval_is_accessible (loc, ctx, h, actx, call, non_constant_p,
-				     jump_target);
+	  return eval_is_accessible (loc, ctx, h, kind, actx, call,
+				     non_constant_p, jump_target);
 	}
       goto not_found;
     }
@@ -7049,7 +7286,9 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	return eval_has_thread_storage_duration (h, kind);
       if (!strcmp (ident, "automatic_storage_duration"))
 	return eval_has_automatic_storage_duration (h, kind);
-      if (!strcmp (ident, "inaccessible_nonstatic_data_members"))
+      if (!strcmp (ident, "inaccessible_nonstatic_data_members")
+	  || !strcmp (ident, "inaccessible_bases")
+	  || !strcmp (ident, "inaccessible_subobjects"))
 	{
 	  tree actx = get_nth_callarg (call, 1);
 	  actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
@@ -7059,6 +7298,13 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	    return NULL_TREE;
 	  if (*non_constant_p)
 	    return call;
+	  if (!strcmp (ident, "inaccessible_bases"))
+	    return eval_has_inaccessible_bases (loc, ctx, h, actx, call,
+						non_constant_p, jump_target);
+	  if (!strcmp (ident, "inaccessible_subobjects"))
+	    return eval_has_inaccessible_subobjects (loc, ctx, h, actx, call,
+						     non_constant_p,
+						     jump_target);
 	  return eval_has_inaccessible_nonstatic_data_members (loc, ctx, h,
 							       actx, call,
 							       non_constant_p,
@@ -7084,7 +7330,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
   if (id_equal (name, "return_type_of"))
     return eval_return_type_of (loc, ctx, h, kind, jump_target);
   if (id_equal (name, "offset_of"))
-    return eval_offset_of (loc, ctx, h, TREE_TYPE (call), jump_target);
+    return eval_offset_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
   if (id_equal (name, "size_of"))
     return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
   if (id_equal (name, "bit_size_of"))
@@ -7287,7 +7533,9 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     }
   if (id_equal (name, "members_of")
       || id_equal (name, "static_data_members_of")
-      || id_equal (name, "nonstatic_data_members_of"))
+      || id_equal (name, "nonstatic_data_members_of")
+      || id_equal (name, "bases_of")
+      || id_equal (name, "subobjects_of"))
     {
       tree actx = get_nth_callarg (call, 1);
       actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
@@ -7306,6 +7554,12 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       else if (id_equal (name, "nonstatic_data_members_of"))
 	return eval_nonstatic_data_members_of (loc, ctx, h, actx, call,
 					       non_constant_p, jump_target);
+      else if (id_equal (name, "bases_of"))
+	return eval_bases_of (loc, ctx, h, actx, call, non_constant_p,
+			      jump_target);
+      else if (id_equal (name, "subobjects_of"))
+	return eval_subobjects_of (loc, ctx, h, actx, call, non_constant_p,
+				   jump_target);
     }
 
 not_found:

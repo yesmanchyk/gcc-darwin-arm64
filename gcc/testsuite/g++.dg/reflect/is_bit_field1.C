@@ -115,7 +115,7 @@ constexpr auto ctx = access_context::current ();
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!is_bit_field (bases_of (^^Derived, ctx)[0]));
+static_assert (!is_bit_field (bases_of (^^Derived, ctx)[0]));
 
 struct S {
   int bf : 4;

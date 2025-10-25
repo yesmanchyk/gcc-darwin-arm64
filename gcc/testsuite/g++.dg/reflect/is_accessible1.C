@@ -111,7 +111,9 @@ static_assert (is_accessible (dms, gctx));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (is_accessible (bases_of (^^Derived, ctx)[0], gctx));
+struct Derived2 : private Base {};
+static_assert (is_accessible (bases_of (^^Derived, gctx)[0], gctx));
+static_assert (!is_accessible (bases_of (^^Derived2, access_context::unchecked ())[0], gctx));
 
 void
 foo (int x)

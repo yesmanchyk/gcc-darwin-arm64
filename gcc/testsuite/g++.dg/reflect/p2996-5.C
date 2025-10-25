@@ -43,7 +43,7 @@ constexpr auto r14 = ^^Concept;  // represents a concept
 constexpr auto r15 = ^^NSAlias;  // represents a namespace alias
 constexpr auto r16 = ^^NS;       // represents a namespace
 
-//constexpr auto r17 = std::meta::bases_of(^^S)[0];
+constexpr auto r17 = std::meta::bases_of(^^S, std::meta::access_context::current ())[0];
     // represents a direct base class relationship
 
 constexpr auto r18 = std::meta::data_member_spec(^^int, {.name="member"});

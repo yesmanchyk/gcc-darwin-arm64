@@ -51,7 +51,7 @@ static_assert (!is_const (^^TVar));
 static_assert (!is_const (^^Concept));
 static_assert (!is_const (^^NSAlias));
 static_assert (!is_const (^^NS));
-//static_assert (!is_const (std::meta::bases_of (^^S, ctx)[0]));
+static_assert (!is_const (std::meta::bases_of (^^S, ctx)[0]));
 static_assert (!is_const (std::meta::data_member_spec (^^int, { .name = "member" })));
 
 int

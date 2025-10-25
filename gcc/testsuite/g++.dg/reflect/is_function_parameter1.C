@@ -84,7 +84,7 @@ static_assert (!is_function_parameter (dms));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!is_function_parameter (bases_of (^^Derived, ctx)[0]));
+static_assert (!is_function_parameter (bases_of (^^Derived, access_context::current ())[0]));
 
 template<typename T, info R, info R2, info R3>
 void

@@ -35,7 +35,7 @@ namespace NS {};
 namespace NSAlias = NS;
 int &ref = arr[0];
 
-// constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 consteval bool
 has_size_of (info r)
@@ -62,7 +62,7 @@ static_assert (!has_size_of (^^TVar));
 static_assert (!has_size_of (^^Concept));
 static_assert (!has_size_of (^^NSAlias));
 static_assert (!has_size_of (^^NS));
-//static_assert (!has_size_of (std::meta::bases_of (^^S, ctx)[0]));
+static_assert (has_size_of (std::meta::bases_of (^^S, ctx)[0]));
 static_assert (has_size_of (std::meta::data_member_spec (^^int, { .name = "member" })));
 static_assert (!has_size_of (std::meta::data_member_spec (^^int, { .name = "member", .bit_width = 6 })));
 static_assert (!has_size_of (std::meta::data_member_spec (^^int, { .bit_width = 15 })));
@@ -73,6 +73,8 @@ static_assert (size_of (^^arr) == sizeof (arr));
 static_assert (size_of (^^Alias) == sizeof (int));
 static_assert (size_of (^^S) == sizeof (S));
 static_assert (size_of (^^S::mem) == sizeof (S::mem));
+static_assert (size_of (std::meta::bases_of (^^S, ctx)[0]) == sizeof (B));
+static_assert (size_of (std::meta::data_member_spec (^^int, { .name = "member" })) == sizeof (int));
 static_assert (size_of (^^arr3) == sizeof (arr3));
 using fnt = int (int, int);
 static_assert (!has_size_of (^^fnt));

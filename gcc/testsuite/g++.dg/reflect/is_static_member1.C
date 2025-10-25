@@ -109,7 +109,7 @@ static_assert (!is_static_member (dms));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!is_static_member (bases_of (^^Derived, ctx)[0]));
+static_assert (!is_static_member (bases_of (^^Derived, access_context::unprivileged ())[0]));
 
 void
 foo (int x)

@@ -88,7 +88,7 @@ static_assert (!is_complete_type (dms));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!is_complete_type (bases_of (^^Derived, ctx)[0]));
+static_assert (!is_complete_type (bases_of (^^Derived, access_context::current ())[0]));
 
 template<typename T, info R, info R2, info R3>
 void

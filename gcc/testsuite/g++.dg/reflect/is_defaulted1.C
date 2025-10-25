@@ -109,7 +109,7 @@ static_assert (!is_defaulted (dms));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!is_defaulted (bases_of (^^Derived, ctx)[0]));
+static_assert (!is_defaulted (bases_of (^^Derived, access_context::current ())[0]));
 
 void
 foo (int x)

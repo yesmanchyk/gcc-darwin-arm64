@@ -51,7 +51,7 @@ static_assert (!is_volatile (^^TVar));
 static_assert (!is_volatile (^^Concept));
 static_assert (!is_volatile (^^NSAlias));
 static_assert (!is_volatile (^^NS));
-//static_assert (!is_volatile (std::meta::bases_of (^^S, ctx)[0]));
+static_assert (!is_volatile (std::meta::bases_of (^^S, ctx)[0]));
 static_assert (!is_volatile (std::meta::data_member_spec (^^int, { .name = "member" })));
 
 int

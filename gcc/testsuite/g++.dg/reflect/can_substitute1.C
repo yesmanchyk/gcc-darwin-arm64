@@ -93,7 +93,7 @@ static_assert (!could_substitute (dms, {}));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!could_substitute (bases_of (^^Derived, ctx)[0], {}));
+static_assert (!could_substitute (bases_of (^^Derived, access_context::unchecked ())[0], {}));
 
 template<typename T, info R, info R2, info R3>
 void

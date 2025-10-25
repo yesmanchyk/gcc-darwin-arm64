@@ -93,11 +93,11 @@ static_assert (parent_of (^^arr) == ^^::);
 constexpr auto dms = data_member_spec (^^int, { .name = "dms" });
 static_assert (!has_parent_of (dms));
 
-//constexpr auto ctx = std::meta::access_context::current ();
+constexpr auto ctx = std::meta::access_context::current ();
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (parent_of (bases_of (^^Derived, ctx)[0]) == ???);
+static_assert (parent_of (bases_of (^^Derived, ctx)[0]) == ^^Derived);
 
 consteval {
   int a = 42;
@@ -223,7 +223,7 @@ struct J : I {
 };
 
 static_assert (parent_of (^^J) == ^^::);
-//static_assert (parent_of (bases_of (^^J, ctx)[0]) == ^^J);
+static_assert (parent_of (bases_of (^^J, ctx)[0]) == ^^J);
 static_assert (is_union_type (parent_of (^^J::o)));
 static_assert (parent_of(^^J::N) == ^^J);
 static_assert (parent_of(^^J::A) == ^^J::N);

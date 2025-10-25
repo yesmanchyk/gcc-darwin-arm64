@@ -92,7 +92,7 @@ static_assert (!valid_data_member_spec (dms, { .name = "dms" }));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!valid_data_member_spec (bases_of (^^Derived, ctx)[0], { .name = "dms" }));
+static_assert (!valid_data_member_spec (bases_of (^^Derived, access_context::unchecked ())[0], { .name = "dms" }));
 
 template<typename T, info R, info R2, info R3>
 void

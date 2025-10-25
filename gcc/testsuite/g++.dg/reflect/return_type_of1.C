@@ -76,7 +76,7 @@ static_assert (!has_return_type_of (^^TVar));
 static_assert (!has_return_type_of (^^Concept));
 static_assert (!has_return_type_of (^^NSAlias));
 static_assert (!has_return_type_of (^^NS));
-//static_assert (!has_return_type_of (std::meta::bases_of (^^S, ctx)[0]));
+static_assert (!has_return_type_of (std::meta::bases_of (^^S, ctx)[0]));
 static_assert (!has_return_type_of (std::meta::data_member_spec (^^int, { .name = "member" })));
 
 struct V

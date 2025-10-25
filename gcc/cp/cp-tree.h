@@ -1930,6 +1930,8 @@ enum reflect_kind : addr_space_t {
   REFLECT_PARM,
   /* The reflection represents a data member description.  */
   REFLECT_DATA_MEMBER_SPEC,
+  /* The reflection represents a direct base relationship.  */
+  REFLECT_BASE
 };
 
 /* The reflect_kind of a REFLECT_EXPR.  */

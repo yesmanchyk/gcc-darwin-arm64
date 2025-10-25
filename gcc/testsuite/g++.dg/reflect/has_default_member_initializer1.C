@@ -114,7 +114,7 @@ static_assert (!has_default_member_initializer (dms));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!has_default_member_initializer (bases_of (^^Derived, ctx)[0]));
+static_assert (!has_default_member_initializer (bases_of (^^Derived, access_context::unchecked ())[0]));
 
 void
 foo (int x)

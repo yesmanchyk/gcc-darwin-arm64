@@ -1911,6 +1911,21 @@ iterative_hash_template_arg (tree arg, hashval_t val)
 	return val;
       }
 
+    case REFLECT_EXPR:
+      val = iterative_hash_hashval_t (REFLECT_EXPR_KIND (arg), val);
+      if (REFLECT_EXPR_KIND (arg) == REFLECT_BASE)
+	{
+	  tree binfo = REFLECT_EXPR_HANDLE (arg);
+	  val = iterative_hash_template_arg (BINFO_TYPE (binfo), val);
+	  tree d = binfo;
+	  while (BINFO_INHERITANCE_CHAIN (d))
+	    d = BINFO_INHERITANCE_CHAIN (d);
+	  val = iterative_hash_template_arg (BINFO_TYPE (d), val);
+	  return val;
+	}
+      /* Now hash operands as usual.  */
+      break;
+
     default:
       break;
     }
@@ -1932,7 +1947,7 @@ iterative_hash_template_arg (tree arg, hashval_t val)
 
       switch (code)
 	{
-	case  DECLTYPE_TYPE:
+	case DECLTYPE_TYPE:
 	  val = iterative_hash_template_arg (DECLTYPE_TYPE_EXPR (arg), val);
 	  break;
 

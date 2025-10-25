@@ -84,7 +84,7 @@ static_assert (!is_enumerator (dms));
 
 struct Base {};
 struct Derived : Base {};
-//static_assert (!is_enumerator (bases_of (^^Derived, ctx)[0]));
+static_assert (!is_enumerator (bases_of (^^Derived, access_context::current ())[0]));
 
 template<typename T, info R, info R2, info R3>
 void
