@@ -484,6 +484,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       STATIC_INIT_DECOMP_BASE_P (in the TREE_LIST for {static,tls}_aggregates)
       MUST_NOT_THROW_THROW_P (in MUST_NOT_THROW_EXPR)
       LAMBDA_EXPR_CONST_QUAL_P (in LAMBDA_EXPR)
+      SPLICE_EXPR_MEMBER_ACCESS_P (in SPLICE_EXPR)
    2: IDENTIFIER_KIND_BIT_2 (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -507,6 +508,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 				    for {static,tls}_aggregates)
       MUST_NOT_THROW_CATCH_P (in MUST_NOT_THROW_EXPR)
       MULTIPLE_NAMES_PARM_P (in PARM_DECL)
+      SPLICE_EXPR_ADDRESS_P (in SPLICE_EXPR)
    3: IMPLICIT_RVALUE_P (in NON_LVALUE_EXPR or STATIC_CAST_EXPR)
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -1939,9 +1941,29 @@ enum reflect_kind : addr_space_t {
 #define SPLICE_EXPR_EXPRESSION_P(NODE) \
    TREE_LANG_FLAG_0 (SPLICE_EXPR_CHECK (NODE))
 
+/* Helper macro to set SPLICE_EXPR_EXPRESSION_P.  */
 #define SET_SPLICE_EXPR_EXPRESSION_P(NODE) \
   (SPLICE_EXPR_EXPRESSION_P (TREE_CODE (NODE) == SPLICE_EXPR \
 			     ? NODE : TREE_OPERAND (NODE, 0)) = true)
+
+/* True if this SPLICE_EXPR is used in foo.[: bar :] or foo->[: bar :]
+   context.  */
+#define SPLICE_EXPR_MEMBER_ACCESS_P(NODE) \
+   TREE_LANG_FLAG_1 (SPLICE_EXPR_CHECK (NODE))
+
+/* Helper macro to set SPLICE_EXPR_MEMBER_ACCESS_P.  */
+#define SET_SPLICE_EXPR_MEMBER_ACCESS_P(NODE, VAL) \
+  (SPLICE_EXPR_MEMBER_ACCESS_P (TREE_CODE (NODE) == SPLICE_EXPR \
+				? NODE : TREE_OPERAND (NODE, 0)) = (VAL))
+
+/* True if we are taking the address of this SPLICE_EXPR.  */
+#define SPLICE_EXPR_ADDRESS_P(NODE) \
+   TREE_LANG_FLAG_2 (SPLICE_EXPR_CHECK (NODE))
+
+/* Helper macro to set SPLICE_EXPR_ADDRESS_P.  */
+#define SET_SPLICE_EXPR_ADDRESS_P(NODE, VAL) \
+  (SPLICE_EXPR_ADDRESS_P (TREE_CODE (NODE) == SPLICE_EXPR \
+			  ? NODE : TREE_OPERAND (NODE, 0)) = (VAL))
 
 /* The expression in question for a SPLICE_SCOPE.  */
 #define SPLICE_SCOPE_EXPR(NODE) \
@@ -9227,7 +9249,8 @@ extern bool consteval_only_p (tree) ATTRIBUTE_PURE;
 extern bool compare_reflections (tree, tree) ATTRIBUTE_PURE;
 extern bool valid_splice_type_p (const_tree) ATTRIBUTE_PURE;
 extern bool valid_splice_scope_p (const_tree) ATTRIBUTE_PURE;
-extern bool valid_splice_expr_p (const_tree) ATTRIBUTE_PURE;
+extern bool check_splice_expr (location_t, location_t, tree, bool, bool, bool)
+  ATTRIBUTE_PURE;
 extern tree make_splice_scope (tree, bool);
 extern bool dependent_splice_p (const_tree) ATTRIBUTE_PURE;
 

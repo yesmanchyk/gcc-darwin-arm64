@@ -179,6 +179,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.queries], reflection queries
     consteval info type_of(info);
     consteval info object_of(info);
+    consteval info constant_of(info);
 
     consteval bool is_deleted(info);
     consteval bool is_defaulted(info);

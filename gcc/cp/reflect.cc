@@ -34,6 +34,8 @@ static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
 				   tree *);
 static tree eval_is_object_type (location_t, const constexpr_ctx *, tree,
 				 tree *);
+static tree eval_reflect_constant (location_t, const constexpr_ctx *, tree,
+				   tree, tree *);
 struct constexpr_ctx;
 
 static GTY(()) tree vector_identifier;
@@ -2403,6 +2405,7 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
   if (TYPE_REF_P (TREE_TYPE (r)))
     r = DECL_INITIAL (r);
   r = maybe_get_reference_referent (r);
+  // TODO check "usable in constant expressions"
   if (eval_has_static_storage_duration (orig, kind) == boolean_false_node
       && (orig == r
 	  || eval_has_static_storage_duration (r, kind) == boolean_false_node))
@@ -2411,6 +2414,43 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
 					 " or a reference to such an object"),
 			    r, jump_target);
   return get_reflection_raw (loc, r, REFLECT_OBJECT);
+}
+
+/* Process std::meta::constant_of.
+   Let R be a constant expression of type info such that R == r is true.
+   If r represents an annotation, then let C be its underlying constant.
+   Effects: Equivalent to:
+     if constexpr (is_annotation(R)) {
+       return C;
+     } else {
+       return reflect_constant([: R :]);
+     }
+   Throws: meta::exception unless either r represents an annotation or
+   [: R :] is a valid splice-expression.  */
+
+static tree
+eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		  tree *jump_target)
+{
+  if (eval_is_annotation (r) == boolean_true_node)
+    {
+      // TODO
+      return NULL_TREE;
+    }
+
+  r = convert_from_reference (r);
+  if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
+			  /*address_p=*/false,
+			  /*member_access_p=*/false,
+			  /*complain_p=*/false))
+    return throw_exception (loc, ctx, N_("reflection does not represent an "
+					 "annotation or a valid argument to "
+					 "a splice-expression"),
+			    r, jump_target);
+  /* The result is the reflection that represents the value; the value
+     represents a prvalue copy.  */
+  return eval_reflect_constant (loc, ctx, cv_unqualified (TREE_TYPE (r)), r,
+				jump_target);
 }
 
 /* Process std::meta::dealias.
@@ -7096,6 +7136,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     return eval_type_of (loc, ctx, h, kind, jump_target);
   if (id_equal (name, "object_of"))
     return eval_object_of (loc, ctx, h, kind, jump_target);
+  if (id_equal (name, "constant_of"))
+    return eval_constant_of (loc, ctx, h, jump_target);
   if (!strcmp (ident, "operator_of"))
     return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
   if (id_equal (name, "parent_of"))
@@ -7520,6 +7562,14 @@ compare_reflections (tree lhs, tree rhs)
 	    && TREE_OPERAND (lhs, 0) == TREE_OPERAND (rhs, 0)
 	    && TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1)
 	    && TREE_OPERAND (lhs, 2) == TREE_OPERAND (rhs, 2));
+  /* finish_enum_value_list uses copy_node and then we end up with
+     exactly the same enumerator trees, but not identical.  */
+  // TODO use value = wide_int_to_tree (enumtype, wi::to_wide (value));
+  else if (TREE_CODE (lhs) == INTEGER_CST
+	   && TREE_CODE (rhs) == INTEGER_CST
+	   && TREE_TYPE (lhs) == TREE_TYPE (rhs)
+	   && tree_int_cst_equal (lhs, rhs))
+    return true;
 
   return lhs == rhs;
 }
@@ -7552,15 +7602,59 @@ valid_splice_scope_p (const_tree t)
 	  || TREE_CODE (t) == NAMESPACE_DECL);
 }
 
-/* Return true if T is a valid result of splice-expression.  */
+/* Check if T is a valid result of splice-expression.  ADDRESS_P is true if
+   we are taking the address of the splice.  MEMBER_ACCESS_P is true if this
+   splice is used in foo.[: bar :] or foo->[: bar :] context.  COMPLAIN_P is
+   true if any errors should be emitted.  Returns true is no problems are
+   found, false otherwise.  */
 
 bool
-valid_splice_expr_p (const_tree t)
+check_splice_expr (location_t loc, location_t start_loc, tree t,
+		   bool address_p, bool member_access_p, bool complain_p)
 {
+  /* We may not have gotten an expression.  */
   if (TREE_CODE (t) == TYPE_DECL
       || TREE_CODE (t) == NAMESPACE_DECL
       || TYPE_P (t))
-    return false;
+    {
+      if (complain_p)
+	{
+	  auto_diagnostic_group d;
+	  error_at (loc, "expected a reflection of an expression");
+	  if (TYPE_P (t) && start_loc != UNKNOWN_LOCATION)
+	    {
+	      rich_location richloc (line_table, start_loc);
+	      richloc.add_fixit_insert_before (start_loc, "typename");
+	      inform (&richloc, "add %<typename%> to denote a type outside a "
+		      "type-only context");
+	    }
+	}
+      return false;
+    }
+  /* Class members may not be implicitly referenced through a splice.
+     But taking the address is fine, and so is class member access a la
+     foo.[: ^^S::bar :].  */
+  if (!address_p
+      && !member_access_p
+      && ((DECL_P (t) && DECL_NONSTATIC_MEMBER_P (t))
+	  || (VAR_P (t) && DECL_ANON_UNION_VAR_P (t))))
+    {
+      if (complain_p)
+	error_at (loc, "cannot implicitly reference a class member through "
+		  "a splice");
+      return false;
+    }
+  /* [expr.unary.op]/3.1 "If the operand [of unary &] is a qualified-id or
+     splice-expression designating a non-static member m, other than an
+     explicit object member function, m shall be a direct member of some
+     class C that is not an anonymous union."  */
+  if (address_p && VAR_P (t) && DECL_ANON_UNION_VAR_P (t))
+    {
+      if (complain_p)
+	error_at (loc, "unary %<&%> applied to an anonymous union member %qD "
+		  "that is not a direct member of a named class", t);
+      return false;
+    }
 
   return true;
 }

@@ -6155,7 +6155,11 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
   t = resolve_nondeduced_context (t, tf_warning_or_error);
 
   if (dependent_splice_p (t))
-    SET_SPLICE_EXPR_EXPRESSION_P (t);
+    {
+      SET_SPLICE_EXPR_EXPRESSION_P (t);
+      SET_SPLICE_EXPR_MEMBER_ACCESS_P (t, member_access_p);
+      SET_SPLICE_EXPR_ADDRESS_P (t, address_p);
+    }
 
   if (error_operand_p (t))
     {
@@ -6234,33 +6238,6 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	}
     }
 
-  /* We may not have gotten an expression.  */
-  if (!valid_splice_expr_p (t))
-    {
-      auto_diagnostic_group d;
-      error_at (loc, "expected a reflection of an expression");
-      if (TYPE_P (t))
-	{
-	  location_t sloc = expr.get_start ();
-	  rich_location richloc (line_table, sloc);
-	  richloc.add_fixit_insert_before (sloc, "typename");
-	  inform (&richloc, "add %<typename%> to denote a type outside a "
-		  "type-only context");
-	}
-      return error_mark_node;
-    }
-  /* Class members may not be implicitly referenced through a splice.
-     But taking the address is fine, and so is class member access a la
-     foo.[: ^^S::bar :].  */
-  if (!address_p
-      && !member_access_p
-      && ((DECL_P (t) && DECL_NONSTATIC_MEMBER_P (t))
-	  || (VAR_P (t) && DECL_ANON_UNION_VAR_P (t))))
-    {
-      error_at (loc, "cannot implicitly reference a class member through "
-		"a splice");
-      return error_mark_node;
-    }
   if (parser->in_template_argument_list_p
       && !parser->greater_than_is_operator_p)
     {
@@ -6268,20 +6245,17 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 		"a template argument");
       return error_mark_node;
     }
-  /* [expr.unary.op]/3.1 "If the operand [of unary &] is a qualified-id or
-     splice-expression designating a non-static member m, other than an
-     explicit object member function, m shall be a direct member of some
-     class C that is not an anonymous union."  */
-  if (address_p && VAR_P (t) && DECL_ANON_UNION_VAR_P (t))
-    {
-      error_at (loc, "unary %<&%> applied to an anonymous union member %qD "
-		"that is not a direct member of a named class", t);
-      return error_mark_node;
-    }
+
+  /* Make sure this splice-expression produces an expression.  */
+  if (!check_splice_expr (loc, expr.get_start (), t, address_p,
+			  member_access_p, /*complain=*/true))
+    return error_mark_node;
+
   /* [expr.prim.splice]/2: "The expression is ill-formed if S [the construct
      designated by splice-specifier] is
      -- a local entity such that there is a lambda scope that intervenes
      between the expression and the point at which S was introduced"  */
+  // TODO This should be moved to check_splice_expr.
   if (outer_automatic_var_p (t))
     {
       auto_diagnostic_group d;

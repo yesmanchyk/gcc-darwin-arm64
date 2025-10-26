@@ -21045,13 +21045,17 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (DECL_TYPE_TEMPLATE_P (templ)
 	    || DECL_TEMPLATE_TEMPLATE_PARM_P (templ))
 	  {
-	    gcc_assert (TREE_CODE (TREE_OPERAND (t, 0)) == SPLICE_EXPR);
+	    tree op = TREE_OPERAND (t, 0);
+	    gcc_assert (TREE_CODE (op) == SPLICE_EXPR);
 	    tree r = finish_template_type (templ, targs,
 					   /*entering_scope=*/false);
 	    if (TREE_CODE (r) == TYPE_DECL)
 	      r = TREE_TYPE (r);
-	    if (SPLICE_EXPR_EXPRESSION_P (TREE_OPERAND (t, 0))
-		&& !valid_splice_expr_p (r))
+	    if (SPLICE_EXPR_EXPRESSION_P (op)
+		&& !check_splice_expr (input_location, UNKNOWN_LOCATION, r,
+				       SPLICE_EXPR_ADDRESS_P (op),
+				       SPLICE_EXPR_MEMBER_ACCESS_P (op),
+				       /*complain_p=*/false))
 	      {
 		if (complain & tf_error)
 		  {
@@ -22919,7 +22923,11 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      SET_SPLICE_EXPR_EXPRESSION_P (op);
 	    RETURN (op);
 	  }
-	if (SPLICE_EXPR_EXPRESSION_P (t) && !valid_splice_expr_p (op))
+	if (SPLICE_EXPR_EXPRESSION_P (t)
+	    && !check_splice_expr (input_location, UNKNOWN_LOCATION, op,
+				   SPLICE_EXPR_ADDRESS_P (t),
+				   SPLICE_EXPR_MEMBER_ACCESS_P (t),
+				   /*complain_p=*/false))
 	  {
 	    if (complain & tf_error)
 	      {
