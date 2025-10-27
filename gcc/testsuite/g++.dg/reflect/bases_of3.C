@@ -3,7 +3,6 @@
 // Test std::meta::bases_of.
 
 #include <meta>
-#include <ranges>
 
 using namespace std::meta;
 

@@ -3,7 +3,6 @@
 // Test std::meta::bases_of and has_inaccessible_bases.
 
 #include <meta>
-#include <ranges>
 
 using namespace std::meta;
 

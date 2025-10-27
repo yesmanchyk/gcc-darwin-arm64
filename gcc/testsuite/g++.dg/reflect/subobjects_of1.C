@@ -3,7 +3,6 @@
 // Test std::meta::subobjects_of and has_inaccessible_subobjects.
 
 #include <meta>
-#include <ranges>
 
 using namespace std::meta;
 
