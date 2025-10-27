@@ -171,6 +171,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     // [meta.reflection.names], reflection names and locations
     consteval bool has_identifier(info);
+
     consteval string_view identifier_of(info);
     consteval u8string_view u8identifier_of(info);
 
@@ -189,12 +190,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_user_provided(info);
     consteval bool is_user_declared(info);
     consteval bool is_explicit(info);
+    consteval bool is_noexcept(info);
 
     consteval bool is_bit_field(info);
     consteval bool is_enumerator(info);
     consteval bool is_annotation(info);
 
-    consteval bool is_noexcept(info);
     consteval bool is_const(info);
     consteval bool is_volatile(info);
     consteval bool is_mutable_member(info);
@@ -538,6 +539,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     consteval size_t tuple_size(info);
     consteval info tuple_element(size_t, info);
+
     consteval size_t variant_size(info);
     consteval info variant_alternative(size_t, info);
 
