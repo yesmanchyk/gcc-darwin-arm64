@@ -2482,6 +2482,7 @@ eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
   else if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
   // TODO what's not an entity?
+  // Maybe remove: <https://cplusplus.github.io/LWG/lwg-active.html#4427>
   else if (0)
     return throw_exception_generic (loc, ctx, r, jump_target);
 
@@ -2910,7 +2911,7 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   if (eval_is_type (r) != boolean_true_node
       && eval_is_object (kind) != boolean_true_node
-      /* TODO: value */
+      && eval_is_value (kind) != boolean_true_node
       && (eval_is_variable (r, kind) != boolean_true_node
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
@@ -2965,7 +2966,7 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   if (eval_is_type (r) != boolean_true_node
       && eval_is_object (kind) != boolean_true_node
-      /* TODO: value */
+      && eval_is_value (kind) != boolean_true_node
       && (eval_is_variable (r, kind) != boolean_true_node
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && TREE_CODE (r) != FIELD_DECL

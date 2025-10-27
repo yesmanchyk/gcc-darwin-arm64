@@ -46,7 +46,7 @@ has_bit_size_of (info r)
   return true;
 }
 
-static_assert (!has_bit_size_of (std::meta::reflect_constant (42)));
+static_assert (has_bit_size_of (std::meta::reflect_constant (42)));
 static_assert (has_bit_size_of (std::meta::reflect_object (arr[1])));
 static_assert (has_bit_size_of (^^arr));
 static_assert (!has_bit_size_of (^^a3));
@@ -70,6 +70,7 @@ static_assert (!has_bit_size_of (^^arr2));
 static_assert (has_bit_size_of (^^arr3));
 static_assert (!has_bit_size_of (^^ref));
 static_assert (bit_size_of (^^arr) == CHAR_BIT * sizeof (arr));
+static_assert (bit_size_of (std::meta::reflect_constant (42)) == CHAR_BIT * sizeof (int));
 static_assert (bit_size_of (^^Alias) == CHAR_BIT * sizeof (int));
 static_assert (bit_size_of (^^S) == CHAR_BIT * sizeof (S));
 static_assert (bit_size_of (^^S::mem) == CHAR_BIT * sizeof (S::mem));
@@ -86,7 +87,7 @@ foo (int a, const long b, T c, int d[4], T &e, int f)
   static_assert (has_bit_size_of (^^c));
   static_assert (has_bit_size_of (^^d));
   static_assert (!has_bit_size_of (^^e));
-//  static_assert (!has_bit_size_of (parameters_of (^^foo)[0]));
+  static_assert (!has_bit_size_of (parameters_of (^^foo)[0]));
   static_assert (!has_bit_size_of (parameters_of (^^foo)[5]));
   static_assert (!has_bit_size_of (parameters_of (^^bar)[0]));
   static_assert (bit_size_of (^^a) == CHAR_BIT * sizeof (int));
