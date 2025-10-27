@@ -2451,22 +2451,19 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		  tree *jump_target)
 {
   if (eval_is_annotation (r) == boolean_true_node)
+    r = TREE_VALUE (TREE_VALUE (r));
+  else
     {
-      // TODO
-      return NULL_TREE;
+      r = convert_from_reference (r);
+      if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
+			      /*address_p=*/false,
+			      /*member_access_p=*/false,
+			      /*complain_p=*/false))
+	return throw_exception (loc, ctx, N_("reflection does not represent an "
+					     "annotation or a valid argument to "
+					     "a splice-expression"),
+				r, jump_target);
     }
-
-  r = convert_from_reference (r);
-  if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
-			  /*address_p=*/false,
-			  /*member_access_p=*/false,
-			  /*complain_p=*/false))
-    return throw_exception (loc, ctx, N_("reflection does not represent an "
-					 "annotation or a valid argument to "
-					 "a splice-expression"),
-			    r, jump_target);
-  /* The result is the reflection that represents the value; the value
-     represents a prvalue copy.  */
   return eval_reflect_constant (loc, ctx, cv_unqualified (TREE_TYPE (r)), r,
 				jump_target);
 }
