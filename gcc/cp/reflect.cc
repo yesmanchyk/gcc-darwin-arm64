@@ -1,4 +1,4 @@
-/* C++ reflection code.
+  /* C++ reflection code.
    Copyright (C) 2025 Free Software Foundation, Inc.
    Written by Marek Polacek <polacek@redhat.com>
 
@@ -30,10 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-pragma.h" // for parse_in
 #include "gimplify.h" // for unshare_expr
 
-static tree eval_is_function_type (location_t, const constexpr_ctx *, tree,
-				   tree *);
-static tree eval_is_object_type (location_t, const constexpr_ctx *, tree,
-				 tree *);
+static tree eval_is_function_type (tree);
+static tree eval_is_object_type (location_t, tree);
 static tree eval_reflect_constant (location_t, const constexpr_ctx *, tree,
 				   tree, tree *);
 struct constexpr_ctx;
@@ -2498,8 +2496,7 @@ eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
    for templates cannot be answered.  */
 
 static tree
-eval_is_noexcept (location_t loc, const constexpr_ctx *ctx, tree r,
-		  tree *jump_target)
+eval_is_noexcept (tree r)
 {
   if (eval_is_function (r) == boolean_true_node)
     {
@@ -2521,7 +2518,7 @@ eval_is_noexcept (location_t loc, const constexpr_ctx *ctx, tree r,
     }
 
   if (eval_is_type (r) == boolean_true_node
-      && eval_is_function_type (loc, ctx, r, jump_target) == boolean_true_node)
+      && eval_is_function_type (r) == boolean_true_node)
     {
       if (TYPE_NOTHROW_P (r))
 	return boolean_true_node;
@@ -2756,8 +2753,7 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   if (eval_is_function (r) != boolean_true_node
       && (eval_is_type (r) != boolean_true_node
-	  || eval_is_function_type (loc, ctx, r,
-				    jump_target) != boolean_true_node))
+	  || eval_is_function_type (r) != boolean_true_node))
     return throw_exception_nofn (loc, ctx, r, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
@@ -2807,8 +2803,7 @@ eval_return_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   if ((eval_is_function (r) != boolean_true_node || !has_type (r, kind))
       && (eval_is_type (r) != boolean_true_node
-	  || eval_is_function_type (loc, ctx, r,
-				    jump_target) != boolean_true_node))
+	  || eval_is_function_type (r) != boolean_true_node))
     return throw_exception_nofn (loc, ctx, r, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
@@ -3524,7 +3519,7 @@ static tree
 eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
 		     tree expr, tree *jump_target)
 {
-  if (eval_is_object_type (loc, ctx, type, jump_target) != boolean_true_node)
+  if (eval_is_object_type (loc, type) != boolean_true_node)
     {
       error_at (loc, "%qT must be an object type", TREE_TYPE (type));
       return error_mark_node;
@@ -3549,7 +3544,7 @@ static tree
 eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
 		       tree expr, tree *jump_target)
 {
-  if (eval_is_function_type (loc, ctx, type, jump_target) != boolean_true_node)
+  if (eval_is_function_type (type) != boolean_true_node)
     {
       error_at (loc, "%qT must be a function type", TREE_TYPE (type));
       return error_mark_node;
@@ -3577,14 +3572,9 @@ eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
    arguments to the trait.  */
 
 static tree
-eval_type_trait (location_t loc, const constexpr_ctx *ctx, tree type1,
-		 tree type2, cp_trait_kind kind, tree *jump_target)
+eval_type_trait (location_t loc, tree type1, tree type2, cp_trait_kind kind)
 {
-  if (eval_is_type (type1) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type1, jump_target);
-  else if (type2 && eval_is_type (type2) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type2, jump_target);
-  tree r = finish_trait_expr (input_location, kind, type1, type2);
+  tree r = finish_trait_expr (loc, kind, type1, type2);
   STRIP_ANY_LOCATION_WRAPPER (r);
   return r;
 }
@@ -3592,20 +3582,16 @@ eval_type_trait (location_t loc, const constexpr_ctx *ctx, tree type1,
 /* Like above, but for type traits that take only one type.  */
 
 static tree
-eval_type_trait (location_t loc, const constexpr_ctx *ctx, tree type,
-		 cp_trait_kind kind, tree *jump_target)
+eval_type_trait (location_t loc, tree type, cp_trait_kind kind)
 {
-  return eval_type_trait (loc, ctx, type, NULL_TREE, kind, jump_target);
+  return eval_type_trait (loc, type, NULL_TREE, kind);
 }
 
 /* Process std::meta::is_function_type.  */
 
 static tree
-eval_is_function_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_is_function_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (FUNC_OR_METHOD_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3615,11 +3601,8 @@ eval_is_function_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_void_type.  */
 
 static tree
-eval_is_void_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree *jump_target)
+eval_is_void_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (VOID_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3629,11 +3612,8 @@ eval_is_void_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_null_pointer_type.  */
 
 static tree
-eval_is_null_pointer_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			   tree *jump_target)
+eval_is_null_pointer_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (NULLPTR_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3643,11 +3623,8 @@ eval_is_null_pointer_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_integral_type.  */
 
 static tree
-eval_is_integral_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_is_integral_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (CP_INTEGRAL_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3657,11 +3634,8 @@ eval_is_integral_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_floating_point_type.  */
 
 static tree
-eval_is_floating_point_type (location_t loc, const constexpr_ctx *ctx,
-			     tree type, tree *jump_target)
+eval_is_floating_point_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (FLOAT_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3671,29 +3645,24 @@ eval_is_floating_point_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_array_type.  */
 
 static tree
-eval_is_array_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_is_array_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_ARRAY, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_ARRAY);
 }
 
 /* Process std::meta::is_pointer_type.  */
 
 static tree
-eval_is_pointer_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		      tree *jump_target)
+eval_is_pointer_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_POINTER, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_POINTER);
 }
 
 /* Process std::meta::is_lvalue_reference_type.  */
 
 static tree
-eval_is_lvalue_reference_type (location_t loc, const constexpr_ctx *ctx,
-			       tree type, tree *jump_target)
+eval_is_lvalue_reference_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type) && !TYPE_REF_IS_RVALUE (type))
     return boolean_true_node;
   else
@@ -3703,11 +3672,8 @@ eval_is_lvalue_reference_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_rvalue_reference_type.  */
 
 static tree
-eval_is_rvalue_reference_type (location_t loc, const constexpr_ctx *ctx,
-			       tree type, tree *jump_target)
+eval_is_rvalue_reference_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type) && TYPE_REF_IS_RVALUE (type))
     return boolean_true_node;
   else
@@ -3717,58 +3683,48 @@ eval_is_rvalue_reference_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_member_object_pointer_type.  */
 
 static tree
-eval_is_member_object_pointer_type (location_t loc, const constexpr_ctx *ctx,
-				    tree type, tree *jump_target)
+eval_is_member_object_pointer_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_MEMBER_OBJECT_POINTER,
-			  jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_MEMBER_OBJECT_POINTER);
 }
 
 /* Process std::meta::is_member_function_pointer_type.  */
 
 static tree
-eval_is_member_function_pointer_type (location_t loc, const constexpr_ctx *ctx,
-				      tree type, tree *jump_target)
+eval_is_member_function_pointer_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_MEMBER_FUNCTION_POINTER,
-			  jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_MEMBER_FUNCTION_POINTER);
 }
 
 /* Process std::meta::is_enum_type.  */
 
 static tree
-eval_is_enum_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree *jump_target)
+eval_is_enum_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_ENUM, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_ENUM);
 }
 
 /* Process std::meta::is_union_type.  */
 
 static tree
-eval_is_union_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_is_union_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_UNION, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_UNION);
 }
 
 /* Process std::meta::is_class_type.  */
 
 static tree
-eval_is_class_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_is_class_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_CLASS, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_CLASS);
 }
 
 /* Process std::meta::is_reflection_type.  */
 
 static tree
-eval_is_reflection_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			 tree *jump_target)
+eval_is_reflection_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (REFLECTION_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3778,20 +3734,16 @@ eval_is_reflection_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_reference_type.  */
 
 static tree
-eval_is_reference_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			tree *jump_target)
+eval_is_reference_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_REFERENCE, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_REFERENCE);
 }
 
 /* Process std::meta::is_arithmetic_type.  */
 
 static tree
-eval_is_arithmetic_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			 tree *jump_target)
+eval_is_arithmetic_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (ARITHMETIC_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3801,20 +3753,16 @@ eval_is_arithmetic_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_object_type.  */
 
 static tree
-eval_is_object_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		     tree *jump_target)
+eval_is_object_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_OBJECT, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_OBJECT);
 }
 
 /* Process std::meta::is_scalar_type.  */
 
 static tree
-eval_is_scalar_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		     tree *jump_target)
+eval_is_scalar_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (SCALAR_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3824,11 +3772,8 @@ eval_is_scalar_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_fundamental_type.  */
 
 static tree
-eval_is_fundamental_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			  tree *jump_target)
+eval_is_fundamental_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (ARITHMETIC_TYPE_P (type)
       || VOID_TYPE_P (type)
       || NULLPTR_TYPE_P (type)
@@ -3841,35 +3786,27 @@ eval_is_fundamental_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_compound_type.  */
 
 static tree
-eval_is_compound_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_is_compound_type (tree type)
 {
-  tree fundamental = eval_is_fundamental_type (loc, ctx, type, jump_target);
-  if (fundamental == boolean_false_node)
+  if (eval_is_fundamental_type (type) == boolean_false_node)
     return boolean_true_node;
-  else if (fundamental == boolean_true_node)
-    return boolean_false_node;
   else
-    return fundamental;
+    return boolean_false_node;
 }
 
 /* Process std::meta::is_member_pointer_type.  */
 
 static tree
-eval_is_member_pointer_type (location_t loc, const constexpr_ctx *ctx,
-			     tree type, tree *jump_target)
+eval_is_member_pointer_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_MEMBER_POINTER, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_MEMBER_POINTER);
 }
 
 /* Process std::meta::is_const_type.  */
 
 static tree
-eval_is_const_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_is_const_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (CP_TYPE_CONST_P (type))
     return boolean_true_node;
   else
@@ -3879,11 +3816,8 @@ eval_is_const_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_volatile_type.  */
 
 static tree
-eval_is_volatile_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_is_volatile_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (CP_TYPE_VOLATILE_P (type))
     return boolean_true_node;
   else
@@ -3893,11 +3827,8 @@ eval_is_volatile_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_trivially_copyable_type.  */
 
 static tree
-eval_is_trivially_copyable_type (location_t loc, const constexpr_ctx *ctx,
-				 tree type, tree *jump_target)
+eval_is_trivially_copyable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (trivially_copyable_p (type))
     return boolean_true_node;
   else
@@ -3907,11 +3838,8 @@ eval_is_trivially_copyable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_trivially_relocatable_type.  */
 
 static tree
-eval_is_trivially_relocatable_type (location_t loc, const constexpr_ctx *ctx,
-				    tree type, tree *jump_target)
+eval_is_trivially_relocatable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (trivially_relocatable_type_p (type))
     return boolean_true_node;
   else
@@ -3921,11 +3849,8 @@ eval_is_trivially_relocatable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_replaceable_type.  */
 
 static tree
-eval_is_replaceable_type (location_t loc, const constexpr_ctx *ctx,
-			  tree type, tree *jump_target)
+eval_is_replaceable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (replaceable_type_p (type))
     return boolean_true_node;
   else
@@ -3935,11 +3860,8 @@ eval_is_replaceable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_standard_layout_type.  */
 
 static tree
-eval_is_standard_layout_type (location_t loc, const constexpr_ctx *ctx,
-			      tree type, tree *jump_target)
+eval_is_standard_layout_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (std_layout_type_p (type))
     return boolean_true_node;
   else
@@ -3949,29 +3871,24 @@ eval_is_standard_layout_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_empty_type.  */
 
 static tree
-eval_is_empty_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_is_empty_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_EMPTY, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_EMPTY);
 }
 
 /* Process std::meta::is_polymorphic_type.  */
 
 static tree
-eval_is_polymorphic_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			  tree *jump_target)
+eval_is_polymorphic_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_POLYMORPHIC, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_POLYMORPHIC);
 }
 
 /* Process std::meta::is_abstract_type.  */
 
 static tree
-eval_is_abstract_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_is_abstract_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (ABSTRACT_CLASS_TYPE_P (type))
     return boolean_true_node;
   else
@@ -3981,20 +3898,16 @@ eval_is_abstract_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_final_type.  */
 
 static tree
-eval_is_final_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_is_final_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_FINAL, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_FINAL);
 }
 
 /* Process std::meta::is_aggregate_type.  */
 
 static tree
-eval_is_aggregate_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			tree *jump_target)
+eval_is_aggregate_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (CP_AGGREGATE_TYPE_P (type))
     return boolean_true_node;
   else
@@ -4004,11 +3917,8 @@ eval_is_aggregate_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_consteval_only_type.  */
 
 static tree
-eval_is_consteval_only_type (location_t loc, const constexpr_ctx *ctx,
-			     tree type, tree *jump_target)
+eval_is_consteval_only_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (consteval_only_p (type))
     return boolean_true_node;
   else
@@ -4018,11 +3928,8 @@ eval_is_consteval_only_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_signed_type.  */
 
 static tree
-eval_is_signed_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		     tree *jump_target)
+eval_is_signed_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (ARITHMETIC_TYPE_P (type) && !TYPE_UNSIGNED (type))
     return boolean_true_node;
   else
@@ -4032,11 +3939,8 @@ eval_is_signed_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_unsigned_type.  */
 
 static tree
-eval_is_unsigned_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_is_unsigned_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (ARITHMETIC_TYPE_P (type) && TYPE_UNSIGNED (type))
     return boolean_true_node;
   else
@@ -4046,20 +3950,16 @@ eval_is_unsigned_type (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_bounded_array_type.  */
 
 static tree
-eval_is_bounded_array_type (location_t loc, const constexpr_ctx *ctx,
-			    tree type, tree *jump_target)
+eval_is_bounded_array_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_BOUNDED_ARRAY, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_BOUNDED_ARRAY);
 }
 
 /* Process std::meta::is_unbounded_array_type.  */
 
 static tree
-eval_is_unbounded_array_type (location_t loc, const constexpr_ctx *ctx,
-			      tree type, tree *jump_target)
+eval_is_unbounded_array_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (array_of_unknown_bound_p (type))
     return boolean_true_node;
   else
@@ -4069,11 +3969,8 @@ eval_is_unbounded_array_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_scoped_enum_type.  */
 
 static tree
-eval_is_scoped_enum_type (location_t loc, const constexpr_ctx *ctx,
-			  tree type, tree *jump_target)
+eval_is_scoped_enum_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (SCOPED_ENUM_P (type))
     return boolean_true_node;
   else
@@ -4083,11 +3980,8 @@ eval_is_scoped_enum_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_constructible_type.  */
 
 static tree
-eval_is_constructible_type (location_t loc, const constexpr_ctx *ctx,
-			    tree type, tree tvec, tree *jump_target)
+eval_is_constructible_type (tree type, tree tvec)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (is_xible (INIT_EXPR, type, tvec))
     return boolean_true_node;
   else
@@ -4097,11 +3991,8 @@ eval_is_constructible_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_default_constructible_type.  */
 
 static tree
-eval_is_default_constructible_type (location_t loc, const constexpr_ctx *ctx,
-				    tree type, tree *jump_target)
+eval_is_default_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (is_xible (INIT_EXPR, type, make_tree_vec (0)))
     return boolean_true_node;
   else
@@ -4111,11 +4002,8 @@ eval_is_default_constructible_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_copy_constructible_type.  */
 
 static tree
-eval_is_copy_constructible_type (location_t loc, const constexpr_ctx *ctx,
-				 tree type, tree *jump_target)
+eval_is_copy_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree arg = make_tree_vec (1);
   tree ctype
     = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
@@ -4129,11 +4017,8 @@ eval_is_copy_constructible_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_move_constructible_type.  */
 
 static tree
-eval_is_move_constructible_type (location_t loc, const constexpr_ctx *ctx,
-				 tree type, tree *jump_target)
+eval_is_move_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree arg = make_tree_vec (1);
   TREE_VEC_ELT (arg, 0) = cp_build_reference_type (type, /*rval=*/true);
   if (is_xible (INIT_EXPR, type, arg))
@@ -4145,21 +4030,16 @@ eval_is_move_constructible_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_assignable_type.  */
 
 static tree
-eval_is_assignable_type (location_t loc, const constexpr_ctx *ctx, tree type1,
-			 tree type2, tree *jump_target)
+eval_is_assignable_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_ASSIGNABLE,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_ASSIGNABLE);
 }
 
 /* Process std::meta::is_copy_assignable_type.  */
 
 static tree
-eval_is_copy_assignable_type (location_t loc, const constexpr_ctx *ctx,
-			      tree type, tree *jump_target)
+eval_is_copy_assignable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree type1 = cp_build_reference_type (type, /*rval=*/false);
   tree type2
     = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
@@ -4173,11 +4053,8 @@ eval_is_copy_assignable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_move_assignable_type.  */
 
 static tree
-eval_is_move_assignable_type (location_t loc, const constexpr_ctx *ctx,
-			      tree type, tree *jump_target)
+eval_is_move_assignable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree type1 = cp_build_reference_type (type, /*rval=*/false);
   tree type2 = cp_build_reference_type (type, /*rval=*/true);
   if (is_xible (MODIFY_EXPR, type1, type2))
@@ -4189,20 +4066,16 @@ eval_is_move_assignable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_destructible_type.  */
 
 static tree
-eval_is_destructible_type (location_t loc, const constexpr_ctx *ctx, tree type,
-			   tree *jump_target)
+eval_is_destructible_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_DESTRUCTIBLE, jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_DESTRUCTIBLE);
 }
 
 /* Process std::meta::is_trivially_constructible_type.  */
 
 static tree
-eval_is_trivially_constructible_type (location_t loc, const constexpr_ctx *ctx,
-				      tree type, tree tvec, tree *jump_target)
+eval_is_trivially_constructible_type (tree type, tree tvec)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (is_trivially_xible (INIT_EXPR, type, tvec))
     return boolean_true_node;
   else
@@ -4212,12 +4085,8 @@ eval_is_trivially_constructible_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_trivially_default_constructible_type.  */
 
 static tree
-eval_is_trivially_default_constructible_type (location_t loc,
-					      const constexpr_ctx *ctx,
-					      tree type, tree *jump_target)
+eval_is_trivially_default_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (is_trivially_xible (INIT_EXPR, type, make_tree_vec (0)))
     return boolean_true_node;
   else
@@ -4227,12 +4096,8 @@ eval_is_trivially_default_constructible_type (location_t loc,
 /* Process std::meta::is_trivially_copy_constructible_type.  */
 
 static tree
-eval_is_trivially_copy_constructible_type (location_t loc,
-					   const constexpr_ctx *ctx, tree type,
-					   tree *jump_target)
+eval_is_trivially_copy_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree arg = make_tree_vec (1);
   tree ctype
     = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
@@ -4246,12 +4111,8 @@ eval_is_trivially_copy_constructible_type (location_t loc,
 /* Process std::meta::is_trivially_move_constructible_type.  */
 
 static tree
-eval_is_trivially_move_constructible_type (location_t loc,
-					   const constexpr_ctx *ctx, tree type,
-					   tree *jump_target)
+eval_is_trivially_move_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree arg = make_tree_vec (1);
   TREE_VEC_ELT (arg, 0) = cp_build_reference_type (type, /*rval=*/true);
   if (is_trivially_xible (INIT_EXPR, type, arg))
@@ -4263,22 +4124,16 @@ eval_is_trivially_move_constructible_type (location_t loc,
 /* Process std::meta::is_trivially_assignable_type.  */
 
 static tree
-eval_is_trivially_assignable_type (location_t loc, const constexpr_ctx *ctx,
-				   tree type1, tree type2, tree *jump_target)
+eval_is_trivially_assignable_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_TRIVIALLY_ASSIGNABLE,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_TRIVIALLY_ASSIGNABLE);
 }
 
 /* Process std::meta::is_trivially_copy_assignable_type.  */
 
 static tree
-eval_is_trivially_copy_assignable_type (location_t loc,
-					const constexpr_ctx *ctx, tree type,
-					tree *jump_target)
+eval_is_trivially_copy_assignable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree type1 = cp_build_reference_type (type, /*rval=*/false);
   tree type2
     = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
@@ -4292,12 +4147,8 @@ eval_is_trivially_copy_assignable_type (location_t loc,
 /* Process std::meta::is_trivially_move_assignable_type.  */
 
 static tree
-eval_is_trivially_move_assignable_type (location_t loc,
-					const constexpr_ctx *ctx, tree type,
-					tree *jump_target)
+eval_is_trivially_move_assignable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree type1 = cp_build_reference_type (type, /*rval=*/false);
   tree type2 = cp_build_reference_type (type, /*rval=*/true);
   if (is_trivially_xible (MODIFY_EXPR, type1, type2))
@@ -4309,21 +4160,16 @@ eval_is_trivially_move_assignable_type (location_t loc,
 /* Process std::meta::is_trivially_destructible_type.  */
 
 static tree
-eval_is_trivially_destructible_type (location_t loc, const constexpr_ctx *ctx,
-				     tree type, tree *jump_target)
+eval_is_trivially_destructible_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_TRIVIALLY_DESTRUCTIBLE,
-			  jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_TRIVIALLY_DESTRUCTIBLE);
 }
 
 /* Process std::meta::is_nothrow_constructible_type.  */
 
 static tree
-eval_is_nothrow_constructible_type (location_t loc, const constexpr_ctx *ctx,
-				    tree type, tree tvec, tree *jump_target)
+eval_is_nothrow_constructible_type (tree type, tree tvec)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (is_nothrow_xible (INIT_EXPR, type, tvec))
     return boolean_true_node;
   else
@@ -4333,12 +4179,8 @@ eval_is_nothrow_constructible_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_nothrow_default_constructible_type.  */
 
 static tree
-eval_is_nothrow_default_constructible_type (location_t loc,
-					    const constexpr_ctx *ctx,
-					    tree type, tree *jump_target)
+eval_is_nothrow_default_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (is_nothrow_xible (INIT_EXPR, type, make_tree_vec (0)))
     return boolean_true_node;
   else
@@ -4348,12 +4190,8 @@ eval_is_nothrow_default_constructible_type (location_t loc,
 /* Process std::meta::is_nothrow_copy_constructible_type.  */
 
 static tree
-eval_is_nothrow_copy_constructible_type (location_t loc,
-					 const constexpr_ctx *ctx, tree type,
-					 tree *jump_target)
+eval_is_nothrow_copy_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree arg = make_tree_vec (1);
   tree ctype
     = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
@@ -4367,12 +4205,8 @@ eval_is_nothrow_copy_constructible_type (location_t loc,
 /* Process std::meta::is_nothrow_move_constructible_type.  */
 
 static tree
-eval_is_nothrow_move_constructible_type (location_t loc,
-					 const constexpr_ctx *ctx, tree type,
-					 tree *jump_target)
+eval_is_nothrow_move_constructible_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree arg = make_tree_vec (1);
   TREE_VEC_ELT (arg, 0) = cp_build_reference_type (type, /*rval=*/true);
   if (is_nothrow_xible (INIT_EXPR, type, arg))
@@ -4384,22 +4218,16 @@ eval_is_nothrow_move_constructible_type (location_t loc,
 /* Process std::meta::is_nothrow_assignable_type.  */
 
 static tree
-eval_is_nothrow_assignable_type (location_t loc, const constexpr_ctx *ctx,
-				 tree type1, tree type2, tree *jump_target)
+eval_is_nothrow_assignable_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_NOTHROW_ASSIGNABLE,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_NOTHROW_ASSIGNABLE);
 }
 
 /* Process std::meta::is_nothrow_copy_assignable_type.  */
 
 static tree
-eval_is_nothrow_copy_assignable_type (location_t loc,
-				      const constexpr_ctx *ctx, tree type,
-				      tree *jump_target)
+eval_is_nothrow_copy_assignable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree type1 = cp_build_reference_type (type, /*rval=*/false);
   tree type2
     = cp_build_qualified_type (type, cp_type_quals (type) | TYPE_QUAL_CONST);
@@ -4413,11 +4241,8 @@ eval_is_nothrow_copy_assignable_type (location_t loc,
 /* Process std::meta::is_nothrow_move_assignable_type.  */
 
 static tree
-eval_is_nothrow_move_assignable_type (location_t loc, const constexpr_ctx *ctx,
-				      tree type, tree *jump_target)
+eval_is_nothrow_move_assignable_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   tree type1 = cp_build_reference_type (type, /*rval=*/false);
   tree type2 = cp_build_reference_type (type, /*rval=*/true);
   if (is_nothrow_xible (MODIFY_EXPR, type1, type2))
@@ -4429,31 +4254,24 @@ eval_is_nothrow_move_assignable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_nothrow_destructible_type.  */
 
 static tree
-eval_is_nothrow_destructible_type (location_t loc, const constexpr_ctx *ctx,
-				   tree type, tree *jump_target)
+eval_is_nothrow_destructible_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_NOTHROW_DESTRUCTIBLE,
-			  jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_NOTHROW_DESTRUCTIBLE);
 }
 
 /* Process std::meta::is_nothrow_relocatable_type.  */
 
 static tree
-eval_is_nothrow_relocatable_type (location_t loc, const constexpr_ctx *ctx,
-				  tree type, tree *jump_target)
+eval_is_nothrow_relocatable_type (location_t loc, tree type)
 {
-  return eval_type_trait (loc, ctx, type, CPTK_IS_NOTHROW_RELOCATABLE,
-			  jump_target);
+  return eval_type_trait (loc, type, CPTK_IS_NOTHROW_RELOCATABLE);
 }
 
 /* Process std::meta::has_virtual_destructor.  */
 
 static tree
-eval_has_virtual_destructor (location_t loc, const constexpr_ctx *ctx,
-			     tree type, tree *jump_target)
+eval_has_virtual_destructor (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (type_has_virtual_destructor (type))
     return boolean_true_node;
   else
@@ -4463,12 +4281,8 @@ eval_has_virtual_destructor (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::has_unique_object_representations.  */
 
 static tree
-eval_has_unique_object_representations (location_t loc,
-					const constexpr_ctx *ctx, tree type,
-					tree *jump_target)
+eval_has_unique_object_representations (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (type_has_unique_obj_representations (type))
     return boolean_true_node;
   else
@@ -4478,33 +4292,26 @@ eval_has_unique_object_representations (location_t loc,
 /* Process std::meta::reference_constructs_from_temporary.  */
 
 static tree
-eval_reference_constructs_from_temporary (location_t loc,
-					  const constexpr_ctx *ctx, tree type1,
-					  tree type2, tree *jump_target)
+eval_reference_constructs_from_temporary (location_t loc, tree type1,
+					  tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2,
-			  CPTK_REF_CONSTRUCTS_FROM_TEMPORARY, jump_target);
+  return eval_type_trait (loc, type1, type2,
+			  CPTK_REF_CONSTRUCTS_FROM_TEMPORARY);
 }
 
 /* Process std::meta::reference_converts_from_temporary.  */
 
 static tree
-eval_reference_converts_from_temporary (location_t loc,
-					const constexpr_ctx *ctx, tree type1,
-					tree type2, tree *jump_target)
+eval_reference_converts_from_temporary (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2,
-			  CPTK_REF_CONVERTS_FROM_TEMPORARY, jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_REF_CONVERTS_FROM_TEMPORARY);
 }
 
 /* Process std::meta::rank.  */
 
 static tree
-eval_rank (location_t loc, const constexpr_ctx *ctx, tree type,
-	   tree *jump_target)
+eval_rank (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   size_t rank = 0;
   for (; TREE_CODE (type) == ARRAY_TYPE; type = TREE_TYPE (type))
     ++rank;
@@ -4514,11 +4321,8 @@ eval_rank (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::extent.  */
 
 static tree
-eval_extent (location_t loc, const constexpr_ctx *ctx, tree type,
-	     tree i, tree *jump_target)
+eval_extent (location_t loc, tree type, tree i)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   size_t rank = tree_to_uhwi (i);
   while (rank && TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -4527,8 +4331,7 @@ eval_extent (location_t loc, const constexpr_ctx *ctx, tree type,
     }
   if (rank
       || TREE_CODE (type) != ARRAY_TYPE
-      || eval_is_bounded_array_type (loc, ctx, type,
-				     jump_target) == boolean_false_node)
+      || eval_is_bounded_array_type (loc, type) == boolean_false_node)
      return size_zero_node;
   return size_binop (PLUS_EXPR, TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
 		     size_one_node);
@@ -4537,83 +4340,67 @@ eval_extent (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::is_same_type.  */
 
 static tree
-eval_is_same_type (location_t loc, const constexpr_ctx *ctx, tree type1,
-		   tree type2, tree *jump_target)
+eval_is_same_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_SAME, jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_SAME);
 }
 
 /* Process std::meta::is_base_of_type.  */
 
 static tree
-eval_is_base_of_type (location_t loc, const constexpr_ctx *ctx, tree type1,
-		      tree type2, tree *jump_target)
+eval_is_base_of_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_BASE_OF, jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_BASE_OF);
 }
 
 /* Process std::meta::is_virtual_base_of_type.  */
 
 static tree
-eval_is_virtual_base_of_type (location_t loc, const constexpr_ctx *ctx,
-			      tree type1, tree type2, tree *jump_target)
+eval_is_virtual_base_of_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_VIRTUAL_BASE_OF,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_VIRTUAL_BASE_OF);
 }
 
 /* Process std::meta::is_convertible_type.  */
 
 static tree
-eval_is_convertible_type (location_t loc, const constexpr_ctx *ctx,
-			  tree type1, tree type2, tree *jump_target)
+eval_is_convertible_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_CONVERTIBLE,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_CONVERTIBLE);
 }
 
 /* Process std::meta::is_nothrow_convertible_type.  */
 
 static tree
-eval_is_nothrow_convertible_type (location_t loc, const constexpr_ctx *ctx,
-				  tree type1, tree type2, tree *jump_target)
+eval_is_nothrow_convertible_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_NOTHROW_CONVERTIBLE,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_NOTHROW_CONVERTIBLE);
 }
 
 /* Process std::meta::is_layout_compatible_type.  */
 
 static tree
-eval_is_layout_compatible_type (location_t loc, const constexpr_ctx *ctx,
-				tree type1, tree type2, tree *jump_target)
+eval_is_layout_compatible_type (location_t loc, tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2, CPTK_IS_LAYOUT_COMPATIBLE,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2, CPTK_IS_LAYOUT_COMPATIBLE);
 }
 
 /* Process std::meta::is_pointer_interconvertible_base_of_type.  */
 
 static tree
 eval_is_pointer_interconvertible_base_of_type (location_t loc,
-					       const constexpr_ctx *ctx,
-					       tree type1, tree type2,
-					       tree *jump_target)
+					       tree type1, tree type2)
 {
-  return eval_type_trait (loc, ctx, type1, type2,
-			  CPTK_IS_POINTER_INTERCONVERTIBLE_BASE_OF,
-			  jump_target);
+  return eval_type_trait (loc, type1, type2,
+			  CPTK_IS_POINTER_INTERCONVERTIBLE_BASE_OF);
 }
 
 /* Process std::meta::is_invocable_type.  */
 
 static tree
-eval_is_invocable_type (location_t loc, const constexpr_ctx *ctx,
-			tree type, tree tvec, tree *jump_target)
+eval_is_invocable_type (location_t loc, tree type, tree tvec)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-  tree r = finish_trait_expr (input_location, CPTK_IS_INVOCABLE, type, tvec);
+  tree r = finish_trait_expr (loc, CPTK_IS_INVOCABLE, type, tvec);
   STRIP_ANY_LOCATION_WRAPPER (r);
   return r;
 }
@@ -4667,14 +4454,8 @@ finish_library_value_trait (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
 			  tree tres, tree type, tree tvec, tree call,
-			  bool *non_constant_p, tree *jump_target,
-			  const char *name)
+			  bool *non_constant_p, const char *name)
 {
-  if (eval_is_type (tres) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, tres, jump_target);
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-
   /* Create std::is_invocable_r<TYPE>::value.  */
   tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 2);
   TREE_VEC_ELT (args, 0) = tres;
@@ -4688,13 +4469,9 @@ eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_nothrow_invocable_type.  */
 
 static tree
-eval_is_nothrow_invocable_type (location_t loc, const constexpr_ctx *ctx,
-				tree type, tree tvec, tree *jump_target)
+eval_is_nothrow_invocable_type (location_t loc, tree type, tree tvec)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-  tree r = finish_trait_expr (input_location, CPTK_IS_NOTHROW_INVOCABLE,
-			      type, tvec);
+  tree r = finish_trait_expr (loc, CPTK_IS_NOTHROW_INVOCABLE, type, tvec);
   STRIP_ANY_LOCATION_WRAPPER (r);
   return r;
 }
@@ -4704,14 +4481,8 @@ eval_is_nothrow_invocable_type (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_is_swappable_with_type (location_t loc, const constexpr_ctx *ctx,
 			     tree type1, tree type2, tree call,
-			     bool *non_constant_p, tree *jump_target,
-			     const char *name)
+			     bool *non_constant_p, const char *name)
 {
-  if (eval_is_type (type1) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type1, jump_target);
-  if (eval_is_type (type2) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type2, jump_target);
-
   /* Create std::is_swappable_with<TYPE>::value.  */
   tree args = make_tree_vec (2);
   TREE_VEC_ELT (args, 0) = type1;
@@ -4725,11 +4496,8 @@ eval_is_swappable_with_type (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_is_swappable_type (location_t loc, const constexpr_ctx *ctx,
 			tree type, tree call, bool *non_constant_p,
-			tree *jump_target, const char *name)
+			const char *name)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-
   /* Create std::is_swappable<TYPE>::value.  */
   tree args = make_tree_vec (1);
   TREE_VEC_ELT (args, 0) = type;
@@ -4740,11 +4508,8 @@ eval_is_swappable_type (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::remove_cvref.  */
 
 static tree
-eval_remove_cvref (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree *jump_target)
+eval_remove_cvref (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type))
     type = TREE_TYPE (type);
   type = finish_trait_type (CPTK_REMOVE_CV, type, NULL_TREE, tf_none);
@@ -4755,11 +4520,8 @@ eval_remove_cvref (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::decay.  */
 
 static tree
-eval_decay (location_t loc, const constexpr_ctx *ctx, tree type,
-	    tree *jump_target)
+eval_decay (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_DECAY, type, NULL_TREE, tf_none);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -4807,8 +4569,6 @@ static tree
 eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
 		      tree *jump_target)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   /* The standard doesn't say this, but I hope it will clarify it.  */
   if (TREE_CODE (type) != ENUMERAL_TYPE || !COMPLETE_TYPE_P (type))
     return throw_exception (loc, ctx, N_("reflection does not represent "
@@ -4823,12 +4583,8 @@ eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
 
 static tree
 eval_invoke_result (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree tvec, tree call, bool *non_constant_p,
-		    tree *jump_target)
+		    tree tvec, tree call, bool *non_constant_p)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-
   tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 1);
   TREE_VEC_ELT (args, 0) = type;
   for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
@@ -4841,12 +4597,8 @@ eval_invoke_result (location_t loc, const constexpr_ctx *ctx, tree type,
 
 static tree
 eval_unwrap_reference (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree call, bool *non_constant_p, tree *jump_target,
-		       const char *name)
+		       tree call, bool *non_constant_p, const char *name)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-
   tree args = make_tree_vec (1);
   TREE_VEC_ELT (args, 0) = type;
   return finish_library_type_trait (loc, ctx, name, args, call,
@@ -4856,13 +4608,8 @@ eval_unwrap_reference (location_t loc, const constexpr_ctx *ctx, tree type,
 /* Process std::meta::type_order.  */
 
 static tree
-eval_type_order (location_t loc, const constexpr_ctx *ctx, tree type1,
-		 tree type2, tree *jump_target)
+eval_type_order (tree type1, tree type2)
 {
-  if (eval_is_type (type1) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type1, jump_target);
-  if (eval_is_type (type2) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type2, jump_target);
   return type_order_value (strip_typedefs (type1), strip_typedefs (type2));
 }
 
@@ -4898,11 +4645,8 @@ eval_enumerators_of (location_t loc, const constexpr_ctx *ctx, tree r,
    represented by type.  */
 
 static tree
-eval_remove_const (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree *jump_target)
+eval_remove_const (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   return get_reflection_raw (loc, strip_typedefs (remove_const (type)));
 }
 
@@ -4912,11 +4656,8 @@ eval_remove_const (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_remove_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
-		      tree *jump_target)
+eval_remove_volatile (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   int quals = cp_type_quals (type);
   quals &= ~TYPE_QUAL_VOLATILE;
   type = cp_build_qualified_type (type, quals);
@@ -4930,11 +4671,8 @@ eval_remove_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_remove_cv (location_t loc, const constexpr_ctx *ctx, tree type,
-		tree *jump_target)
+eval_remove_cv (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_REMOVE_CV, type, NULL_TREE, tf_none);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -4946,11 +4684,8 @@ eval_remove_cv (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_add_const (location_t loc, const constexpr_ctx *ctx, tree type,
-		tree *jump_target)
+eval_add_const (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (!TYPE_REF_P (type) && !FUNC_OR_METHOD_TYPE_P (type))
     {
       int quals = cp_type_quals (type);
@@ -4967,11 +4702,8 @@ eval_add_const (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_add_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree *jump_target)
+eval_add_volatile (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (!TYPE_REF_P (type) && !FUNC_OR_METHOD_TYPE_P (type))
     {
       int quals = cp_type_quals (type);
@@ -4988,11 +4720,8 @@ eval_add_volatile (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
-	     tree *jump_target)
+eval_add_cv (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (!TYPE_REF_P (type) && !FUNC_OR_METHOD_TYPE_P (type))
     {
       int quals = cp_type_quals (type);
@@ -5009,11 +4738,8 @@ eval_add_cv (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_remove_reference (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree *jump_target)
+eval_remove_reference (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_REF_P (type))
     type = TREE_TYPE (type);
   type = strip_typedefs (type);
@@ -5026,11 +4752,8 @@ eval_remove_reference (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_add_lvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
-			   tree *jump_target)
+eval_add_lvalue_reference (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_ADD_LVALUE_REFERENCE, type, NULL_TREE, tf_none);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -5042,11 +4765,8 @@ eval_add_lvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_add_rvalue_reference (location_t loc, const constexpr_ctx *ctx, tree type,
-			   tree *jump_target)
+eval_add_rvalue_reference (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_ADD_RVALUE_REFERENCE, type, NULL_TREE, tf_none);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -5061,8 +4781,6 @@ static tree
 eval_make_signed (location_t loc, const constexpr_ctx *ctx, tree type,
 		  bool unsignedp, tree *jump_target)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   // TODO: I don't see the standard specifying what to do here.
   if (!INTEGRAL_TYPE_P (type) || TREE_CODE (type) == BOOLEAN_TYPE)
     return throw_exception (loc, ctx, N_("reflection represents non-integral "
@@ -5112,11 +4830,8 @@ eval_make_signed (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_remove_extent (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree *jump_target)
+eval_remove_extent (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
   type = strip_typedefs (type);
@@ -5129,11 +4844,8 @@ eval_remove_extent (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_remove_all_extents (location_t loc, const constexpr_ctx *ctx, tree type,
-			 tree *jump_target)
+eval_remove_all_extents (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_array_types (type);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -5145,11 +4857,8 @@ eval_remove_all_extents (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_remove_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
-		     tree *jump_target)
+eval_remove_pointer (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (TYPE_PTR_P (type))
     type = TREE_TYPE (type);
   type = strip_typedefs (type);
@@ -5162,11 +4871,8 @@ eval_remove_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
    represented by type.  */
 
 static tree
-eval_add_pointer (location_t loc, const constexpr_ctx *ctx, tree type,
-		  tree *jump_target)
+eval_add_pointer (location_t loc, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = finish_trait_type (CPTK_ADD_POINTER, type, NULL_TREE, tf_none);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -5326,11 +5032,8 @@ eval_substitute (location_t loc, const constexpr_ctx *ctx,
    dealias(type).  */
 
 static tree
-eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
-		 tree *jump_target)
+eval_tuple_size (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_typedefs (type);
   /* It's UB to specialize tuple_size_v, so we can use this.  */
   return get_tuple_size (type);
@@ -5342,12 +5045,9 @@ eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
    and I is a constant equal to index.  */
 
 static tree
-eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
-		    tree type, tree *jump_target)
+eval_tuple_element (location_t loc, tree i, tree type)
 {
   const unsigned HOST_WIDE_INT index = tree_to_uhwi (i);
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_typedefs (type);
   type = get_tuple_element_type (type, index);
   if (type == error_mark_node)
@@ -5362,10 +5062,8 @@ eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
 
 static tree
 eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree call, bool *non_constant_p, tree *jump_target)
+		   tree call, bool *non_constant_p)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_typedefs (type);
 
   /* Create std::variant_size<TYPE>::value.  */
@@ -5381,11 +5079,8 @@ eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
    dealias(type) and I is a constant equal to index.  */
 
 static tree
-eval_variant_alternative (location_t loc, const constexpr_ctx *ctx, tree i,
-			  tree type, tree *jump_target)
+eval_variant_alternative (location_t loc, tree i, tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_typedefs (type);
   /* Create std::variant_alternative<I,TYPE>::type.  */
   tree args = make_tree_vec (2);
@@ -5439,8 +5134,6 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
 		       bool *non_constant_p, bool *overflow_p,
 		       tree  *jump_target)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   type = strip_typedefs (type);
   if (!TYPE_OBJ_P (type) && !TYPE_REF_P (type))
     return throw_exception (loc, ctx,
@@ -6014,11 +5707,8 @@ eval_reflect_constant_array (location_t loc, const constexpr_ctx *ctx,
 /* Process std::meta::is_implicit_lifetime_type.  */
 
 static tree
-eval_is_implicit_lifetime_type (location_t loc, const constexpr_ctx *ctx,
-				tree type, tree *jump_target)
+eval_is_implicit_lifetime_type (tree type)
 {
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
   if (implicit_lifetime_type_p (type))
     return boolean_true_node;
   else
@@ -6828,10 +6518,11 @@ eval_has_inaccessible_subobjects (location_t loc, const constexpr_ctx *ctx,
 						       jump_target);
 }
 
+#include "metafns.h"
+
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
    JUMP_TARGET is set if we are throwing std::meta::exception.  */
 
-// TODO Use gperf?
 tree
 process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 		      bool *non_constant_p, bool *overflow_p,
@@ -6840,13 +6531,67 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
   tree name = DECL_NAME (fun);
   const char *ident = IDENTIFIER_POINTER (name);
   const location_t loc = cp_expr_loc_or_input_loc (call);
-
-  if (id_equal (name, "reflect_constant")
-      || id_equal (name, "reflect_object")
-      || id_equal (name, "reflect_function"))
+  const metafn_info *minfo
+    = metafn_lookup::find (ident, IDENTIFIER_LENGTH (name));
+  if (minfo == NULL)
     {
-      tree expr = get_nth_callarg (call, 0);
-      tree type = TREE_VEC_ELT (get_template_innermost_arguments (fun), 0);
+    not_found:
+      error_at (loc, "unknown metafunction %qD", fun);
+      *non_constant_p = true;
+      return call;
+    }
+  tree h = NULL_TREE, h1 = NULL_TREE, hvec = NULL_TREE, expr = NULL_TREE;
+  tree type = NULL_TREE, info;
+  reflect_kind kind = REFLECT_UNDEF;
+  switch ((minfo->kind >> 5) & 31)
+    {
+    case METAFN_KIND_ARG_VOID:
+      break;
+    case METAFN_KIND_ARG_INFO:
+    case METAFN_KIND_ARG_TINFO:
+      info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      h = REFLECT_EXPR_HANDLE (info);
+      kind = static_cast<reflect_kind>(REFLECT_EXPR_KIND (info));
+      if (((minfo->kind >> 5) & 31) == METAFN_KIND_ARG_TINFO)
+	{
+	  if (eval_is_type (h) != boolean_true_node)
+	    return throw_exception_nontype (loc, ctx, h, jump_target);
+	}
+      else
+	{
+	  /* There still could be a TEMPLATE_ID_EXPR denoting a function
+	     template.  */
+	  h = resolve_nondeduced_context (h, tf_warning_or_error);
+	}
+      break;
+    case METAFN_KIND_ARG_REFLECTION_RANGE:
+    case METAFN_KIND_ARG_UNSIGNED:
+    case METAFN_KIND_ARG_ACCESS_CONTEXT:
+    case METAFN_KIND_ARG_DATA_MEMBER_OPTIONS:
+    default:
+      gcc_unreachable ();
+    case METAFN_KIND_ARG_REFLECTION_RANGET:
+      hvec = get_type_info_vec (loc, ctx, call, 0, non_constant_p,
+				overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      break;
+    case METAFN_KIND_ARG_INPUT_RANGE:
+      /* Handled in eval_reflect_constant_*.  */
+      break;
+    case METAFN_KIND_ARG_TEMPLATE_PARM:
+    case METAFN_KIND_ARG_TEMPLATE_PARM_REF:
+      type = TREE_VEC_ELT (get_template_innermost_arguments (fun), 0);
+      /* FALLTHRU */
+    case METAFN_KIND_ARG_SIZE_T:
+    case METAFN_KIND_ARG_OPERATORS:
+      expr = get_nth_callarg (call, 0);
       expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
 					   non_constant_p, overflow_p,
 					   jump_target);
@@ -6854,884 +6599,611 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	return NULL_TREE;
       if (*non_constant_p)
 	return call;
-      if (id_equal (name, "reflect_constant"))
-	return eval_reflect_constant (loc, ctx, type, expr, jump_target);
-      else if (id_equal (name, "reflect_object"))
-	return eval_reflect_object (loc, ctx, type, expr, jump_target);
-      else
-	return eval_reflect_function (loc, ctx, type, expr, jump_target);
+      break;
     }
-  if (id_equal (name, "symbol_of") || id_equal (name, "u8symbol_of"))
+  switch ((minfo->kind >> 10) & 31)
     {
-      tree expr = get_nth_callarg (call, 0);
+    case METAFN_KIND_ARG_VOID:
+      break;
+    case METAFN_KIND_ARG_INFO:
+    case METAFN_KIND_ARG_TINFO:
+      info = get_info (ctx, call, 1, non_constant_p, overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      h1 = REFLECT_EXPR_HANDLE (info);
+      if (((minfo->kind >> 10) & 31) == METAFN_KIND_ARG_TINFO)
+	{
+	  if (eval_is_type (h1) != boolean_true_node)
+	    return throw_exception_nontype (loc, ctx, h1, jump_target);
+	}
+      break;
+    case METAFN_KIND_ARG_SIZE_T:
+    case METAFN_KIND_ARG_OPERATORS:
+    case METAFN_KIND_ARG_INPUT_RANGE:
+    case METAFN_KIND_ARG_TEMPLATE_PARM:
+    case METAFN_KIND_ARG_TEMPLATE_PARM_REF:
+    default:
+      gcc_unreachable ();
+    case METAFN_KIND_ARG_REFLECTION_RANGE:
+      hvec = get_info_vec (loc, ctx, call, 1, non_constant_p, overflow_p,
+			   jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      break;
+    case METAFN_KIND_ARG_REFLECTION_RANGET:
+      hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
+				overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return call;
+      break;
+    case METAFN_KIND_ARG_UNSIGNED:
+    case METAFN_KIND_ARG_ACCESS_CONTEXT:
+    case METAFN_KIND_ARG_DATA_MEMBER_OPTIONS:
+      expr = get_nth_callarg (call, 1);
       expr = cxx_eval_constant_expression (ctx, expr, vc_prvalue,
 					   non_constant_p, overflow_p,
 					   jump_target);
       if (*jump_target)
 	return NULL_TREE;
-      return eval_symbol_of (loc, ctx, expr, jump_target,
-			     id_equal (name, "symbol_of") ? char_type_node
-			     : char8_type_node, TREE_TYPE (call));
+      if (*non_constant_p)
+	return call;
+      break;
     }
-  if (id_equal (name, "tuple_element")
-      || id_equal (name, "variant_alternative"))
+  switch ((minfo->kind >> 15) & 31)
     {
-      tree i = get_nth_callarg (call, 0);
-      i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
-					non_constant_p, overflow_p,
-					jump_target);
+    case METAFN_KIND_ARG_VOID:
+      break;
+    default:
+      gcc_unreachable ();
+    case METAFN_KIND_ARG_REFLECTION_RANGET:
+      hvec = get_type_info_vec (loc, ctx, call, 2, non_constant_p,
+				overflow_p, jump_target);
       if (*jump_target)
 	return NULL_TREE;
       if (*non_constant_p)
 	return call;
-      tree type = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			    jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      type = REFLECT_EXPR_HANDLE (type);
-      if (id_equal (name, "tuple_element"))
-	type = eval_tuple_element (loc, ctx, i, type, jump_target);
-      else
-	type = eval_variant_alternative (loc, ctx, i, type, jump_target);
-      if (type == error_mark_node)
-	{
-	  *non_constant_p = true;
-	  return call;
-	}
-      return type;
-    }
-  if (id_equal (name, "common_type") || id_equal (name, "common_reference"))
-    {
-      tree hvec = get_type_info_vec (loc, ctx, call, 0, non_constant_p,
-				     overflow_p, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
-    }
-  if (id_equal (name, "reflect_constant_string"))
-    return eval_reflect_constant_string (loc, ctx, call, non_constant_p,
-					 overflow_p, jump_target);
-  if (id_equal (name, "reflect_constant_array"))
-    return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
-					overflow_p, jump_target);
-  if (id_equal (name, "current")
-      && DECL_CLASS_SCOPE_P (fun)
-      && TYPE_NAME (DECL_CONTEXT (fun))
-      && TREE_CODE (TYPE_NAME (DECL_CONTEXT (fun))) == TYPE_DECL
-      && DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun)))
-      && id_equal (DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun))),
-		   "access_context"))
-    return eval_access_context_current (loc, ctx, call, non_constant_p);
-
-  tree info = get_info (ctx, call, 0, non_constant_p, overflow_p, jump_target);
-  if (*jump_target)
-    return NULL_TREE;
-  if (*non_constant_p)
-    return call;
-  tree h = REFLECT_EXPR_HANDLE (info);
-  auto kind = static_cast<reflect_kind>(REFLECT_EXPR_KIND (info));
-
-  /* There still could be a TEMPLATE_ID_EXPR denoting a function template.  */
-  h = resolve_nondeduced_context (h, tf_warning_or_error);
-
-  /* Handle is_*.  */
-  if (startswith (ident, "is_"))
-    {
-      ident += 3;
-      if (!strcmp (ident, "variable"))
-	return eval_is_variable (h, kind);
-      if (!strcmp (ident, "type"))
-	return eval_is_type (h);
-      if (!strcmp (ident, "type_alias"))
-	return eval_is_type_alias (h);
-      if (!strcmp (ident, "namespace"))
-	return eval_is_namespace (h);
-      if (!strcmp (ident, "namespace_alias"))
-	return eval_is_namespace_alias (h);
-      if (!strcmp (ident, "function"))
-	return eval_is_function (h);
-      if (!strcmp (ident, "function_template"))
-	return eval_is_function_template (h);
-      if (!strcmp (ident, "variable_template"))
-	return eval_is_variable_template (h);
-      if (!strcmp (ident, "class_template"))
-	return eval_is_class_template (h);
-      if (!strcmp (ident, "alias_template"))
-	return eval_is_alias_template (h);
-      if (!strcmp (ident, "concept"))
-	return eval_is_concept (h);
-      if (!strcmp (ident, "object"))
-	return eval_is_object (kind);
-      if (!strcmp (ident, "value"))
-	return eval_is_value (kind);
-      if (!strcmp (ident, "structured_binding"))
-	return eval_is_structured_binding (h);
-      if (!strcmp (ident, "class_member"))
-	return eval_is_class_member (h);
-      if (!strcmp (ident, "namespace_member"))
-	return eval_is_namespace_member (h);
-      if (!strcmp (ident, "nonstatic_data_member"))
-	return eval_is_nonstatic_data_member (h);
-      if (!strcmp (ident, "static_member"))
-	return eval_is_static_member (h);
-      if (!strcmp (ident, "base"))
-	return eval_is_base (h, kind);
-      if (!strcmp (ident, "mutable_member"))
-	return eval_is_mutable_member (h);
-      if (!strcmp (ident, "template"))
-	return eval_is_template (h);
-      if (!strcmp (ident, "function_parameter"))
-	return eval_is_function_parameter (h, kind);
-      if (!strcmp (ident, "explicit_object_parameter"))
-	return eval_is_explicit_object_parameter (h, kind);
-      if (!strcmp (ident, "deleted"))
-	return eval_is_deleted (h);
-      if (!strcmp (ident, "defaulted"))
-	return eval_is_defaulted (h);
-      if (!strcmp (ident, "user_provided"))
-	return eval_is_user_provided (h);
-      if (!strcmp (ident, "user_declared"))
-	return eval_is_user_declared (h);
-      if (!strcmp (ident, "explicit"))
-	return eval_is_explicit (h);
-      if (!strcmp (ident, "bit_field"))
-	return eval_is_bit_field (h, kind);
-      if (!strcmp (ident, "enumerator"))
-	return eval_is_enumerator (h);
-      if (!strcmp (ident, "complete_type"))
-	return eval_is_complete_type (h);
-      if (!strcmp (ident, "enumerable_type"))
-	return eval_is_enumerable_type (h);
-      if (!strcmp (ident, "annotation"))
-	return eval_is_annotation (h);
-      if (!strcmp (ident, "noexcept"))
-	return eval_is_noexcept (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "const"))
-	return eval_is_const (h, kind);
-      if (!strcmp (ident, "volatile"))
-	return eval_is_volatile (h, kind);
-      if (!strcmp (ident, "conversion_function"))
-	return eval_is_conversion_function (h);
-      if (!strcmp (ident, "operator_function"))
-	return eval_is_operator_function (h);
-      if (!strcmp (ident, "literal_operator"))
-	return eval_is_literal_operator (h);
-      if (!strcmp (ident, "special_member_function"))
-	return eval_is_special_member_function (h);
-      if (!strcmp (ident, "constructor"))
-	return eval_is_constructor (h);
-      if (!strcmp (ident, "default_constructor"))
-	return eval_is_default_constructor (h);
-      if (!strcmp (ident, "copy_constructor"))
-	return eval_is_copy_constructor (h);
-      if (!strcmp (ident, "move_constructor"))
-	return eval_is_move_constructor (h);
-      if (!strcmp (ident, "assignment"))
-	return eval_is_assignment (h);
-      if (!strcmp (ident, "copy_assignment"))
-	return eval_is_copy_assignment (h);
-      if (!strcmp (ident, "move_assignment"))
-	return eval_is_move_assignment (h);
-      if (!strcmp (ident, "destructor"))
-	return eval_is_destructor (h);
-      if (!strcmp (ident, "conversion_function_template"))
-	return eval_is_conversion_function_template (h);
-      if (!strcmp (ident, "operator_function_template"))
-	return eval_is_operator_function_template (h);
-      if (!strcmp (ident, "literal_operator_template"))
-	return eval_is_literal_operator_template (h);
-      if (!strcmp (ident, "constructor_template"))
-	return eval_is_constructor_template (h);
-      if (!strcmp (ident, "function_type"))
-	return eval_is_function_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "void_type"))
-	return eval_is_void_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "null_pointer_type"))
-	return eval_is_null_pointer_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "integral_type"))
-	return eval_is_integral_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "floating_point_type"))
-	return eval_is_floating_point_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "array_type"))
-	return eval_is_array_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "pointer_type"))
-	return eval_is_pointer_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "lvalue_reference_type"))
-	return eval_is_lvalue_reference_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "rvalue_reference_type"))
-	return eval_is_rvalue_reference_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "member_object_pointer_type"))
-	return eval_is_member_object_pointer_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "member_function_pointer_type"))
-	return eval_is_member_function_pointer_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "enum_type"))
-	return eval_is_enum_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "union_type"))
-	return eval_is_union_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "class_type"))
-	return eval_is_class_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "reflection_type"))
-	return eval_is_reflection_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "reference_type"))
-	return eval_is_reference_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "arithmetic_type"))
-	return eval_is_arithmetic_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "object_type"))
-	return eval_is_object_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "scalar_type"))
-	return eval_is_scalar_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "member_pointer_type"))
-	return eval_is_member_pointer_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "const_type"))
-	return eval_is_const_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "volatile_type"))
-	return eval_is_volatile_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "trivially_copyable_type"))
-	return eval_is_trivially_copyable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "trivially_relocatable_type"))
-	return eval_is_trivially_relocatable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "replaceable_type"))
-	return eval_is_replaceable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "standard_layout_type"))
-	return eval_is_standard_layout_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "empty_type"))
-	return eval_is_empty_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "polymorphic_type"))
-	return eval_is_polymorphic_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "abstract_type"))
-	return eval_is_abstract_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "final_type"))
-	return eval_is_final_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "aggregate_type"))
-	return eval_is_aggregate_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "consteval_only_type"))
-	return eval_is_consteval_only_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "signed_type"))
-	return eval_is_signed_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "unsigned_type"))
-	return eval_is_unsigned_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "bounded_array_type"))
-	return eval_is_bounded_array_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "unbounded_array_type"))
-	return eval_is_unbounded_array_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "scoped_enum_type"))
-	return eval_is_scoped_enum_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "constructible_type"))
-	{
-	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-					 overflow_p, jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_constructible_type (loc, ctx, h, hvec, jump_target);
-	}
-      if (!strcmp (ident, "default_constructible_type"))
-	return eval_is_default_constructible_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "copy_constructible_type"))
-	return eval_is_copy_constructible_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "move_constructible_type"))
-	return eval_is_move_constructible_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "copy_assignable_type"))
-	return eval_is_copy_assignable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "move_assignable_type"))
-	return eval_is_move_assignable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "destructible_type"))
-	return eval_is_destructible_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "trivially_constructible_type"))
-	{
-	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-					 overflow_p, jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_trivially_constructible_type (loc, ctx, h, hvec,
-						       jump_target);
-	}
-      if (!strcmp (ident, "trivially_default_constructible_type"))
-	return eval_is_trivially_default_constructible_type (loc, ctx, h,
-							     jump_target);
-      if (!strcmp (ident, "trivially_copy_constructible_type"))
-	return eval_is_trivially_copy_constructible_type (loc, ctx, h,
-							  jump_target);
-      if (!strcmp (ident, "trivially_move_constructible_type"))
-	return eval_is_trivially_move_constructible_type (loc, ctx, h,
-							  jump_target);
-      if (!strcmp (ident, "trivially_copy_assignable_type"))
-	return eval_is_trivially_copy_assignable_type (loc, ctx, h,
-						       jump_target);
-      if (!strcmp (ident, "trivially_move_assignable_type"))
-	return eval_is_trivially_move_assignable_type (loc, ctx, h,
-						       jump_target);
-      if (!strcmp (ident, "trivially_destructible_type"))
-	return eval_is_trivially_destructible_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "nothrow_constructible_type"))
-	{
-	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-					 overflow_p, jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_nothrow_constructible_type (loc, ctx, h, hvec,
-						     jump_target);
-	}
-      if (!strcmp (ident, "nothrow_default_constructible_type"))
-	return eval_is_nothrow_default_constructible_type (loc, ctx, h,
-							   jump_target);
-      if (!strcmp (ident, "nothrow_copy_constructible_type"))
-	return eval_is_nothrow_copy_constructible_type (loc, ctx, h,
-							jump_target);
-      if (!strcmp (ident, "nothrow_move_constructible_type"))
-	return eval_is_nothrow_move_constructible_type (loc, ctx, h,
-							jump_target);
-      if (!strcmp (ident, "nothrow_copy_assignable_type"))
-	return eval_is_nothrow_copy_assignable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "nothrow_move_assignable_type"))
-	return eval_is_nothrow_move_assignable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "nothrow_destructible_type"))
-	return eval_is_nothrow_destructible_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "nothrow_relocatable_type"))
-	return eval_is_nothrow_relocatable_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "fundamental_type"))
-	return eval_is_fundamental_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "compound_type"))
-	return eval_is_compound_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "same_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_same_type (loc, ctx, h, h1, jump_target);
-	}
-      if (!strcmp (ident, "base_of_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_base_of_type (loc, ctx, h, h1, jump_target);
-	}
-      if (!strcmp (ident, "virtual_base_of_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_virtual_base_of_type (loc, ctx, h, h1, jump_target);
-	}
-      if (!strcmp (ident, "convertible_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_convertible_type (loc, ctx, h, h1, jump_target);
-	}
-      if (!strcmp (ident, "nothrow_convertible_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_nothrow_convertible_type (loc, ctx, h, h1,
-						   jump_target);
-	}
-      if (!strcmp (ident, "layout_compatible_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_layout_compatible_type (loc, ctx, h, h1, jump_target);
-	}
-      if (!strcmp (ident, "pointer_interconvertible_base_of_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_pointer_interconvertible_base_of_type (loc, ctx, h,
-								h1,
-								jump_target);
-	}
-      if (!strcmp (ident, "invocable_type"))
-	{
-	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-					 overflow_p, jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_invocable_type (loc, ctx, h, hvec, jump_target);
-	}
-      if (!strcmp (ident, "nothrow_invocable_type"))
-	{
-	  tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-					 overflow_p, jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_nothrow_invocable_type (loc, ctx, h, hvec,
-						 jump_target);
-	}
-      if (!strcmp (ident, "invocable_r_type")
-	  || !strcmp (ident, "nothrow_invocable_r_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  tree hvec = get_type_info_vec (loc, ctx, call, 2, non_constant_p,
-					 overflow_p, jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_invocable_r_type (loc, ctx, h, h1, hvec, call,
-					   non_constant_p, jump_target,
-					   ident[0] == 'n'
-					   ? "is_nothrow_invocable_r"
-					   : "is_invocable_r");
-	}
-      if (!strcmp (ident, "assignable_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_assignable_type (loc, ctx, h, h1, jump_target);
-	}
-      if (!strcmp (ident, "trivially_assignable_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_trivially_assignable_type (loc, ctx, h, h1,
-						    jump_target);
-	}
-      if (!strcmp (ident, "nothrow_assignable_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_nothrow_assignable_type (loc, ctx, h, h1,
-						  jump_target);
-	}
-      if (!strcmp (ident, "swappable_with_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_swappable_with_type (loc, ctx, h, h1, call,
-					      non_constant_p, jump_target,
-					      "is_swappable_with");
-	}
-      if (!strcmp (ident, "swappable_type"))
-	return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
-				       jump_target, "is_swappable");
-      if (!strcmp (ident, "nothrow_swappable_with_type"))
-	{
-	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			      jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  tree h1 = REFLECT_EXPR_HANDLE (i1);
-	  return eval_is_swappable_with_type (loc, ctx, h, h1, call,
-					      non_constant_p, jump_target,
-					      "is_nothrow_swappable_with");
-	}
-      if (!strcmp (ident, "nothrow_swappable_type"))
-	return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
-				       jump_target, "is_nothrow_swappable");
-      if (!strcmp (ident, "data_member_spec"))
-	return eval_is_data_member_spec (h, kind);
-      if (!strcmp (ident, "lvalue_reference_qualified"))
-	return eval_is_lrvalue_reference_qualified (h, kind,
-						    /*rvalue_p=*/false);
-      if (!strcmp (ident, "rvalue_reference_qualified"))
-	return eval_is_lrvalue_reference_qualified (h, kind,
-						    /*rvalue_p=*/true);
-      if (!strcmp (ident, "implicit_lifetime_type"))
-	return eval_is_implicit_lifetime_type (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "accessible"))
-	{
-	  tree actx = get_nth_callarg (call, 1);
-	  actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
-					       non_constant_p, overflow_p,
-					       jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  return eval_is_accessible (loc, ctx, h, kind, actx, call,
-				     non_constant_p, jump_target);
-	}
-      goto not_found;
+      break;
     }
 
-  /* Handle has_*.  */
-  if (startswith (ident, "has_"))
+  switch (minfo->code)
     {
-      ident += 4;
-      if (!strcmp (ident, "identifier"))
-	return eval_has_identifier (h, kind);
-      if (!strcmp (ident, "internal_linkage"))
-	return eval_has_internal_linkage (h, kind);
-      if (!strcmp (ident, "module_linkage"))
-	return eval_has_module_linkage (h, kind);
-      if (!strcmp (ident, "external_linkage"))
-	return eval_has_external_linkage (h, kind);
-      if (!strcmp (ident, "c_language_linkage"))
-	return eval_has_c_language_linkage (h, kind);
-      if (!strcmp (ident, "linkage"))
-	return eval_has_linkage (h, kind);
-      if (!strcmp (ident, "template_arguments"))
-	return eval_has_template_arguments (h);
-      if (!strcmp (ident, "parent"))
-	return eval_has_parent (h, kind);
-      if (!strcmp (ident, "default_argument"))
-	return eval_has_default_argument (h, kind);
-      if (!strcmp (ident, "ellipsis_parameter"))
-	return eval_has_ellipsis_parameter (h);
-      if (!strcmp (ident, "virtual_destructor"))
-	return eval_has_virtual_destructor (loc, ctx, h, jump_target);
-      if (!strcmp (ident, "unique_object_representations"))
-	return eval_has_unique_object_representations (loc, ctx, h,
-						       jump_target);
-      if (!strcmp (ident, "default_member_initializer"))
-	return eval_has_default_member_initializer (h);
-      if (!strcmp (ident, "static_storage_duration"))
-	return eval_has_static_storage_duration (h, kind);
-      if (!strcmp (ident, "thread_storage_duration"))
-	return eval_has_thread_storage_duration (h, kind);
-      if (!strcmp (ident, "automatic_storage_duration"))
-	return eval_has_automatic_storage_duration (h, kind);
-      if (!strcmp (ident, "inaccessible_nonstatic_data_members")
-	  || !strcmp (ident, "inaccessible_bases")
-	  || !strcmp (ident, "inaccessible_subobjects"))
-	{
-	  tree actx = get_nth_callarg (call, 1);
-	  actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
-					       non_constant_p, overflow_p,
-					       jump_target);
-	  if (*jump_target)
-	    return NULL_TREE;
-	  if (*non_constant_p)
-	    return call;
-	  if (!strcmp (ident, "inaccessible_bases"))
-	    return eval_has_inaccessible_bases (loc, ctx, h, actx, call,
-						non_constant_p, jump_target);
-	  if (!strcmp (ident, "inaccessible_subobjects"))
-	    return eval_has_inaccessible_subobjects (loc, ctx, h, actx, call,
-						     non_constant_p,
-						     jump_target);
-	  return eval_has_inaccessible_nonstatic_data_members (loc, ctx, h,
-							       actx, call,
-							       non_constant_p,
-							       jump_target);
-	}
-      goto not_found;
-    }
-
-  if (id_equal (name, "source_location_of"))
-    return eval_source_location_of (loc, h, TREE_TYPE (call));
-  if (id_equal (name, "dealias"))
-    return eval_dealias (loc, ctx, h, jump_target);
-  if (id_equal (name, "template_of"))
-    return eval_template_of (loc, ctx, h, jump_target);
-  if (id_equal (name, "template_arguments_of"))
-    return eval_template_arguments_of (loc, ctx, h, jump_target);
-  if (id_equal (name, "parameters_of"))
-    return eval_parameters_of (loc, ctx, h, jump_target);
-  if (id_equal (name, "enumerators_of"))
-    return eval_enumerators_of (loc, ctx, h, jump_target);
-  if (id_equal (name, "variable_of"))
-    return eval_variable_of (loc, ctx, h, kind, jump_target);
-  if (id_equal (name, "return_type_of"))
-    return eval_return_type_of (loc, ctx, h, kind, jump_target);
-  if (id_equal (name, "offset_of"))
-    return eval_offset_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
-  if (id_equal (name, "size_of"))
-    return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
-  if (id_equal (name, "bit_size_of"))
-    return eval_bit_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
-  if (id_equal (name, "remove_const"))
-    return eval_remove_const (loc, ctx, h, jump_target);
-  if (id_equal (name, "remove_volatile"))
-    return eval_remove_volatile (loc, ctx, h, jump_target);
-  if (id_equal (name, "remove_cv"))
-    return eval_remove_cv (loc, ctx, h, jump_target);
-  if (id_equal (name, "add_const"))
-    return eval_add_const (loc, ctx, h, jump_target);
-  if (id_equal (name, "add_volatile"))
-    return eval_add_volatile (loc, ctx, h, jump_target);
-  if (id_equal (name, "add_cv"))
-    return eval_add_cv (loc, ctx, h, jump_target);
-  if (id_equal (name, "remove_reference"))
-    return eval_remove_reference (loc, ctx, h, jump_target);
-  if (id_equal (name, "add_lvalue_reference"))
-    return eval_add_lvalue_reference (loc, ctx, h, jump_target);
-  if (id_equal (name, "add_rvalue_reference"))
-    return eval_add_rvalue_reference (loc, ctx, h, jump_target);
-  if (id_equal (name, "make_signed"))
-    return eval_make_signed (loc, ctx, h, false, jump_target);
-  if (id_equal (name, "make_unsigned"))
-    return eval_make_signed (loc, ctx, h, true, jump_target);
-  if (id_equal (name, "remove_extent"))
-    return eval_remove_extent (loc, ctx, h, jump_target);
-  if (id_equal (name, "remove_all_extents"))
-    return eval_remove_all_extents (loc, ctx, h, jump_target);
-  if (id_equal (name, "remove_pointer"))
-    return eval_remove_pointer (loc, ctx, h, jump_target);
-  if (id_equal (name, "add_pointer"))
-    return eval_add_pointer (loc, ctx, h, jump_target);
-  if (id_equal (name, "annotations_of"))
-    return eval_annotations_of (loc, ctx, h, kind, NULL_TREE, jump_target);
-  if (id_equal (name, "annotations_of_with_type"))
-    {
-      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			  jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      tree h1 = REFLECT_EXPR_HANDLE (i1);
-      return eval_annotations_of (loc, ctx, h, kind, h1, jump_target);
-    }
-  if (id_equal (name, "type_of"))
-    return eval_type_of (loc, ctx, h, kind, jump_target);
-  if (id_equal (name, "object_of"))
-    return eval_object_of (loc, ctx, h, kind, jump_target);
-  if (id_equal (name, "constant_of"))
-    return eval_constant_of (loc, ctx, h, jump_target);
-  if (!strcmp (ident, "operator_of"))
-    return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
-  if (id_equal (name, "parent_of"))
-    return eval_parent_of (loc, ctx, h, kind, jump_target);
-  if (id_equal (name, "reference_constructs_from_temporary"))
-    {
-      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			  jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      tree h1 = REFLECT_EXPR_HANDLE (i1);
-      return eval_reference_constructs_from_temporary (loc, ctx, h, h1,
-						       jump_target);
-    }
-  if (id_equal (name, "reference_converts_from_temporary"))
-    {
-      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			  jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      tree h1 = REFLECT_EXPR_HANDLE (i1);
-      return eval_reference_converts_from_temporary (loc, ctx, h, h1,
-						     jump_target);
-    }
-  if (id_equal (name, "rank"))
-    return eval_rank (loc, ctx, h, jump_target);
-  if (id_equal (name, "extent"))
-    {
-      tree i = get_nth_callarg (call, 1);
-      i = cxx_eval_constant_expression (ctx, i, vc_prvalue,
-					non_constant_p, overflow_p,
-					jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_extent (loc, ctx, h, i, jump_target);
-    }
-  if (id_equal (name, "remove_cvref"))
-    return eval_remove_cvref (loc, ctx, h, jump_target);
-  if (id_equal (name, "decay"))
-    return eval_decay (loc, ctx, h, jump_target);
-  if (id_equal (name, "underlying_type"))
-    return eval_underlying_type (loc, ctx, h, jump_target);
-  if (id_equal (name, "type_order"))
-    {
-      tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
-			  jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      tree h1 = REFLECT_EXPR_HANDLE (i1);
-      return eval_type_order (loc, ctx, h, h1, jump_target);
-    }
-  if (id_equal (name, "identifier_of"))
-    return eval_identifier_of (loc, ctx, h, kind, jump_target, char_type_node,
-			       TREE_TYPE (call));
-  if (id_equal (name, "u8identifier_of"))
-    return eval_identifier_of (loc, ctx, h, kind, jump_target,
-			       char8_type_node, TREE_TYPE (call));
-  if (id_equal (name, "display_string_of"))
-    return eval_display_string_of (loc, ctx, h, kind, jump_target,
-				   char_type_node, TREE_TYPE (call));
-  if (id_equal (name, "u8display_string_of"))
-    return eval_display_string_of (loc, ctx, h, kind, jump_target,
-				   char8_type_node, TREE_TYPE (call));
-  if (id_equal (name, "tuple_size"))
-    {
-      tree tsize = eval_tuple_size (loc, ctx, h, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (!tsize || tsize == error_mark_node)
-	{
-	  if (!cxx_constexpr_quiet_p (ctx))
-	    error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
-	  *non_constant_p = true;
-	  return call;
-	}
-      return tsize;
-    }
-  if (id_equal (name, "variant_size"))
-   return eval_variant_size (loc, ctx, h, call, non_constant_p, jump_target);
-  if (id_equal (name, "invoke_result"))
-    {
-      tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-				     overflow_p, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_invoke_result (loc, ctx, h, hvec, call,
+    case METAFN_OPERATOR_OF:
+      return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
+    case METAFN_SYMBOL_OF:
+      return eval_symbol_of (loc, ctx, expr, jump_target, char_type_node,
+			     TREE_TYPE (call));
+    case METAFN_U8SYMBOL_OF:
+      return eval_symbol_of (loc, ctx, expr, jump_target, char8_type_node,
+			     TREE_TYPE (call));
+    case METAFN_HAS_IDENTIFIER:
+      return eval_has_identifier (h, kind);
+    case METAFN_IDENTIFIER_OF:
+      return eval_identifier_of (loc, ctx, h, kind, jump_target, char_type_node,
+				 TREE_TYPE (call));
+    case METAFN_U8IDENTIFIER_OF:
+      return eval_identifier_of (loc, ctx, h, kind, jump_target, char8_type_node,
+				 TREE_TYPE (call));
+    case METAFN_DISPLAY_STRING_OF:
+      return eval_display_string_of (loc, ctx, h, kind, jump_target,
+				     char_type_node, TREE_TYPE (call));
+    case METAFN_U8DISPLAY_STRING_OF:
+      return eval_display_string_of (loc, ctx, h, kind, jump_target,
+				     char8_type_node, TREE_TYPE (call));
+    case METAFN_SOURCE_LOCATION_OF:
+      return eval_source_location_of (loc, h, TREE_TYPE (call));
+    case METAFN_TYPE_OF:
+      return eval_type_of (loc, ctx, h, kind, jump_target);
+    case METAFN_OBJECT_OF:
+      return eval_object_of (loc, ctx, h, kind, jump_target);
+    case METAFN_CONSTANT_OF:
+      return eval_constant_of (loc, ctx, h, jump_target);
+    case METAFN_IS_PUBLIC:
+    case METAFN_IS_PROTECTED:
+    case METAFN_IS_PRIVATE:
+    case METAFN_IS_VIRTUAL:
+    case METAFN_IS_PURE_VIRTUAL:
+    case METAFN_IS_OVERRIDE:
+    case METAFN_IS_FINAL:
+      gcc_unreachable ();
+    case METAFN_IS_DELETED:
+      return eval_is_deleted (h);
+    case METAFN_IS_DEFAULTED:
+      return eval_is_defaulted (h);
+    case METAFN_IS_USER_PROVIDED:
+      return eval_is_user_provided (h);
+    case METAFN_IS_USER_DECLARED:
+      return eval_is_user_declared (h);
+    case METAFN_IS_EXPLICIT:
+      return eval_is_explicit (h);
+    case METAFN_IS_NOEXCEPT:
+      return eval_is_noexcept (h);
+    case METAFN_IS_BIT_FIELD:
+      return eval_is_bit_field (h, kind);
+    case METAFN_IS_ENUMERATOR:
+      return eval_is_enumerator (h);
+    case METAFN_IS_ANNOTATION:
+      return eval_is_annotation (h);
+    case METAFN_IS_CONST:
+      return eval_is_const (h, kind);
+    case METAFN_IS_VOLATILE:
+      return eval_is_volatile (h, kind);
+    case METAFN_IS_MUTABLE_MEMBER:
+      return eval_is_mutable_member (h);
+    case METAFN_IS_LVALUE_REFERENCE_QUALIFIED:
+      return eval_is_lrvalue_reference_qualified (h, kind, /*rvalue_p=*/false);
+    case METAFN_IS_RVALUE_REFERENCE_QUALIFIED:
+      return eval_is_lrvalue_reference_qualified (h, kind, /*rvalue_p=*/true);
+    case METAFN_HAS_STATIC_STORAGE_DURATION:
+      return eval_has_static_storage_duration (h, kind);
+    case METAFN_HAS_THREAD_STORAGE_DURATION:
+      return eval_has_thread_storage_duration (h, kind);
+    case METAFN_HAS_AUTOMATIC_STORAGE_DURATION:
+      return eval_has_automatic_storage_duration (h, kind);
+    case METAFN_HAS_INTERNAL_LINKAGE:
+      return eval_has_internal_linkage (h, kind);
+    case METAFN_HAS_MODULE_LINKAGE:
+      return eval_has_module_linkage (h, kind);
+    case METAFN_HAS_EXTERNAL_LINKAGE:
+      return eval_has_external_linkage (h, kind);
+    case METAFN_HAS_C_LANGUAGE_LINKAGE:
+      return eval_has_c_language_linkage (h, kind);
+    case METAFN_HAS_LINKAGE:
+      return eval_has_linkage (h, kind);
+    case METAFN_IS_COMPLETE_TYPE:
+      return eval_is_complete_type (h);
+    case METAFN_IS_ENUMERABLE_TYPE:
+      return eval_is_enumerable_type (h);
+    case METAFN_IS_VARIABLE:
+      return eval_is_variable (h, kind);
+    case METAFN_IS_TYPE:
+      return eval_is_type (h);
+    case METAFN_IS_NAMESPACE:
+      return eval_is_namespace (h);
+    case METAFN_IS_TYPE_ALIAS:
+      return eval_is_type_alias (h);
+    case METAFN_IS_NAMESPACE_ALIAS:
+      return eval_is_namespace_alias (h);
+    case METAFN_IS_FUNCTION:
+      return eval_is_function (h);
+    case METAFN_IS_CONVERSION_FUNCTION:
+      return eval_is_conversion_function (h);
+    case METAFN_IS_OPERATOR_FUNCTION:
+      return eval_is_operator_function (h);
+    case METAFN_IS_LITERAL_OPERATOR:
+      return eval_is_literal_operator (h);
+    case METAFN_IS_SPECIAL_MEMBER_FUNCTION:
+      return eval_is_special_member_function (h);
+    case METAFN_IS_CONSTRUCTOR:
+      return eval_is_constructor (h);
+    case METAFN_IS_DEFAULT_CONSTRUCTOR:
+      return eval_is_default_constructor (h);
+    case METAFN_IS_COPY_CONSTRUCTOR:
+      return eval_is_copy_constructor (h);
+    case METAFN_IS_MOVE_CONSTRUCTOR:
+      return eval_is_move_constructor (h);
+    case METAFN_IS_ASSIGNMENT:
+      return eval_is_assignment (h);
+    case METAFN_IS_COPY_ASSIGNMENT:
+      return eval_is_copy_assignment (h);
+    case METAFN_IS_MOVE_ASSIGNMENT:
+      return eval_is_move_assignment (h);
+    case METAFN_IS_DESTRUCTOR:
+      return eval_is_destructor (h);
+    case METAFN_IS_FUNCTION_PARAMETER:
+      return eval_is_function_parameter (h, kind);
+    case METAFN_IS_EXPLICIT_OBJECT_PARAMETER:
+      return eval_is_explicit_object_parameter (h, kind);
+    case METAFN_HAS_DEFAULT_ARGUMENT:
+      return eval_has_default_argument (h, kind);
+    case METAFN_HAS_ELLIPSIS_PARAMETER:
+      return eval_has_ellipsis_parameter (h);
+    case METAFN_IS_TEMPLATE:
+      return eval_is_template (h);
+    case METAFN_IS_FUNCTION_TEMPLATE:
+      return eval_is_function_template (h);
+    case METAFN_IS_VARIABLE_TEMPLATE:
+      return eval_is_variable_template (h);
+    case METAFN_IS_CLASS_TEMPLATE:
+      return eval_is_class_template (h);
+    case METAFN_IS_ALIAS_TEMPLATE:
+      return eval_is_alias_template (h);
+    case METAFN_IS_CONVERSION_FUNCTION_TEMPLATE:
+      return eval_is_conversion_function_template (h);
+    case METAFN_IS_OPERATOR_FUNCTION_TEMPLATE:
+      return eval_is_operator_function_template (h);
+    case METAFN_IS_LITERAL_OPERATOR_TEMPLATE:
+      return eval_is_literal_operator_template (h);
+    case METAFN_IS_CONSTRUCTOR_TEMPLATE:
+      return eval_is_constructor_template (h);
+    case METAFN_IS_CONCEPT:
+      return eval_is_concept (h);
+    case METAFN_IS_VALUE:
+      return eval_is_value (kind);
+    case METAFN_IS_OBJECT:
+      return eval_is_object (kind);
+    case METAFN_IS_STRUCTURED_BINDING:
+      return eval_is_structured_binding (h);
+    case METAFN_IS_CLASS_MEMBER:
+      return eval_is_class_member (h);
+    case METAFN_IS_NAMESPACE_MEMBER:
+      return eval_is_namespace_member (h);
+    case METAFN_IS_NONSTATIC_DATA_MEMBER:
+      return eval_is_nonstatic_data_member (h);
+    case METAFN_IS_STATIC_MEMBER:
+      return eval_is_static_member (h);
+    case METAFN_IS_BASE:
+      return eval_is_base (h, kind);
+    case METAFN_HAS_DEFAULT_MEMBER_INITIALIZER:
+      return eval_has_default_member_initializer (h);
+    case METAFN_HAS_PARENT:
+      return eval_has_parent (h, kind);
+    case METAFN_PARENT_OF:
+      return eval_parent_of (loc, ctx, h, kind, jump_target);
+    case METAFN_DEALIAS:
+      return eval_dealias (loc, ctx, h, jump_target);
+    case METAFN_HAS_TEMPLATE_ARGUMENTS:
+      return eval_has_template_arguments (h);
+    case METAFN_TEMPLATE_OF:
+      return eval_template_of (loc, ctx, h, jump_target);
+    case METAFN_TEMPLATE_ARGUMENTS_OF:
+      return eval_template_arguments_of (loc, ctx, h, jump_target);
+    case METAFN_PARAMETERS_OF:
+      return eval_parameters_of (loc, ctx, h, jump_target);
+    case METAFN_VARIABLE_OF:
+      return eval_variable_of (loc, ctx, h, kind, jump_target);
+    case METAFN_RETURN_TYPE_OF:
+      return eval_return_type_of (loc, ctx, h, kind, jump_target);
+    case METAFN_IS_ACCESSIBLE:
+      return eval_is_accessible (loc, ctx, h, kind, expr, call,
 				 non_constant_p, jump_target);
-    }
-  if (id_equal (name, "unwrap_reference")
-      || id_equal (name, "unwrap_ref_decay"))
-    return eval_unwrap_reference (loc, ctx, h, call, non_constant_p,
-				  jump_target, ident);
-  if (id_equal (name, "can_substitute"))
-    {
-      tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
-				overflow_p, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_can_substitute (loc, ctx, h, hvec, jump_target);
-    }
-  if (id_equal (name, "substitute"))
-    {
-      tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
-				overflow_p, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_substitute (loc, ctx, h, hvec, jump_target);
-    }
-  if (id_equal (name, "data_member_spec"))
-    {
-      tree opts = get_nth_callarg (call, 1);
-      opts = cxx_eval_constant_expression (ctx, opts, vc_prvalue,
-					   non_constant_p, overflow_p,
-					   jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_data_member_spec (loc, ctx, h, opts, call,
-				    non_constant_p, overflow_p, jump_target);
-    }
-  if (id_equal (name, "define_aggregate"))
-    {
-      tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,
-				overflow_p, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      return eval_define_aggregate (loc, ctx, h, hvec, call, non_constant_p);
-    }
-  if (id_equal (name, "members_of")
-      || id_equal (name, "static_data_members_of")
-      || id_equal (name, "nonstatic_data_members_of")
-      || id_equal (name, "bases_of")
-      || id_equal (name, "subobjects_of"))
-    {
-      tree actx = get_nth_callarg (call, 1);
-      actx = cxx_eval_constant_expression (ctx, actx, vc_prvalue,
-					   non_constant_p, overflow_p,
-					   jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (*non_constant_p)
-	return call;
-      if (id_equal (name, "members_of"))
-	return eval_members_of (loc, ctx, h, actx, call, non_constant_p,
-				jump_target);
-      else if (id_equal (name, "static_data_members_of"))
-	return eval_static_data_members_of (loc, ctx, h, actx, call,
-					    non_constant_p, jump_target);
-      else if (id_equal (name, "nonstatic_data_members_of"))
-	return eval_nonstatic_data_members_of (loc, ctx, h, actx, call,
+    case METAFN_HAS_INACCESSIBLE_NONSTATIC_DATA_MEMBERS:
+      return eval_has_inaccessible_nonstatic_data_members (loc, ctx, h, expr,
+							   call,
+							   non_constant_p,
+							   jump_target);
+    case METAFN_HAS_INACCESSIBLE_BASES:
+      return eval_has_inaccessible_bases (loc, ctx, h, expr, call,
+					  non_constant_p, jump_target);
+    case METAFN_HAS_INACCESSIBLE_SUBOBJECTS:
+      return eval_has_inaccessible_subobjects (loc, ctx, h, expr, call,
 					       non_constant_p, jump_target);
-      else if (id_equal (name, "bases_of"))
-	return eval_bases_of (loc, ctx, h, actx, call, non_constant_p,
+    case METAFN_MEMBERS_OF:
+      return eval_members_of (loc, ctx, h, expr, call, non_constant_p,
 			      jump_target);
-      else if (id_equal (name, "subobjects_of"))
-	return eval_subobjects_of (loc, ctx, h, actx, call, non_constant_p,
-				   jump_target);
+    case METAFN_BASES_OF:
+      return eval_bases_of (loc, ctx, h, expr, call, non_constant_p,
+			    jump_target);
+    case METAFN_STATIC_DATA_MEMBERS_OF:
+      return eval_static_data_members_of (loc, ctx, h, expr, call,
+					  non_constant_p, jump_target);
+    case METAFN_NONSTATIC_DATA_MEMBERS_OF:
+      return eval_nonstatic_data_members_of (loc, ctx, h, expr, call,
+					     non_constant_p, jump_target);
+    case METAFN_SUBOBJECTS_OF:
+      return eval_subobjects_of (loc, ctx, h, expr, call, non_constant_p,
+				 jump_target);
+    case METAFN_ENUMERATORS_OF:
+      return eval_enumerators_of (loc, ctx, h, jump_target);
+    case METAFN_OFFSET_OF:
+      return eval_offset_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
+    case METAFN_SIZE_OF:
+      return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
+    case METAFN_ALIGNMENT_OF:
+      gcc_unreachable ();
+    case METAFN_BIT_SIZE_OF:
+      return eval_bit_size_of (loc, ctx, h, kind, TREE_TYPE (call),
+			       jump_target);
+    case METAFN_EXTRACT:
+      gcc_unreachable ();
+    case METAFN_CAN_SUBSTITUTE:
+      return eval_can_substitute (loc, ctx, h, hvec, jump_target);
+    case METAFN_SUBSTITUTE:
+      return eval_substitute (loc, ctx, h, hvec, jump_target);
+    case METAFN_REFLECT_CONSTANT:
+      return eval_reflect_constant (loc, ctx, type, expr, jump_target);
+    case METAFN_REFLECT_OBJECT:
+      return eval_reflect_object (loc, ctx, type, expr, jump_target);
+    case METAFN_REFLECT_FUNCTION:
+      return eval_reflect_function (loc, ctx, type, expr, jump_target);
+    case METAFN_REFLECT_CONSTANT_STRING:
+      return eval_reflect_constant_string (loc, ctx, call, non_constant_p,
+					   overflow_p, jump_target);
+    case METAFN_REFLECT_CONSTANT_ARRAY:
+      return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
+					  overflow_p, jump_target);
+    case METAFN_DATA_MEMBER_SPEC:
+      return eval_data_member_spec (loc, ctx, h, expr, call,
+				    non_constant_p, overflow_p, jump_target);
+    case METAFN_IS_DATA_MEMBER_SPEC:
+      return eval_is_data_member_spec (h, kind);
+    case METAFN_DEFINE_AGGREGATE:
+      return eval_define_aggregate (loc, ctx, h, hvec, call, non_constant_p);
+    case METAFN_IS_VOID_TYPE:
+      return eval_is_void_type (h);
+    case METAFN_IS_NULL_POINTER_TYPE:
+      return eval_is_null_pointer_type (h);
+    case METAFN_IS_INTEGRAL_TYPE:
+      return eval_is_integral_type (h);
+    case METAFN_IS_FLOATING_POINT_TYPE:
+      return eval_is_floating_point_type (h);
+    case METAFN_IS_ARRAY_TYPE:
+      return eval_is_array_type (loc, h);
+    case METAFN_IS_POINTER_TYPE:
+      return eval_is_pointer_type (loc, h);
+    case METAFN_IS_LVALUE_REFERENCE_TYPE:
+      return eval_is_lvalue_reference_type (h);
+    case METAFN_IS_RVALUE_REFERENCE_TYPE:
+      return eval_is_rvalue_reference_type (h);
+    case METAFN_IS_MEMBER_OBJECT_POINTER_TYPE:
+      return eval_is_member_object_pointer_type (loc, h);
+    case METAFN_IS_MEMBER_FUNCTION_POINTER_TYPE:
+      return eval_is_member_function_pointer_type (loc, h);
+    case METAFN_IS_ENUM_TYPE:
+      return eval_is_enum_type (loc, h);
+    case METAFN_IS_UNION_TYPE:
+      return eval_is_union_type (loc, h);
+    case METAFN_IS_CLASS_TYPE:
+      return eval_is_class_type (loc, h);
+    case METAFN_IS_FUNCTION_TYPE:
+      return eval_is_function_type (h);
+    case METAFN_IS_REFLECTION_TYPE:
+      return eval_is_reflection_type (h);
+    case METAFN_IS_REFERENCE_TYPE:
+      return eval_is_reference_type (loc, h);
+    case METAFN_IS_ARITHMETIC_TYPE:
+      return eval_is_arithmetic_type (h);
+    case METAFN_IS_FUNDAMENTAL_TYPE:
+      return eval_is_fundamental_type (h);
+    case METAFN_IS_OBJECT_TYPE:
+      return eval_is_object_type (loc, h);
+    case METAFN_IS_SCALAR_TYPE:
+      return eval_is_scalar_type (h);
+    case METAFN_IS_COMPOUND_TYPE:
+      return eval_is_compound_type (h);
+    case METAFN_IS_MEMBER_POINTER_TYPE:
+      return eval_is_member_pointer_type (loc, h);
+    case METAFN_IS_CONST_TYPE:
+      return eval_is_const_type (h);
+    case METAFN_IS_VOLATILE_TYPE:
+      return eval_is_volatile_type (h);
+    case METAFN_IS_TRIVIALLY_COPYABLE_TYPE:
+      return eval_is_trivially_copyable_type (h);
+    case METAFN_IS_TRIVIALLY_RELOCATABLE_TYPE:
+      return eval_is_trivially_relocatable_type (h);
+    case METAFN_IS_REPLACEABLE_TYPE:
+      return eval_is_replaceable_type (h);
+    case METAFN_IS_STANDARD_LAYOUT_TYPE:
+      return eval_is_standard_layout_type (h);
+    case METAFN_IS_EMPTY_TYPE:
+      return eval_is_empty_type (loc, h);
+    case METAFN_IS_POLYMORPHIC_TYPE:
+      return eval_is_polymorphic_type (loc, h);
+    case METAFN_IS_ABSTRACT_TYPE:
+      return eval_is_abstract_type (h);
+    case METAFN_IS_FINAL_TYPE:
+      return eval_is_final_type (loc, h);
+    case METAFN_IS_AGGREGATE_TYPE:
+      return eval_is_aggregate_type (h);
+    case METAFN_IS_CONSTEVAL_ONLY_TYPE:
+      return eval_is_consteval_only_type (h);
+    case METAFN_IS_SIGNED_TYPE:
+      return eval_is_signed_type (h);
+    case METAFN_IS_UNSIGNED_TYPE:
+      return eval_is_unsigned_type (h);
+    case METAFN_IS_BOUNDED_ARRAY_TYPE:
+      return eval_is_bounded_array_type (loc, h);
+    case METAFN_IS_UNBOUNDED_ARRAY_TYPE:
+      return eval_is_unbounded_array_type (h);
+    case METAFN_IS_SCOPED_ENUM_TYPE:
+      return eval_is_scoped_enum_type (h);
+    case METAFN_IS_CONSTRUCTIBLE_TYPE:
+      return eval_is_constructible_type (h, hvec);
+    case METAFN_IS_DEFAULT_CONSTRUCTIBLE_TYPE:
+      return eval_is_default_constructible_type (h);
+    case METAFN_IS_COPY_CONSTRUCTIBLE_TYPE:
+      return eval_is_copy_constructible_type (h);
+    case METAFN_IS_MOVE_CONSTRUCTIBLE_TYPE:
+      return eval_is_move_constructible_type (h);
+    case METAFN_IS_ASSIGNABLE_TYPE:
+      return eval_is_assignable_type (loc, h, h1);
+    case METAFN_IS_COPY_ASSIGNABLE_TYPE:
+      return eval_is_copy_assignable_type (h);
+    case METAFN_IS_MOVE_ASSIGNABLE_TYPE:
+      return eval_is_move_assignable_type (h);
+    case METAFN_IS_SWAPPABLE_WITH_TYPE:
+      return eval_is_swappable_with_type (loc, ctx, h, h1, call,
+					  non_constant_p, "is_swappable_with");
+    case METAFN_IS_SWAPPABLE_TYPE:
+      return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
+				     "is_swappable");
+    case METAFN_IS_DESTRUCTIBLE_TYPE:
+      return eval_is_destructible_type (loc, h);
+    case METAFN_IS_TRIVIALLY_CONSTRUCTIBLE_TYPE:
+      return eval_is_trivially_constructible_type (h, hvec);
+    case METAFN_IS_TRIVIALLY_DEFAULT_CONSTRUCTIBLE_TYPE:
+      return eval_is_trivially_default_constructible_type (h);
+    case METAFN_IS_TRIVIALLY_COPY_CONSTRUCTIBLE_TYPE:
+      return eval_is_trivially_copy_constructible_type (h);
+    case METAFN_IS_TRIVIALLY_MOVE_CONSTRUCTIBLE_TYPE:
+      return eval_is_trivially_move_constructible_type (h);
+    case METAFN_IS_TRIVIALLY_ASSIGNABLE_TYPE:
+      return eval_is_trivially_assignable_type (loc, h, h1);
+    case METAFN_IS_TRIVIALLY_COPY_ASSIGNABLE_TYPE:
+      return eval_is_trivially_copy_assignable_type (h);
+    case METAFN_IS_TRIVIALLY_MOVE_ASSIGNABLE_TYPE:
+      return eval_is_trivially_move_assignable_type (h);
+    case METAFN_IS_TRIVIALLY_DESTRUCTIBLE_TYPE:
+      return eval_is_trivially_destructible_type (loc, h);
+    case METAFN_IS_NOTHROW_CONSTRUCTIBLE_TYPE:
+      return eval_is_nothrow_constructible_type (h, hvec);
+    case METAFN_IS_NOTHROW_DEFAULT_CONSTRUCTIBLE_TYPE:
+      return eval_is_nothrow_default_constructible_type (h);
+    case METAFN_IS_NOTHROW_COPY_CONSTRUCTIBLE_TYPE:
+      return eval_is_nothrow_copy_constructible_type (h);
+    case METAFN_IS_NOTHROW_MOVE_CONSTRUCTIBLE_TYPE:
+      return eval_is_nothrow_move_constructible_type (h);
+    case METAFN_IS_NOTHROW_ASSIGNABLE_TYPE:
+      return eval_is_nothrow_assignable_type (loc, h, h1);
+    case METAFN_IS_NOTHROW_COPY_ASSIGNABLE_TYPE:
+      return eval_is_nothrow_copy_assignable_type (h);
+    case METAFN_IS_NOTHROW_MOVE_ASSIGNABLE_TYPE:
+      return eval_is_nothrow_move_assignable_type (h);
+    case METAFN_IS_NOTHROW_SWAPPABLE_WITH_TYPE:
+      return eval_is_swappable_with_type (loc, ctx, h, h1, call,
+					  non_constant_p,
+					  "is_nothrow_swappable_with");
+    case METAFN_IS_NOTHROW_SWAPPABLE_TYPE:
+      return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
+				     "is_nothrow_swappable");
+    case METAFN_IS_NOTHROW_DESTRUCTIBLE_TYPE:
+      return eval_is_nothrow_destructible_type (loc, h);
+    case METAFN_IS_NOTHROW_RELOCATABLE_TYPE:
+      return eval_is_nothrow_relocatable_type (loc, h);
+    case METAFN_IS_IMPLICIT_LIFETIME_TYPE:
+      return eval_is_implicit_lifetime_type (h);
+    case METAFN_HAS_VIRTUAL_DESTRUCTOR:
+      return eval_has_virtual_destructor (h);
+    case METAFN_HAS_UNIQUE_OBJECT_REPRESENTATIONS:
+      return eval_has_unique_object_representations (h);
+    case METAFN_REFERENCE_CONSTRUCTS_FROM_TEMPORARY:
+      return eval_reference_constructs_from_temporary (loc, h, h1);
+    case METAFN_REFERENCE_CONVERTS_FROM_TEMPORARY:
+      return eval_reference_converts_from_temporary (loc, h, h1);
+    case METAFN_RANK:
+      return eval_rank (h);
+    case METAFN_EXTENT:
+      return eval_extent (loc, h, expr);
+    case METAFN_IS_SAME_TYPE:
+      return eval_is_same_type (loc, h, h1);
+    case METAFN_IS_BASE_OF_TYPE:
+      return eval_is_base_of_type (loc, h, h1);
+    case METAFN_IS_VIRTUAL_BASE_OF_TYPE:
+      return eval_is_virtual_base_of_type (loc, h, h1);
+    case METAFN_IS_CONVERTIBLE_TYPE:
+      return eval_is_convertible_type (loc, h, h1);
+    case METAFN_IS_NOTHROW_CONVERTIBLE_TYPE:
+      return eval_is_nothrow_convertible_type (loc, h, h1);
+    case METAFN_IS_LAYOUT_COMPATIBLE_TYPE:
+      return eval_is_layout_compatible_type (loc, h, h1);
+    case METAFN_IS_POINTER_INTERCONVERTIBLE_BASE_OF_TYPE:
+      return eval_is_pointer_interconvertible_base_of_type (loc, h, h1);
+    case METAFN_IS_INVOCABLE_TYPE:
+      return eval_is_invocable_type (loc, h, hvec);
+    case METAFN_IS_INVOCABLE_R_TYPE:
+      return eval_is_invocable_r_type (loc, ctx, h, h1, hvec, call,
+				       non_constant_p, "is_invocable_r");
+    case METAFN_IS_NOTHROW_INVOCABLE_TYPE:
+      return eval_is_nothrow_invocable_type (loc, h, hvec);
+    case METAFN_IS_NOTHROW_INVOCABLE_R_TYPE:
+      return eval_is_invocable_r_type (loc, ctx, h, h1, hvec, call,
+				       non_constant_p,
+				       "is_nothrow_invocable_r");
+    case METAFN_REMOVE_CONST:
+      return eval_remove_const (loc, h);
+    case METAFN_REMOVE_VOLATILE:
+      return eval_remove_volatile (loc, h);
+    case METAFN_REMOVE_CV:
+      return eval_remove_cv (loc, h);
+    case METAFN_ADD_CONST:
+      return eval_add_const (loc, h);
+    case METAFN_ADD_VOLATILE:
+      return eval_add_volatile (loc, h);
+    case METAFN_ADD_CV:
+      return eval_add_cv (loc, h);
+    case METAFN_REMOVE_REFERENCE:
+      return eval_remove_reference (loc, h);
+    case METAFN_ADD_LVALUE_REFERENCE:
+      return eval_add_lvalue_reference (loc, h);
+    case METAFN_ADD_RVALUE_REFERENCE:
+      return eval_add_rvalue_reference (loc, h);
+    case METAFN_MAKE_SIGNED:
+      return eval_make_signed (loc, ctx, h, false, jump_target);
+    case METAFN_MAKE_UNSIGNED:
+      return eval_make_signed (loc, ctx, h, true, jump_target);
+    case METAFN_REMOVE_EXTENT:
+      return eval_remove_extent (loc, h);
+    case METAFN_REMOVE_ALL_EXTENTS:
+      return eval_remove_all_extents (loc, h);
+    case METAFN_REMOVE_POINTER:
+      return eval_remove_pointer (loc, h);
+    case METAFN_ADD_POINTER:
+      return eval_add_pointer (loc, h);
+    case METAFN_REMOVE_CVREF:
+      return eval_remove_cvref (loc, h);
+    case METAFN_DECAY:
+      return eval_decay (loc, h);
+    case METAFN_COMMON_TYPE:
+      return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
+    case METAFN_COMMON_REFERENCE:
+      return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
+    case METAFN_UNDERLYING_TYPE:
+      return eval_underlying_type (loc, ctx, h, jump_target);
+    case METAFN_INVOKE_RESULT:
+      return eval_invoke_result (loc, ctx, h, hvec, call, non_constant_p);
+    case METAFN_UNWRAP_REFERENCE:
+      return eval_unwrap_reference (loc, ctx, h, call, non_constant_p, ident);
+    case METAFN_UNWRAP_REF_DECAY:
+      return eval_unwrap_reference (loc, ctx, h, call, non_constant_p, ident);
+    case METAFN_TUPLE_SIZE:
+      {
+	tree tsize = eval_tuple_size (h);
+	if (*jump_target)
+	  return NULL_TREE;
+	if (!tsize || tsize == error_mark_node)
+	  {
+	    if (!cxx_constexpr_quiet_p (ctx))
+	      error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
+	    *non_constant_p = true;
+	    return call;
+	  }
+	return tsize;
+      }
+    case METAFN_TUPLE_ELEMENT:
+      {
+	tree type = eval_tuple_element (loc, expr, h1);
+	if (type == error_mark_node)
+	  {
+	    *non_constant_p = true;
+	    return call;
+	  }
+	return type;
+      }
+    case METAFN_VARIANT_SIZE:
+      return eval_variant_size (loc, ctx, h, call, non_constant_p);
+    case METAFN_VARIANT_ALTERNATIVE:
+      {
+	tree type = eval_variant_alternative (loc, expr, h1);
+	if (type == error_mark_node)
+	  {
+	    *non_constant_p = true;
+	    return call;
+	  }
+	return type;
+      }
+    case METAFN_TYPE_ORDER:
+      return eval_type_order (h, h1);
+    case METAFN_ANNOTATIONS_OF:
+      return eval_annotations_of (loc, ctx, h, kind, NULL_TREE, jump_target);
+    case METAFN_ANNOTATIONS_OF_WITH_TYPE:
+      return eval_annotations_of (loc, ctx, h, kind, h1, jump_target);
+  /* Special metafunctions.  */
+    case METAFN_ACCESS_CONTEXT_CURRENT:
+      if (DECL_CLASS_SCOPE_P (fun)
+	  && TYPE_NAME (DECL_CONTEXT (fun))
+	  && TREE_CODE (TYPE_NAME (DECL_CONTEXT (fun))) == TYPE_DECL
+	  && DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun)))
+	  && id_equal (DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun))),
+		       "access_context"))
+	return eval_access_context_current (loc, ctx, call, non_constant_p);
+      goto not_found;
     }
-
-not_found:
-  sorry ("%qE", name);
-  return error_mark_node;
+  goto not_found;
 }
 
 /* Splice reflection REFL; i.e., return its entity.  */
