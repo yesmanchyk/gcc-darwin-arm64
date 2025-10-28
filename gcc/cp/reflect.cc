@@ -33,7 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 static tree eval_is_function_type (tree);
 static tree eval_is_object_type (location_t, tree);
 static tree eval_reflect_constant (location_t, const constexpr_ctx *, tree,
-				   tree, tree *);
+				   tree, tree *, tree);
 struct constexpr_ctx;
 
 static GTY(()) tree vector_identifier;
@@ -344,7 +344,7 @@ enum get_range_elts_kind {
 static tree
 get_range_elts (location_t loc, const constexpr_ctx *ctx, tree call, int n,
 		bool *non_constant_p, bool *overflow_p, tree *jump_target,
-		get_range_elts_kind kind)
+		get_range_elts_kind kind, tree fun)
 {
   gcc_checking_assert (call_expr_nargs (call) > n);
   tree arg = get_nth_callarg (call, n);
@@ -522,7 +522,7 @@ fail_ret:
 	    if (TREE_CODE (retvec[i]) != INTEGER_CST)
 	      return throw_exception (loc, ctx,
 				      N_("array element not a constant integer"),
-				      retvec[i], jump_target);
+				      fun, jump_target);
 	  }
 	else
 	  {
@@ -530,7 +530,7 @@ fail_ret:
 	    tree expr = convert_reflect_constant_arg (valuet, retvec[i]);
 	    if (expr == error_mark_node)
 	      return throw_exception (loc, ctx, N_("reflect_constant failed"),
-				      retvec[i], jump_target);
+				      fun, jump_target);
 	    if (VAR_P (expr))
 	      expr = unshare_expr (DECL_INITIAL (expr));
 	    retvec[i] = expr;
@@ -875,10 +875,11 @@ fail_ret:
 
 static tree
 get_info_vec (location_t loc, const constexpr_ctx *ctx, tree call, int n,
-	      bool *non_constant_p, bool *overflow_p, tree *jump_target)
+	      bool *non_constant_p, bool *overflow_p, tree *jump_target,
+	      tree fun)
 {
   return get_range_elts (loc, ctx, call, n, non_constant_p, overflow_p,
-			 jump_target, GET_INFO_VEC);
+			 jump_target, GET_INFO_VEC, fun);
 }
 
 /* Return std::vector<info>.  */
@@ -901,11 +902,11 @@ get_vector_info ()
   return inst;
 }
 
-/* Create std::meta::exception{ what, refl }.  WHAT is the string for what(),
-   and REFL is the info for from().  */
+/* Create std::meta::exception{ what, from }.  WHAT is the string for what(),
+   and FROM is the info for from().  */
 
 static tree
-get_meta_exception_object (location_t loc, const char *what, tree refl)
+get_meta_exception_object (location_t loc, const char *what, tree from)
 {
   tree type = lookup_qualified_name (std_meta_node, "exception",
 				     LOOK_want::TYPE, /*complain*/true);
@@ -916,11 +917,14 @@ get_meta_exception_object (location_t loc, const char *what, tree refl)
     }
   type = TREE_TYPE (type);
   vec<constructor_elt, va_gc> *elts = nullptr;
+  what = _(what);
+  if (TREE_CODE (from) == FUNCTION_DECL && DECL_TEMPLATE_INFO (from))
+    from = DECL_TI_TEMPLATE (from);
   tree string_lit = build_string (strlen (what) + 1, what);
   TREE_TYPE (string_lit) = char_array_type_node;
   string_lit = fix_string_type (string_lit);
   CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, string_lit);
-  CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, get_reflection_raw (loc, refl));
+  CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, get_reflection_raw (loc, from));
   tree ctor = build_constructor (init_list_type_node, elts);
   CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
   TREE_CONSTANT (ctor) = true;
@@ -929,14 +933,14 @@ get_meta_exception_object (location_t loc, const char *what, tree refl)
 				  fcl_functional);
 }
 
-/* Perform 'throw std::meta::exception{...}'.  WHAT is the string for what(),
-   REFL is the reflection for from().  */
+/* Perform 'throw std::meta::exception{...}'.  MSGID is the string for what(),
+   FROM is the reflection for from().  */
 
 static tree
-throw_exception (location_t loc, const constexpr_ctx *ctx, const char *what,
-		 tree refl, tree *jump_target)
+throw_exception (location_t loc, const constexpr_ctx *ctx, const char *msgid,
+		 tree from, tree *jump_target)
 {
-  if (tree obj = get_meta_exception_object (loc, what, refl))
+  if (tree obj = get_meta_exception_object (loc, msgid, from))
     *jump_target = cxa_allocate_and_throw_exception (loc, ctx, obj);
   return NULL_TREE;
 }
@@ -945,9 +949,9 @@ throw_exception (location_t loc, const constexpr_ctx *ctx, const char *what,
 
 static tree
 throw_exception_generic (location_t loc, const constexpr_ctx *ctx,
-			 tree refl, tree *jump_target)
+			 tree from, tree *jump_target)
 {
-  return throw_exception (loc, ctx, N_("Oy vey!"), refl, jump_target);
+  return throw_exception (loc, ctx, "Oy vey!", from, jump_target);
 }
 
 /* Wrapper around throw_exception to complain that the reflection does not
@@ -955,11 +959,11 @@ throw_exception_generic (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 throw_exception_nontype (location_t loc, const constexpr_ctx *ctx,
-			 tree refl, tree *jump_target)
+			 tree from, tree *jump_target)
 {
   return throw_exception (loc, ctx,
-			  N_("reflection does not represent a type"),
-			  refl, jump_target);
+			  "reflection does not represent a type",
+			  from, jump_target);
 }
 
 /* Wrapper around throw_exception to complain that the reflection does not
@@ -967,11 +971,11 @@ throw_exception_nontype (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 throw_exception_notargs (location_t loc, const constexpr_ctx *ctx,
-			 tree refl, tree *jump_target)
+			 tree from, tree *jump_target)
 {
   return throw_exception (loc, ctx,
-			  N_("reflection does not have template arguments"),
-			  refl, jump_target);
+			  "reflection does not have template arguments",
+			  from, jump_target);
 }
 
 /* Wrapper around throw_exception to complain that the reflection does not
@@ -979,12 +983,11 @@ throw_exception_notargs (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 throw_exception_nofn (location_t loc, const constexpr_ctx *ctx,
-		      tree refl, tree *jump_target)
+		      tree from, tree *jump_target)
 {
-  return throw_exception
-    (loc, ctx,
-     N_("reflection does not represent a function/function type"),
-     refl, jump_target);
+  return throw_exception (loc, ctx, "reflection does not represent a "
+				    "function or function type",
+			  from, jump_target);
 }
 
 /* The values of std::meta::operators enumerators corresponding to
@@ -1265,10 +1268,11 @@ eval_is_value (reflect_kind kind)
 
 static tree
 get_type_info_vec (location_t loc, const constexpr_ctx *ctx, tree call, int n,
-		   bool *non_constant_p, bool *overflow_p, tree *jump_target)
+		   bool *non_constant_p, bool *overflow_p, tree *jump_target,
+		   tree fun)
 {
   tree vec = get_info_vec (loc, ctx, call, n, non_constant_p, overflow_p,
-			   jump_target);
+			   jump_target, fun);
   if (*jump_target)
     return NULL_TREE;
   if (*non_constant_p)
@@ -1277,7 +1281,7 @@ get_type_info_vec (location_t loc, const constexpr_ctx *ctx, tree call, int n,
     {
       tree type = REFLECT_EXPR_HANDLE (TREE_VEC_ELT (vec, i));
       if (eval_is_type (type) != boolean_true_node)
-	return throw_exception_nontype (loc, ctx, type, jump_target);
+	return throw_exception_nontype (loc, ctx, fun, jump_target);
       TREE_VEC_ELT (vec, i) = type;
     }
   return vec;
@@ -2202,12 +2206,12 @@ eval_is_constructor_template (tree r)
 
 static tree
 eval_operator_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  tree *jump_target, tree ret_type)
+		  tree *jump_target, tree ret_type, tree fun)
 {
   if (eval_is_operator_function (r) == boolean_false_node)
     return throw_exception (loc, ctx,
-			    N_("reflection does not represent an operator "
-			       "function"), r, jump_target);
+			    "reflection does not represent an operator "
+			    "function", fun, jump_target);
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
   r = STRIP_TEMPLATE (r);
@@ -2254,15 +2258,15 @@ temp_string_literal (const char *name, tree elt_type)
 
 static tree
 eval_symbol_of (location_t loc, const constexpr_ctx *ctx, tree expr,
-		tree *jump_target, tree elt_type, tree ret_type)
+		tree *jump_target, tree elt_type, tree ret_type, tree fun)
 {
   maybe_init_meta_operators (loc);
   if (!tree_fits_uhwi_p (expr))
     {
     fail:
       return throw_exception (loc, ctx,
-			      N_("operators argument is not a valid operator"),
-			      expr, jump_target);
+			      "operators argument is not a valid operator",
+			      fun, jump_target);
     }
   unsigned HOST_WIDE_INT val = tree_to_uhwi (expr);
   for (int i = 0; i < 2; ++i)
@@ -2385,11 +2389,11 @@ type_of (tree r, reflect_kind kind)
 
 static tree
 eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
-	      reflect_kind kind, tree *jump_target)
+	      reflect_kind kind, tree *jump_target, tree fun)
 {
   if (!has_type (r, kind))
-    return throw_exception (loc, ctx, N_("reflection does not have a type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection does not have a type",
+			    fun, jump_target);
   return get_reflection_raw (loc, type_of (r, kind));
 }
 
@@ -2425,7 +2429,7 @@ maybe_get_reference_referent (tree r)
 
 static tree
 eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		reflect_kind kind, tree *jump_target)
+		reflect_kind kind, tree *jump_target, tree fun)
 {
   tree orig = r;
   if (TYPE_REF_P (TREE_TYPE (r)))
@@ -2435,10 +2439,10 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
   if (eval_has_static_storage_duration (orig, kind) == boolean_false_node
       && (orig == r
 	  || eval_has_static_storage_duration (r, kind) == boolean_false_node))
-    return throw_exception (loc, ctx, N_("reflection does not represent an"
-					 " object with static storage duration,"
-					 " or a reference to such an object"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection does not represent an"
+				      " object with static storage duration,"
+				      " or a reference to such an object",
+			    fun, jump_target);
   return get_reflection_raw (loc, r, REFLECT_OBJECT);
 }
 
@@ -2456,7 +2460,7 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  tree *jump_target)
+		  tree *jump_target, tree fun)
 {
   if (eval_is_annotation (r) == boolean_true_node)
     r = TREE_VALUE (TREE_VALUE (r));
@@ -2467,13 +2471,13 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 			      /*address_p=*/false,
 			      /*member_access_p=*/false,
 			      /*complain_p=*/false))
-	return throw_exception (loc, ctx, N_("reflection does not represent an "
-					     "annotation or a valid argument to "
-					     "a splice-expression"),
-				r, jump_target);
+	return throw_exception (loc, ctx, "reflection does not represent an "
+					  "annotation or a valid argument to "
+					  "a splice-expression",
+				fun, jump_target);
     }
   return eval_reflect_constant (loc, ctx, cv_unqualified (TREE_TYPE (r)), r,
-				jump_target);
+				jump_target, fun);
 }
 
 /* Process std::meta::dealias.
@@ -2602,10 +2606,10 @@ eval_has_template_arguments (tree r)
 
 static tree
 eval_template_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  tree *jump_target)
+		  tree *jump_target, tree fun)
 {
   if (eval_has_template_arguments (r) != boolean_true_node)
-    return throw_exception_notargs (loc, ctx, r, jump_target);
+    return throw_exception_notargs (loc, ctx, fun, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TYPE_P (r) && typedef_variant_p (r))
@@ -2684,12 +2688,12 @@ eval_has_parent (tree r, reflect_kind kind)
 
 static tree
 eval_parent_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		reflect_kind kind, tree *jump_target)
+		reflect_kind kind, tree *jump_target, tree fun)
 {
   if (eval_has_parent (r, kind) != boolean_true_node)
-    return throw_exception (loc, ctx, N_("reflection does not represent an "
-					 "entity with parent"), r,
-			    jump_target);
+    return throw_exception (loc, ctx, "reflection does not represent an "
+				      "entity with parent",
+			    fun, jump_target);
   tree c;
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
@@ -2758,12 +2762,12 @@ get_vector_of_info_elts (vec<constructor_elt, va_gc> *elts)
 
 static tree
 eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		    tree *jump_target)
+		    tree *jump_target, tree fun)
 {
   if (eval_is_function (r) != boolean_true_node
       && (eval_is_type (r) != boolean_true_node
 	  || eval_is_function_type (r) != boolean_true_node))
-    return throw_exception_nofn (loc, ctx, r, jump_target);
+    return throw_exception_nofn (loc, ctx, fun, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
@@ -2788,13 +2792,13 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_variable_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  reflect_kind kind, tree *jump_target)
+		  reflect_kind kind, tree *jump_target, tree fun)
 {
   if (eval_is_function_parameter (r, kind) == boolean_false_node
       || DECL_CONTEXT (r) != current_function_decl)
-    return throw_exception (loc, ctx, N_("reflection does not represent "
-					 "parameter of current function"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection does not represent "
+				      "parameter of current function",
+			    fun, jump_target);
   r = maybe_update_function_parm (r);
   return get_reflection_raw (loc, r, REFLECT_UNDEF);
 }
@@ -2808,12 +2812,12 @@ eval_variable_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_return_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		     reflect_kind kind, tree *jump_target)
+		     reflect_kind kind, tree *jump_target, tree fun)
 {
   if ((eval_is_function (r) != boolean_true_node || !has_type (r, kind))
       && (eval_is_type (r) != boolean_true_node
 	  || eval_is_function_type (r) != boolean_true_node))
-    return throw_exception_nofn (loc, ctx, r, jump_target);
+    return throw_exception_nofn (loc, ctx, fun, jump_target);
 
   r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TREE_CODE (r) == FUNCTION_DECL)
@@ -2833,7 +2837,8 @@ eval_return_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_offset_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		reflect_kind kind, tree member_offset, tree *jump_target)
+		reflect_kind kind, tree member_offset, tree *jump_target,
+		tree fun)
 {
   tree byte_off = NULL_TREE, bit_off = NULL_TREE;
   if (kind == REFLECT_BASE)
@@ -2844,22 +2849,19 @@ eval_offset_of (location_t loc, const constexpr_ctx *ctx, tree r,
       d = BINFO_TYPE (d);
       if (BINFO_VIRTUAL_P (r) && ABSTRACT_CLASS_TYPE_P (d))
 	return throw_exception (loc, ctx,
-				N_("reflection of virtual direct base "
-				   "relationship with abstract derived "
-				   "class"),
-				r, jump_target);
+				"reflection of virtual direct base "
+				"relationship with abstract derived "
+				"class", fun, jump_target);
       byte_off = BINFO_OFFSET (r);
     }
   else if (TREE_CODE (r) != FIELD_DECL)
-    return throw_exception (loc, ctx,
-			    N_("reflection unsuitable for offset"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection unsuitable for offset",
+			    fun, jump_target);
   else
     bit_off = bit_position (r);
   if (TREE_CODE (bit_off ? bit_off : byte_off) != INTEGER_CST)
-    return throw_exception (loc, ctx,
-			    N_("non-constant offset for offset_of"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "non-constant offset for offset_of",
+			    fun, jump_target);
   if (TREE_CODE (member_offset) != RECORD_TYPE)
     {
     fail:
@@ -2911,7 +2913,7 @@ eval_offset_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
-	      reflect_kind kind, tree ret_type, tree *jump_target)
+	      reflect_kind kind, tree ret_type, tree *jump_target, tree fun)
 {
   if (eval_is_type (r) != boolean_true_node
       && eval_is_object (kind) != boolean_true_node
@@ -2921,9 +2923,8 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
       && kind != REFLECT_BASE
       && (kind != REFLECT_DATA_MEMBER_SPEC || TREE_VEC_ELT (r, 3)))
-    return throw_exception (loc, ctx,
-			    N_("reflection not suitable for size_of"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection not suitable for size_of",
+			    fun, jump_target);
   if (!INTEGRAL_TYPE_P (ret_type))
     {
       error_at (loc, "unexpected return type of %qs", "std::meta::size_of");
@@ -2937,14 +2938,12 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
   else
     type = type_of (r, kind);
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
-    return throw_exception (loc, ctx,
-			    N_("reflection with incomplete type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection with incomplete type",
+			    fun, jump_target);
   tree ret = c_sizeof_or_alignof_type (loc, type, true, false, 0);
   if (ret == error_mark_node)
-    return throw_exception (loc, ctx,
-			    N_("reflection with incomplete type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection with incomplete type",
+			    fun, jump_target);
   return fold_convert (ret_type, ret);
 }
 
@@ -2966,7 +2965,8 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  reflect_kind kind, tree ret_type, tree *jump_target)
+		  reflect_kind kind, tree ret_type, tree *jump_target,
+		  tree fun)
 {
   if (eval_is_type (r) != boolean_true_node
       && eval_is_object (kind) != boolean_true_node
@@ -2977,8 +2977,8 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
       && kind != REFLECT_BASE
       && kind != REFLECT_DATA_MEMBER_SPEC)
     return throw_exception (loc, ctx,
-			    N_("reflection not suitable for bit_size_of"),
-			    r, jump_target);
+			    "reflection not suitable for bit_size_of",
+			    fun, jump_target);
   if (!INTEGRAL_TYPE_P (ret_type))
     {
       error_at (loc, "unexpected return type of %qs",
@@ -2997,14 +2997,12 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
   else
     type = type_of (r, kind);
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
-    return throw_exception (loc, ctx,
-			    N_("reflection with incomplete type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection with incomplete type",
+			    fun, jump_target);
   tree ret = c_sizeof_or_alignof_type (loc, type, true, false, 0);
   if (ret == error_mark_node)
-    return throw_exception (loc, ctx,
-			    N_("reflection with incomplete type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "reflection with incomplete type",
+			    fun, jump_target);
   ret = size_binop (MULT_EXPR, ret, size_int (BITS_PER_UNIT));
   return fold_convert (ret_type, ret);
 }
@@ -3170,12 +3168,12 @@ eval_has_identifier (tree r, reflect_kind kind)
 static tree
 eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		    reflect_kind kind, tree *jump_target,
-		    tree elt_type, tree ret_type)
+		    tree elt_type, tree ret_type, tree fun)
 {
   if (eval_has_identifier (r, kind) == boolean_false_node)
-    return throw_exception (loc, ctx, N_("reflection with has_identifier "
-					 "false"),
-			    r, jump_target);
+    return throw_exception (loc, ctx,
+			    "reflection with has_identifier false",
+			    fun, jump_target);
   r = MAYBE_BASELINK_FUNCTIONS (r);
   r = OVL_FIRST (r);
   const char *name = NULL;
@@ -3215,13 +3213,13 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
   if (str == NULL_TREE)
     {
       if (elt_type == char_type_node)
-	return throw_exception (loc, ctx, N_("identifier_of not representable"
-					     " in ordinary literal encoding"),
-				r, jump_target);
+	return throw_exception (loc, ctx, "identifier_of not representable"
+					  " in ordinary literal encoding",
+				fun, jump_target);
       else
-	return throw_exception (loc, ctx, N_("u8identifier_of not representable"
-					     " in UTF-8"),
-				r, jump_target);
+	return throw_exception (loc, ctx, "u8identifier_of not representable"
+					  " in UTF-8",
+				fun, jump_target);
     }
   releasing_vec args (make_tree_vector_single (str));
   tree ret = build_special_member_call (NULL_TREE, complete_ctor_identifier,
@@ -3239,7 +3237,7 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
 			reflect_kind kind, tree *jump_target,
-			tree elt_type, tree ret_type)
+			tree elt_type, tree ret_type, tree fun)
 {
 #if __GNUC__ >= 10
 #pragma GCC diagnostic push
@@ -3299,13 +3297,12 @@ eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
   if (str == NULL_TREE)
     {
       if (elt_type == char_type_node)
-	return throw_exception (loc, ctx, N_("identifier_of not representable"
-					     " in ordinary literal encoding"),
-				r, jump_target);
+	return throw_exception (loc, ctx, "identifier_of not representable"
+					  " in ordinary literal encoding",
+				fun, jump_target);
       else
-	return throw_exception (loc, ctx, N_("u8identifier_of not representable"
-					     " in UTF-8"),
-				r, jump_target);
+	return throw_exception (loc, ctx, "u8identifier_of not representable"
+					  " in UTF-8", fun, jump_target);
     }
   releasing_vec args (make_tree_vector_single (str));
   tree ret = build_special_member_call (NULL_TREE, complete_ctor_identifier,
@@ -3361,10 +3358,10 @@ get_reflection_of_targ (tree arg)
 
 static tree
 eval_template_arguments_of (location_t loc, const constexpr_ctx *ctx, tree r,
-			    tree *jump_target)
+			    tree *jump_target, tree fun)
 {
   if (eval_has_template_arguments (r) != boolean_true_node)
-    return throw_exception_notargs (loc, ctx, r, jump_target);
+    return throw_exception_notargs (loc, ctx, fun, jump_target);
 
   vec<constructor_elt, va_gc> *elts = nullptr;
   tree args = NULL_TREE;
@@ -3423,7 +3420,7 @@ remove_const (tree type)
 
 static tree
 eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		     reflect_kind kind, tree type, tree *jump_target)
+		     reflect_kind kind, tree type, tree *jump_target, tree fun)
 {
   if (!(eval_is_type (r) == boolean_true_node
 	|| eval_is_type_alias (r) == boolean_true_node
@@ -3434,20 +3431,19 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	/* || eval_is_base (r) == boolean_true_node */
 	/* || eval_is_nonstatic_data_member (r) == boolean_true_node */))
     return throw_exception (loc, ctx,
-			    N_("reflection does not represent a type,"
-			       " type alias, variable, function, namespace,"
-			       " enumerator, direct base class relationship,"
-			       " or non-static data member"),
-			    r, jump_target);
+			    "reflection does not represent a type,"
+			    " type alias, variable, function, namespace,"
+			    " enumerator, direct base class relationship,"
+			    " or non-static data member",
+			    fun, jump_target);
 
   if (type)
     {
       type = maybe_strip_typedefs (type);
       if (!TYPE_P (type) || !COMPLETE_TYPE_P (type))
 	return throw_exception (loc, ctx,
-				N_("reflection does not represent a complete"
-				   " type or type alias"),
-				type, jump_target);
+				"reflection does not represent a complete"
+				" type or type alias", fun, jump_target);
       type = remove_const (type);
     }
 
@@ -3500,7 +3496,7 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree expr, tree *jump_target)
+		       tree expr, tree *jump_target, tree fun)
 {
   if (!structural_type_p (type)
       || CP_TYPE_VOLATILE_P (type)
@@ -3513,7 +3509,7 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree type,
     }
   expr = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (expr == error_mark_node)
-    throw_exception_generic (loc, ctx, type, jump_target);
+    throw_exception_generic (loc, ctx, fun, jump_target);
   return get_reflection_raw (loc, expr, get_reflection_kind (expr));
 }
 
@@ -3525,7 +3521,7 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree type,
 
 static tree
 eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
-		     tree expr, tree *jump_target)
+		     tree expr, tree *jump_target, tree fun)
 {
   if (eval_is_object_type (loc, type) != boolean_true_node)
     {
@@ -3535,7 +3531,7 @@ eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
   type = cp_build_reference_type (type, /*rval=*/false);
   tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (e == error_mark_node)
-    throw_exception_generic (loc, ctx, type, jump_target);
+    throw_exception_generic (loc, ctx, fun, jump_target);
   /* We got (const T &) &foo.  Get the referent, since we want the object
      designated by EXPR.  */
   expr = maybe_get_reference_referent (expr);
@@ -3550,7 +3546,7 @@ eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
 
 static tree
 eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree expr, tree *jump_target)
+		       tree expr, tree *jump_target, tree fun)
 {
   if (eval_is_function_type (type) != boolean_true_node)
     {
@@ -3560,7 +3556,7 @@ eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
   type = cp_build_reference_type (type, /*rval=*/false);
   tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (e == error_mark_node)
-    throw_exception_generic (loc, ctx, type, jump_target);
+    throw_exception_generic (loc, ctx, fun, jump_target);
   /* We got (void (&<Ta885>) (void)) fn.  Get the function.  */
   expr = maybe_get_reference_referent (expr);
   return get_reflection_raw (loc, expr);
@@ -4575,13 +4571,13 @@ eval_common_type (location_t loc, const constexpr_ctx *ctx, tree tvec,
 
 static tree
 eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
-		      tree *jump_target)
+		      tree *jump_target, tree fun)
 {
   /* The standard doesn't say this, but I hope it will clarify it.  */
   if (TREE_CODE (type) != ENUMERAL_TYPE || !COMPLETE_TYPE_P (type))
-    return throw_exception (loc, ctx, N_("reflection does not represent "
-					 "a complete enumeration type"),
-			    type, jump_target);
+    return throw_exception (loc, ctx, "reflection does not represent "
+				      "a complete enumeration type",
+			    fun, jump_target);
   type = finish_underlying_type (type);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
@@ -4630,12 +4626,12 @@ eval_type_order (tree type1, tree type2)
 
 static tree
 eval_enumerators_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		     tree *jump_target)
+		     tree *jump_target, tree fun)
 {
   if (TREE_CODE (r) != ENUMERAL_TYPE
       || eval_is_enumerable_type (r) == boolean_false_node)
-    return throw_exception (loc, ctx, N_("reflection does not represent an "
-					 "enumerable enumeration type"), r,
+    return throw_exception (loc, ctx, "reflection does not represent an "
+				      "enumerable enumeration type", fun,
 			    jump_target);
   vec<constructor_elt, va_gc> *elts = nullptr;
   for (tree t = TYPE_VALUES (r); t; t = TREE_CHAIN (t))
@@ -4787,12 +4783,12 @@ eval_add_rvalue_reference (location_t loc, tree type)
 
 static tree
 eval_make_signed (location_t loc, const constexpr_ctx *ctx, tree type,
-		  bool unsignedp, tree *jump_target)
+		  bool unsignedp, tree *jump_target, tree fun)
 {
   // TODO: I don't see the standard specifying what to do here.
   if (!INTEGRAL_TYPE_P (type) || TREE_CODE (type) == BOOLEAN_TYPE)
-    return throw_exception (loc, ctx, N_("reflection represents non-integral "
-					 "or bool type"), type, jump_target);
+    return throw_exception (loc, ctx, "reflection represents non-integral "
+				      "or bool type", fun, jump_target);
   tree ret = type;
   if (TREE_CODE (type) == ENUMERAL_TYPE
       || TYPE_MAIN_VARIANT (type) == wchar_type_node
@@ -4923,12 +4919,12 @@ eval_is_lrvalue_reference_qualified (tree r, reflect_kind kind,
 
 static tree
 eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
-		     tree r, tree rvec, tree *jump_target)
+		     tree r, tree rvec, tree *jump_target, tree fun)
 {
   if (eval_is_template (r) != boolean_true_node)
     return throw_exception (loc, ctx,
-			    N_("reflection does not represent a template"),
-			    r, jump_target);
+			    "reflection does not represent a template",
+			    fun, jump_target);
   for (int i = 0; i < TREE_VEC_LENGTH (rvec); ++i)
     {
       tree ra = TREE_VEC_ELT (rvec, i);
@@ -4946,14 +4942,14 @@ eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
 	  || (TREE_CODE (a) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (a))
 	  || kind == REFLECT_DATA_MEMBER_SPEC)
 	return throw_exception (loc, ctx,
-				N_("invalid argument to can_substitute"),
-				a, jump_target);
+				"invalid argument to can_substitute",
+				fun, jump_target);
       else if (!TYPE_P (a) && eval_is_template (a) == boolean_false_node)
 	{
 	  if (!has_type (a, kind))
 	    return throw_exception (loc, ctx,
-				    N_("invalid argument to can_substitute"),
-				    a, jump_target);
+				    "invalid argument to can_substitute",
+				    fun, jump_target);
 	}
       a = resolve_nondeduced_context (a, tf_warning_or_error);
       TREE_VEC_ELT (rvec, i) = a;
@@ -5007,15 +5003,14 @@ eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 eval_substitute (location_t loc, const constexpr_ctx *ctx,
-		 tree r, tree rvec, tree *jump_target)
+		 tree r, tree rvec, tree *jump_target, tree fun)
 {
-  tree cs = eval_can_substitute (loc, ctx, r, rvec, jump_target);
+  tree cs = eval_can_substitute (loc, ctx, r, rvec, jump_target, fun);
   if (*jump_target)
     return cs;
   if (cs == boolean_false_node)
-    return throw_exception (loc, ctx,
-			    N_("can_substitute returned false"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "can_substitute returned false",
+			    fun, jump_target);
   tree ret = NULL_TREE;
   if (DECL_TYPE_TEMPLATE_P (r) || DECL_TEMPLATE_TEMPLATE_PARM_P (r))
     ret = lookup_template_class (r, rvec, NULL_TREE, NULL_TREE, tf_none);
@@ -5140,13 +5135,12 @@ static tree
 eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
 		       tree type, tree opts, tree call,
 		       bool *non_constant_p, bool *overflow_p,
-		       tree  *jump_target)
+		       tree  *jump_target, tree fun)
 {
   type = strip_typedefs (type);
   if (!TYPE_OBJ_P (type) && !TYPE_REF_P (type))
-    return throw_exception (loc, ctx,
-			    N_("type is not object or reference type"),
-			    type, jump_target);
+    return throw_exception (loc, ctx, "type is not object or reference type",
+			    fun, jump_target);
   opts = convert_from_reference (opts);
   if (!CLASS_TYPE_P (TREE_TYPE (opts)))
     {
@@ -5404,33 +5398,30 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
 		XDELETEVEC (namep);
 	      if (j == 1)
 		return throw_exception (loc, ctx,
-					N_("conversion from ordinary literal "
-					   "encoding to source charset "
-					   "failed"),
-					type, jump_target);
+					"conversion from ordinary literal "
+					"encoding to source charset "
+					"failed", fun, jump_target);
 	      else
 		return throw_exception (loc, ctx,
-					N_("conversion from UTF-8 encoding to "
-					   "source charset failed"),
-					type, jump_target);
+					"conversion from UTF-8 encoding to "
+					"source charset failed",
+					fun, jump_target);
 	    }
 	  if (len >= 64)
 	    XDELETEVEC (namep);
 	  if (!cpp_valid_identifier (parse_in, ostr.text))
 	    return throw_exception (loc, ctx,
-				    N_("name is not a valid identifier"),
-				    type, jump_target);
+				    "name is not a valid identifier",
+				    fun, jump_target);
 	  args[i] = get_identifier ((const char *) ostr.text);
 	  switch (get_identifier_kind (args[i]))
 	    {
 	    case cik_keyword:
-	      return throw_exception (loc, ctx,
-				      N_("name is a keyword"),
-				      type, jump_target);
+	      return throw_exception (loc, ctx, "name is a keyword",
+				      fun, jump_target);
 	    case cik_trait:
-	      return throw_exception (loc, ctx,
-				      N_("name is a built-in trait"),
-				      type, jump_target);
+	      return throw_exception (loc, ctx, "name is a built-in trait",
+				      fun, jump_target);
 	    default:
 	      break;
 	    }
@@ -5438,48 +5429,48 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
     }
   if (args[1] == NULL_TREE && args[3] == NULL_TREE)
     return throw_exception (loc, ctx,
-			    N_("neither name nor bit_width specified"),
-			    type, jump_target);
+			    "neither name nor bit_width specified",
+			    fun, jump_target);
   if (args[3])
     {
       if (!CP_INTEGRAL_TYPE_P (type) && TREE_CODE (type) != ENUMERAL_TYPE)
 	return throw_exception (loc, ctx,
-				N_("bit_width specified with non-integral "
-				   "and non-enumeration type"),
-				type, jump_target);
+				"bit_width specified with non-integral "
+				"and non-enumeration type",
+				fun, jump_target);
       if (args[2])
 	return throw_exception (loc, ctx,
-				N_("both alignment and bit_width specified"),
-				type, jump_target);
+				"both alignment and bit_width specified",
+				fun, jump_target);
       if (args[4] == boolean_true_node)
 	return throw_exception (loc, ctx,
-				N_("bit_width specified with "
-				   "no_unique_address true"),
-				type, jump_target);
+				"bit_width specified with "
+				"no_unique_address true",
+				fun, jump_target);
       if (integer_zerop (args[3]) && args[1])
 	return throw_exception (loc, ctx,
-				N_("bit_width 0 with specified name"),
-				type, jump_target);
+				"bit_width 0 with specified name",
+				fun, jump_target);
       if (tree_int_cst_sgn (args[3]) < 0)
-	return throw_exception (loc, ctx, N_("bit_width is negative"),
-				type, jump_target);
+	return throw_exception (loc, ctx, "bit_width is negative",
+				fun, jump_target);
     }
   if (args[2])
     {
       if (!integer_pow2p (args[2]))
 	return throw_exception (loc, ctx,
-				N_("alignment is not power of two"),
-				type, jump_target);
+				"alignment is not power of two",
+				fun, jump_target);
       if (tree_int_cst_sgn (args[2]) < 0)
-	return throw_exception (loc, ctx, N_("alignment is negative"),
-				type, jump_target);
+	return throw_exception (loc, ctx, "alignment is negative",
+				fun, jump_target);
       tree al = cxx_sizeof_or_alignof_type (loc, type, ALIGNOF_EXPR, true,
 					    tf_none);
       if (TREE_CODE (al) == INTEGER_CST
 	  && wi::to_widest (al) > wi::to_widest (args[2]))
 	return throw_exception (loc, ctx,
-				N_("alignment is smaller than alignment_of"),
-				type, jump_target);
+				"alignment is smaller than alignment_of",
+				fun, jump_target);
     }
   tree ret = make_tree_vec (5);
   for (int i = 0; i < 5; ++i)
@@ -5667,10 +5658,10 @@ eval_define_aggregate (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_reflect_constant_string (location_t loc, const constexpr_ctx *ctx,
 			      tree call, bool *non_constant_p,
-			      bool *overflow_p, tree *jump_target)
+			      bool *overflow_p, tree *jump_target, tree fun)
 {
   tree str = get_range_elts (loc, ctx, call, 0, non_constant_p, overflow_p,
-			     jump_target, REFLECT_CONSTANT_STRING);
+			     jump_target, REFLECT_CONSTANT_STRING, fun);
   if (*jump_target)
     return NULL_TREE;
   if (*non_constant_p)
@@ -5698,10 +5689,10 @@ eval_reflect_constant_string (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_reflect_constant_array (location_t loc, const constexpr_ctx *ctx,
 			      tree call, bool *non_constant_p,
-			      bool *overflow_p, tree *jump_target)
+			      bool *overflow_p, tree *jump_target, tree fun)
 {
   tree str = get_range_elts (loc, ctx, call, 0, non_constant_p, overflow_p,
-			     jump_target, REFLECT_CONSTANT_ARRAY);
+			     jump_target, REFLECT_CONSTANT_ARRAY, fun);
   if (*jump_target)
     return NULL_TREE;
   if (*non_constant_p)
@@ -5863,7 +5854,7 @@ extract_access_context (location_t loc, tree actx, tree *scope,
 static tree
 eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
 		    reflect_kind kind, tree actx, tree call,
-		    bool *non_constant_p, tree *jump_target)
+		    bool *non_constant_p, tree *jump_target, tree fun)
 {
   tree scope = NULL_TREE, designating_class = NULL_TREE, c;
   if (!extract_access_context (loc, actx, &scope, &designating_class))
@@ -5909,8 +5900,8 @@ eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
     return boolean_true_node;
   if (!CLASS_TYPE_P (c) || !COMPLETE_TYPE_P (c))
     return throw_exception (loc, ctx,
-			    N_("incomplete parent class"),
-			    r, jump_target);
+			    "incomplete parent class",
+			    fun, jump_target);
   if (designating_class)
     {
       tree p = c;
@@ -6056,7 +6047,7 @@ namespace_members_of (location_t loc, tree ns)
 static vec<constructor_elt, va_gc> *
 class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		  tree actx, tree call, bool *non_constant_p,
-		  tree *jump_target, int kind)
+		  tree *jump_target, int kind, tree fun)
 {
   if (kind == 0)
     {
@@ -6107,7 +6098,7 @@ class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	    continue; /* For nonstatic_data_members_of only include
 			 is_nonstatic_data_member.  */
 	  tree a = eval_is_accessible (loc, ctx, m, REFLECT_UNDEF, actx, call,
-				       non_constant_p, jump_target);
+				       non_constant_p, jump_target, fun);
 	  if (*jump_target || *non_constant_p)
 	    return nullptr;
 	  if (a == boolean_false_node)
@@ -6191,7 +6182,7 @@ class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static vec<constructor_elt, va_gc> *
 class_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		tree actx, tree call, bool *non_constant_p,
-		tree *jump_target, int kind)
+		tree *jump_target, int kind, tree fun)
 {
   vec<constructor_elt, va_gc> *elts = nullptr;
   tree binfo = TYPE_BINFO (r), base_binfo;
@@ -6199,7 +6190,7 @@ class_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
   for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
       tree a = eval_is_accessible (loc, ctx, base_binfo, REFLECT_BASE, actx,
-				   call, non_constant_p, jump_target);
+				   call, non_constant_p, jump_target, fun);
       if (*jump_target || *non_constant_p)
 	return nullptr;
       if (a == boolean_false_node)
@@ -6269,7 +6260,7 @@ class_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		 tree actx, tree call, bool *non_constant_p,
-		 tree *jump_target)
+		 tree *jump_target, tree fun)
 {
   r = maybe_strip_typedefs (r);
   if (TREE_CODE (r) == NAMESPACE_DECL)
@@ -6280,7 +6271,7 @@ eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
   else if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
-			       jump_target, 0);
+			       jump_target, 0, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
@@ -6288,8 +6279,8 @@ eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
     }
   else
     return throw_exception (loc, ctx,
-			    N_("neither complete class type nor namespace"),
-			    r, jump_target);
+			    "neither complete class type nor namespace",
+			    fun, jump_target);
   return get_vector_of_info_elts (elts);
 }
 
@@ -6305,23 +6296,22 @@ eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	       tree actx, tree call, bool *non_constant_p,
-	       tree *jump_target)
+	       tree *jump_target, tree fun)
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
-			     jump_target, 0);
+			     jump_target, 0, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
 	return call;
     }
   else
-    return throw_exception (loc, ctx,
-			    N_("not a complete class type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "not a complete class type",
+			    fun, jump_target);
   return get_vector_of_info_elts (elts);
 }
 
@@ -6334,23 +6324,22 @@ eval_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_static_data_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 			     tree actx, tree call, bool *non_constant_p,
-			     tree *jump_target)
+			     tree *jump_target, tree fun)
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
-			       jump_target, 1);
+			       jump_target, 1, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
 	return call;
     }
   else
-    return throw_exception (loc, ctx,
-			    N_("not a complete class type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "not a complete class type",
+			    fun, jump_target);
   return get_vector_of_info_elts (elts);
 }
 
@@ -6363,23 +6352,23 @@ eval_static_data_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_nonstatic_data_members_of (location_t loc, const constexpr_ctx *ctx,
 				tree r, tree actx, tree call,
-				bool *non_constant_p, tree *jump_target)
+				bool *non_constant_p, tree *jump_target,
+				tree fun)
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
-			       jump_target, 2);
+			       jump_target, 2, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
 	return call;
     }
   else
-    return throw_exception (loc, ctx,
-			    N_("not a complete class type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "not a complete class type",
+			    fun, jump_target);
   return get_vector_of_info_elts (elts);
 }
 
@@ -6393,21 +6382,21 @@ eval_nonstatic_data_members_of (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_subobjects_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		    tree actx, tree call, bool *non_constant_p,
-		    tree *jump_target)
+		    tree *jump_target, tree fun)
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
-			     jump_target, 0);
+			     jump_target, 0, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
 	return call;
       vec<constructor_elt, va_gc> *elts2
 	= class_members_of (loc, ctx, r, actx, call, non_constant_p,
-			    jump_target, 2);
+			    jump_target, 2, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
@@ -6418,9 +6407,8 @@ eval_subobjects_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	vec_safe_splice (elts, elts2);
     }
   else
-    return throw_exception (loc, ctx,
-			    N_("not a complete class type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "not a complete class type",
+			    fun, jump_target);
   return get_vector_of_info_elts (elts);
 }
 
@@ -6438,26 +6426,25 @@ eval_has_inaccessible_nonstatic_data_members (location_t loc,
 					      const constexpr_ctx *ctx,
 					      tree r, tree actx, tree call,
 					      bool *non_constant_p,
-					      tree *jump_target)
+					      tree *jump_target, tree fun)
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       if (LAMBDA_TYPE_P (r))
-	return throw_exception (loc, ctx, N_("closure type"), r,
+	return throw_exception (loc, ctx, "closure type", fun,
 				jump_target);
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
-			       jump_target, 3);
+			       jump_target, 3, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
 	return call;
     }
   else
-    return throw_exception (loc, ctx,
-			    N_("not a complete class type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "not a complete class type",
+			    fun, jump_target);
   if (elts == nullptr)
     return boolean_false_node;
   else
@@ -6473,23 +6460,23 @@ eval_has_inaccessible_nonstatic_data_members (location_t loc,
 static tree
 eval_has_inaccessible_bases (location_t loc, const constexpr_ctx *ctx,
 			     tree r, tree actx, tree call,
-			     bool *non_constant_p, tree *jump_target)
+			     bool *non_constant_p, tree *jump_target,
+			     tree fun)
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
       elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
-			     jump_target, 1);
+			     jump_target, 1, fun);
       if (*jump_target)
 	return NULL_TREE;
       else if (*non_constant_p)
 	return call;
     }
   else
-    return throw_exception (loc, ctx,
-			    N_("not a complete class type"),
-			    r, jump_target);
+    return throw_exception (loc, ctx, "not a complete class type",
+			    fun, jump_target);
   if (elts == nullptr)
     return boolean_false_node;
   else
@@ -6504,10 +6491,11 @@ eval_has_inaccessible_bases (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_has_inaccessible_subobjects (location_t loc, const constexpr_ctx *ctx,
 				  tree r, tree actx, tree call,
-				  bool *non_constant_p, tree *jump_target)
+				  bool *non_constant_p, tree *jump_target,
+				  tree fun)
 {
   tree b = eval_has_inaccessible_bases (loc, ctx, r, actx, call,
-					non_constant_p, jump_target);
+					non_constant_p, jump_target, fun);
   if (*jump_target)
     return NULL_TREE;
   else if (*non_constant_p)
@@ -6516,7 +6504,7 @@ eval_has_inaccessible_subobjects (location_t loc, const constexpr_ctx *ctx,
     return b;
   return eval_has_inaccessible_nonstatic_data_members (loc, ctx, r, actx,
 						       call, non_constant_p,
-						       jump_target);
+						       jump_target, fun);
 }
 
 #include "metafns.h"
@@ -6560,7 +6548,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       if (((minfo->kind >> 5) & 31) == METAFN_KIND_ARG_TINFO)
 	{
 	  if (eval_is_type (h) != boolean_true_node)
-	    return throw_exception_nontype (loc, ctx, h, jump_target);
+	    return throw_exception_nontype (loc, ctx, fun, jump_target);
 	}
       else
 	{
@@ -6577,7 +6565,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       gcc_unreachable ();
     case METAFN_KIND_ARG_REFLECTION_RANGET:
       hvec = get_type_info_vec (loc, ctx, call, 0, non_constant_p,
-				overflow_p, jump_target);
+				overflow_p, jump_target, fun);
       if (*jump_target)
 	return NULL_TREE;
       if (*non_constant_p)
@@ -6617,7 +6605,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       if (((minfo->kind >> 10) & 31) == METAFN_KIND_ARG_TINFO)
 	{
 	  if (eval_is_type (h1) != boolean_true_node)
-	    return throw_exception_nontype (loc, ctx, h1, jump_target);
+	    return throw_exception_nontype (loc, ctx, fun, jump_target);
 	}
       break;
     case METAFN_KIND_ARG_SIZE_T:
@@ -6629,7 +6617,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       gcc_unreachable ();
     case METAFN_KIND_ARG_REFLECTION_RANGE:
       hvec = get_info_vec (loc, ctx, call, 1, non_constant_p, overflow_p,
-			   jump_target);
+			   jump_target, fun);
       if (*jump_target)
 	return NULL_TREE;
       if (*non_constant_p)
@@ -6637,7 +6625,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       break;
     case METAFN_KIND_ARG_REFLECTION_RANGET:
       hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
-				overflow_p, jump_target);
+				overflow_p, jump_target, fun);
       if (*jump_target)
 	return NULL_TREE;
       if (*non_constant_p)
@@ -6664,7 +6652,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       gcc_unreachable ();
     case METAFN_KIND_ARG_REFLECTION_RANGET:
       hvec = get_type_info_vec (loc, ctx, call, 2, non_constant_p,
-				overflow_p, jump_target);
+				overflow_p, jump_target, fun);
       if (*jump_target)
 	return NULL_TREE;
       if (*non_constant_p)
@@ -6675,35 +6663,36 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
   switch (minfo->code)
     {
     case METAFN_OPERATOR_OF:
-      return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call));
+      return eval_operator_of (loc, ctx, h, jump_target, TREE_TYPE (call),
+			       fun);
     case METAFN_SYMBOL_OF:
       return eval_symbol_of (loc, ctx, expr, jump_target, char_type_node,
-			     TREE_TYPE (call));
+			     TREE_TYPE (call), fun);
     case METAFN_U8SYMBOL_OF:
       return eval_symbol_of (loc, ctx, expr, jump_target, char8_type_node,
-			     TREE_TYPE (call));
+			     TREE_TYPE (call), fun);
     case METAFN_HAS_IDENTIFIER:
       return eval_has_identifier (h, kind);
     case METAFN_IDENTIFIER_OF:
       return eval_identifier_of (loc, ctx, h, kind, jump_target, char_type_node,
-				 TREE_TYPE (call));
+				 TREE_TYPE (call), fun);
     case METAFN_U8IDENTIFIER_OF:
       return eval_identifier_of (loc, ctx, h, kind, jump_target, char8_type_node,
-				 TREE_TYPE (call));
+				 TREE_TYPE (call), fun);
     case METAFN_DISPLAY_STRING_OF:
       return eval_display_string_of (loc, ctx, h, kind, jump_target,
-				     char_type_node, TREE_TYPE (call));
+				     char_type_node, TREE_TYPE (call), fun);
     case METAFN_U8DISPLAY_STRING_OF:
       return eval_display_string_of (loc, ctx, h, kind, jump_target,
-				     char8_type_node, TREE_TYPE (call));
+				     char8_type_node, TREE_TYPE (call), fun);
     case METAFN_SOURCE_LOCATION_OF:
       return eval_source_location_of (loc, h, TREE_TYPE (call));
     case METAFN_TYPE_OF:
-      return eval_type_of (loc, ctx, h, kind, jump_target);
+      return eval_type_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_OBJECT_OF:
-      return eval_object_of (loc, ctx, h, kind, jump_target);
+      return eval_object_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_CONSTANT_OF:
-      return eval_constant_of (loc, ctx, h, jump_target);
+      return eval_constant_of (loc, ctx, h, jump_target, fun);
     case METAFN_IS_PUBLIC:
     case METAFN_IS_PROTECTED:
     case METAFN_IS_PRIVATE:
@@ -6845,82 +6834,88 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_HAS_PARENT:
       return eval_has_parent (h, kind);
     case METAFN_PARENT_OF:
-      return eval_parent_of (loc, ctx, h, kind, jump_target);
+      return eval_parent_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_DEALIAS:
       return eval_dealias (loc, ctx, h, jump_target);
     case METAFN_HAS_TEMPLATE_ARGUMENTS:
       return eval_has_template_arguments (h);
     case METAFN_TEMPLATE_OF:
-      return eval_template_of (loc, ctx, h, jump_target);
+      return eval_template_of (loc, ctx, h, jump_target, fun);
     case METAFN_TEMPLATE_ARGUMENTS_OF:
-      return eval_template_arguments_of (loc, ctx, h, jump_target);
+      return eval_template_arguments_of (loc, ctx, h, jump_target, fun);
     case METAFN_PARAMETERS_OF:
-      return eval_parameters_of (loc, ctx, h, jump_target);
+      return eval_parameters_of (loc, ctx, h, jump_target, fun);
     case METAFN_VARIABLE_OF:
-      return eval_variable_of (loc, ctx, h, kind, jump_target);
+      return eval_variable_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_RETURN_TYPE_OF:
-      return eval_return_type_of (loc, ctx, h, kind, jump_target);
+      return eval_return_type_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_IS_ACCESSIBLE:
       return eval_is_accessible (loc, ctx, h, kind, expr, call,
-				 non_constant_p, jump_target);
+				 non_constant_p, jump_target, fun);
     case METAFN_HAS_INACCESSIBLE_NONSTATIC_DATA_MEMBERS:
       return eval_has_inaccessible_nonstatic_data_members (loc, ctx, h, expr,
 							   call,
 							   non_constant_p,
-							   jump_target);
+							   jump_target, fun);
     case METAFN_HAS_INACCESSIBLE_BASES:
       return eval_has_inaccessible_bases (loc, ctx, h, expr, call,
-					  non_constant_p, jump_target);
+					  non_constant_p, jump_target, fun);
     case METAFN_HAS_INACCESSIBLE_SUBOBJECTS:
       return eval_has_inaccessible_subobjects (loc, ctx, h, expr, call,
-					       non_constant_p, jump_target);
+					       non_constant_p, jump_target,
+					       fun);
     case METAFN_MEMBERS_OF:
       return eval_members_of (loc, ctx, h, expr, call, non_constant_p,
-			      jump_target);
+			      jump_target, fun);
     case METAFN_BASES_OF:
       return eval_bases_of (loc, ctx, h, expr, call, non_constant_p,
-			    jump_target);
+			    jump_target, fun);
     case METAFN_STATIC_DATA_MEMBERS_OF:
       return eval_static_data_members_of (loc, ctx, h, expr, call,
-					  non_constant_p, jump_target);
+					  non_constant_p, jump_target,
+					  fun);
     case METAFN_NONSTATIC_DATA_MEMBERS_OF:
       return eval_nonstatic_data_members_of (loc, ctx, h, expr, call,
-					     non_constant_p, jump_target);
+					     non_constant_p, jump_target,
+					     fun);
     case METAFN_SUBOBJECTS_OF:
       return eval_subobjects_of (loc, ctx, h, expr, call, non_constant_p,
-				 jump_target);
+				 jump_target, fun);
     case METAFN_ENUMERATORS_OF:
-      return eval_enumerators_of (loc, ctx, h, jump_target);
+      return eval_enumerators_of (loc, ctx, h, jump_target, fun);
     case METAFN_OFFSET_OF:
-      return eval_offset_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
+      return eval_offset_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target,
+			     fun);
     case METAFN_SIZE_OF:
-      return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target);
+      return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target,
+			   fun);
     case METAFN_ALIGNMENT_OF:
       gcc_unreachable ();
     case METAFN_BIT_SIZE_OF:
       return eval_bit_size_of (loc, ctx, h, kind, TREE_TYPE (call),
-			       jump_target);
+			       jump_target, fun);
     case METAFN_EXTRACT:
       gcc_unreachable ();
     case METAFN_CAN_SUBSTITUTE:
-      return eval_can_substitute (loc, ctx, h, hvec, jump_target);
+      return eval_can_substitute (loc, ctx, h, hvec, jump_target, fun);
     case METAFN_SUBSTITUTE:
-      return eval_substitute (loc, ctx, h, hvec, jump_target);
+      return eval_substitute (loc, ctx, h, hvec, jump_target, fun);
     case METAFN_REFLECT_CONSTANT:
-      return eval_reflect_constant (loc, ctx, type, expr, jump_target);
+      return eval_reflect_constant (loc, ctx, type, expr, jump_target, fun);
     case METAFN_REFLECT_OBJECT:
-      return eval_reflect_object (loc, ctx, type, expr, jump_target);
+      return eval_reflect_object (loc, ctx, type, expr, jump_target, fun);
     case METAFN_REFLECT_FUNCTION:
-      return eval_reflect_function (loc, ctx, type, expr, jump_target);
+      return eval_reflect_function (loc, ctx, type, expr, jump_target, fun);
     case METAFN_REFLECT_CONSTANT_STRING:
       return eval_reflect_constant_string (loc, ctx, call, non_constant_p,
-					   overflow_p, jump_target);
+					   overflow_p, jump_target, fun);
     case METAFN_REFLECT_CONSTANT_ARRAY:
       return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
-					  overflow_p, jump_target);
+					  overflow_p, jump_target, fun);
     case METAFN_DATA_MEMBER_SPEC:
       return eval_data_member_spec (loc, ctx, h, expr, call,
-				    non_constant_p, overflow_p, jump_target);
+				    non_constant_p, overflow_p, jump_target,
+				    fun);
     case METAFN_IS_DATA_MEMBER_SPEC:
       return eval_is_data_member_spec (h, kind);
     case METAFN_DEFINE_AGGREGATE:
@@ -7124,9 +7119,9 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_ADD_RVALUE_REFERENCE:
       return eval_add_rvalue_reference (loc, h);
     case METAFN_MAKE_SIGNED:
-      return eval_make_signed (loc, ctx, h, false, jump_target);
+      return eval_make_signed (loc, ctx, h, false, jump_target, fun);
     case METAFN_MAKE_UNSIGNED:
-      return eval_make_signed (loc, ctx, h, true, jump_target);
+      return eval_make_signed (loc, ctx, h, true, jump_target, fun);
     case METAFN_REMOVE_EXTENT:
       return eval_remove_extent (loc, h);
     case METAFN_REMOVE_ALL_EXTENTS:
@@ -7144,7 +7139,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_COMMON_REFERENCE:
       return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
     case METAFN_UNDERLYING_TYPE:
-      return eval_underlying_type (loc, ctx, h, jump_target);
+      return eval_underlying_type (loc, ctx, h, jump_target, fun);
     case METAFN_INVOKE_RESULT:
       return eval_invoke_result (loc, ctx, h, hvec, call, non_constant_p);
     case METAFN_UNWRAP_REFERENCE:
@@ -7190,9 +7185,10 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_TYPE_ORDER:
       return eval_type_order (h, h1);
     case METAFN_ANNOTATIONS_OF:
-      return eval_annotations_of (loc, ctx, h, kind, NULL_TREE, jump_target);
+      return eval_annotations_of (loc, ctx, h, kind, NULL_TREE, jump_target,
+				  fun);
     case METAFN_ANNOTATIONS_OF_WITH_TYPE:
-      return eval_annotations_of (loc, ctx, h, kind, h1, jump_target);
+      return eval_annotations_of (loc, ctx, h, kind, h1, jump_target, fun);
   /* Special metafunctions.  */
     case METAFN_ACCESS_CONTEXT_CURRENT:
       if (DECL_CLASS_SCOPE_P (fun)
