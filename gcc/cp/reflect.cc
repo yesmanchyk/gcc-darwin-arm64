@@ -221,6 +221,16 @@ get_null_reflection ()
   return get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
 }
 
+/* Do strip_typedefs on T, but only for type aliases.  */
+
+static tree
+maybe_strip_typedefs (tree t)
+{
+  if (TYPE_P (t) && typedef_variant_p (t))
+    return strip_typedefs (t);
+  return t;
+}
+
 /* If PARM_DECL comes from an earlier reflection of a function parameter
    and function definition is seen after that, DECL_ARGUMENTS is
    overwritten and so the old PARM_DECL is no longer present in the
@@ -2475,9 +2485,8 @@ static tree
 eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
 	      tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
-  else if (TREE_CODE (r) == NAMESPACE_DECL)
+  r = maybe_strip_typedefs (r);
+  if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
   // TODO what's not an entity?
   // Maybe remove: <https://cplusplus.github.io/LWG/lwg-active.html#4427>
@@ -2539,8 +2548,8 @@ eval_is_const (tree r, reflect_kind kind)
 {
   if (has_type (r, kind))
     r = type_of (r, kind);
-  else if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  else
+    r = maybe_strip_typedefs (r);
   if (TYPE_P (r) && TYPE_READONLY (r))
     return boolean_true_node;
   else
@@ -2557,8 +2566,8 @@ eval_is_volatile (tree r, reflect_kind kind)
 {
   if (has_type (r, kind))
     r = type_of (r, kind);
-  else if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  else
+    r = maybe_strip_typedefs (r);
   if (TYPE_P (r) && TYPE_VOLATILE (r))
     return boolean_true_node;
   else
@@ -3433,8 +3442,7 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
   if (type)
     {
-      if (TYPE_P (type) && typedef_variant_p (type))
-	type = strip_typedefs (type);
+      type = maybe_strip_typedefs (type);
       if (!TYPE_P (type) || !COMPLETE_TYPE_P (type))
 	return throw_exception (loc, ctx,
 				N_("reflection does not represent a complete"
@@ -4893,8 +4901,8 @@ eval_is_lrvalue_reference_qualified (tree r, reflect_kind kind,
 {
   if (has_type (r, kind))
     r = type_of (r, kind);
-  else if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  else
+    r = maybe_strip_typedefs (r);
   if (FUNC_OR_METHOD_TYPE_P (r) && FUNCTION_REF_QUALIFIED (r))
     if (rvalue_p == FUNCTION_RVALUE_QUALIFIED (r))
       return boolean_true_node;
@@ -6263,9 +6271,8 @@ eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		 tree actx, tree call, bool *non_constant_p,
 		 tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
-  else if (TREE_CODE (r) == NAMESPACE_DECL)
+  r = maybe_strip_typedefs (r);
+  if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
   vec<constructor_elt, va_gc> *elts;
   if (TREE_CODE (r) == NAMESPACE_DECL)
@@ -6300,8 +6307,7 @@ eval_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	       tree actx, tree call, bool *non_constant_p,
 	       tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
@@ -6330,8 +6336,7 @@ eval_static_data_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 			     tree actx, tree call, bool *non_constant_p,
 			     tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
@@ -6360,8 +6365,7 @@ eval_nonstatic_data_members_of (location_t loc, const constexpr_ctx *ctx,
 				tree r, tree actx, tree call,
 				bool *non_constant_p, tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
@@ -6391,8 +6395,7 @@ eval_subobjects_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		    tree actx, tree call, bool *non_constant_p,
 		    tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
@@ -6437,8 +6440,7 @@ eval_has_inaccessible_nonstatic_data_members (location_t loc,
 					      bool *non_constant_p,
 					      tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
@@ -6473,8 +6475,7 @@ eval_has_inaccessible_bases (location_t loc, const constexpr_ctx *ctx,
 			     tree r, tree actx, tree call,
 			     bool *non_constant_p, tree *jump_target)
 {
-  if (TYPE_P (r) && typedef_variant_p (r))
-    r = strip_typedefs (r);
+  r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
     {
