@@ -7,7 +7,7 @@
 
 using namespace std::meta;
 
-constexpr auto s1 = variant_size (^^int); // { dg-error "compute .variant_size. of .int." }
+constexpr auto s1 = variant_size (^^int); // { dg-error "couldn't evaluate 'std::variant_size<int>::value'" }
 int x;
 constexpr auto s2 = variant_size (^^x); // { dg-error "uncaught exception" }
 

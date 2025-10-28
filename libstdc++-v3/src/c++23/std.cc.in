@@ -2219,8 +2219,8 @@ export namespace std
     using std::meta::is_assignable_type;
     using std::meta::is_copy_assignable_type;
     using std::meta::is_move_assignable_type;
-    // using std::meta::is_swappable_with_type;
-    // using std::meta::is_swappable_type;
+    using std::meta::is_swappable_with_type;
+    using std::meta::is_swappable_type;
     using std::meta::is_destructible_type;
     using std::meta::is_trivially_constructible_type;
     using std::meta::is_trivially_default_constructible_type;
@@ -2237,8 +2237,8 @@ export namespace std
     using std::meta::is_nothrow_assignable_type;
     using std::meta::is_nothrow_copy_assignable_type;
     using std::meta::is_nothrow_move_assignable_type;
-    // using std::meta::is_nothrow_swappable_with_type;
-    // using std::meta::is_nothrow_swappable_type;
+    using std::meta::is_nothrow_swappable_with_type;
+    using std::meta::is_nothrow_swappable_type;
     using std::meta::is_nothrow_destructible_type;
     using std::meta::is_nothrow_relocatable_type;
     using std::meta::is_implicit_lifetime_type;
@@ -2280,8 +2280,8 @@ export namespace std
     using std::meta::common_reference;
     using std::meta::underlying_type;
     using std::meta::invoke_result;
-    // using std::meta::unwrap_reference;
-    // using std::meta::unwrap_ref_decay;
+    using std::meta::unwrap_reference;
+    using std::meta::unwrap_ref_decay;
     using std::meta::tuple_size;
     using std::meta::tuple_element;
     using std::meta::variant_size;

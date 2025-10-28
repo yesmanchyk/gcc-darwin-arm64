@@ -254,6 +254,18 @@ eval (int n)
     case 80:
       is_implicit_lifetime_type (^^n);
       break;
+    case 81:
+      is_swappable_type (^^n);
+      break;
+    case 82:
+      is_nothrow_swappable_type (^^n);
+      break;
+    case 83:
+      unwrap_reference (^^n);
+      break;
+    case 84:
+      unwrap_ref_decay (^^n);
+      break;
    default:
       break;
     }
@@ -349,3 +361,7 @@ static_assert (test (77));
 static_assert (test (78));
 static_assert (test (79));
 static_assert (test (80));
+static_assert (test (81));
+static_assert (test (82));
+static_assert (test (83));
+static_assert (test (84));

@@ -3276,7 +3276,7 @@ eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
     {
       tree c = r;
       while (BINFO_INHERITANCE_CHAIN (c))
-        c = BINFO_INHERITANCE_CHAIN (c);
+	c = BINFO_INHERITANCE_CHAIN (c);
       pp_printf (&pp, "(%T, %T)", BINFO_TYPE (c), BINFO_TYPE (r));
     }
   else if (kind == REFLECT_DATA_MEMBER_SPEC)
@@ -4618,25 +4618,14 @@ eval_is_invocable_type (location_t loc, const constexpr_ctx *ctx,
   return r;
 }
 
-/* Process std::meta::is_{,nothrow_}invocable_r_type.  */
+/* Helper for various eval_* type trait functions which can't use builtin
+   trait and have to instantiate std::NAME<ARGS>::value.  */
 
 static tree
-eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
-			  tree tres, tree type, tree tvec, tree call,
-			  bool *non_constant_p, tree *jump_target,
-			  const char *name)
+finish_library_value_trait (location_t loc, const constexpr_ctx *ctx,
+			    const char *name, tree args, tree call,
+			    bool *non_constant_p)
 {
-  if (eval_is_type (tres) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, tres, jump_target);
-  if (eval_is_type (type) != boolean_true_node)
-    return throw_exception_nontype (loc, ctx, type, jump_target);
-
-  /* Create std::is_invocable_r<TYPE>::value.  */
-  tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 2);
-  TREE_VEC_ELT (args, 0) = tres;
-  TREE_VEC_ELT (args, 1) = type;
-  for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
-    TREE_VEC_ELT (args, i + 2) = TREE_VEC_ELT (tvec, i);
   tree inst = lookup_template_class (get_identifier (name), args,
 				     /*in_decl*/NULL_TREE, /*context*/std_node,
 				     tf_warning_or_error);
@@ -4658,12 +4647,42 @@ eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
     goto fail;
   if (VAR_P (val) || TREE_CODE (val) == CONST_DECL)
     val = maybe_constant_value (val, NULL_TREE, mce_true);
-  if (integer_zerop (val))
-    return boolean_false_node;
-  else if (integer_nonzerop (val))
-    return boolean_true_node;
+  if (TREE_CODE (TREE_TYPE (call)) == BOOLEAN_TYPE)
+    {
+      if (integer_zerop (val))
+	return boolean_false_node;
+      else if (integer_nonzerop (val))
+	return boolean_true_node;
+      else
+	goto fail;
+    }
+  else if (TREE_CODE (val) == INTEGER_CST)
+    return val;
   else
     goto fail;
+}
+
+/* Process std::meta::is_{,nothrow_}invocable_r_type.  */
+
+static tree
+eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
+			  tree tres, tree type, tree tvec, tree call,
+			  bool *non_constant_p, tree *jump_target,
+			  const char *name)
+{
+  if (eval_is_type (tres) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, tres, jump_target);
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+
+  /* Create std::is_invocable_r<TYPE>::value.  */
+  tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 2);
+  TREE_VEC_ELT (args, 0) = tres;
+  TREE_VEC_ELT (args, 1) = type;
+  for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
+    TREE_VEC_ELT (args, i + 2) = TREE_VEC_ELT (tvec, i);
+  return finish_library_value_trait (loc, ctx, name, args, call,
+				     non_constant_p);
 }
 
 /* Process std::meta::is_nothrow_invocable_type.  */
@@ -4678,6 +4697,44 @@ eval_is_nothrow_invocable_type (location_t loc, const constexpr_ctx *ctx,
 			      type, tvec);
   STRIP_ANY_LOCATION_WRAPPER (r);
   return r;
+}
+
+/* Process std::meta::is_{,nothrow_}swappable_with_type.  */
+
+static tree
+eval_is_swappable_with_type (location_t loc, const constexpr_ctx *ctx,
+			     tree type1, tree type2, tree call,
+			     bool *non_constant_p, tree *jump_target,
+			     const char *name)
+{
+  if (eval_is_type (type1) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type1, jump_target);
+  if (eval_is_type (type2) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type2, jump_target);
+
+  /* Create std::is_swappable_with<TYPE>::value.  */
+  tree args = make_tree_vec (2);
+  TREE_VEC_ELT (args, 0) = type1;
+  TREE_VEC_ELT (args, 1) = type2;
+  return finish_library_value_trait (loc, ctx, name, args, call,
+				     non_constant_p);
+}
+
+/* Process std::meta::is_{,nothrow_}swappable_type.  */
+
+static tree
+eval_is_swappable_type (location_t loc, const constexpr_ctx *ctx,
+			tree type, tree call, bool *non_constant_p,
+			tree *jump_target, const char *name)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+
+  /* Create std::is_swappable<TYPE>::value.  */
+  tree args = make_tree_vec (1);
+  TREE_VEC_ELT (args, 0) = type;
+  return finish_library_value_trait (loc, ctx, name, args, call,
+				     non_constant_p);
 }
 
 /* Process std::meta::remove_cvref.  */
@@ -4708,13 +4765,15 @@ eval_decay (location_t loc, const constexpr_ctx *ctx, tree type,
   return get_reflection_raw (loc, type);
 }
 
-/* Process std::meta::common_{type,reference}.  */
+/* Helper for various eval_* type trait functions which can't use builtin
+   trait and have to instantiate std::NAME<ARGS>::type.  */
 
 static tree
-eval_common_type (location_t loc, const constexpr_ctx *ctx, tree tvec,
-		  tree call, bool *non_constant_p, const char *name)
+finish_library_type_trait (location_t loc, const constexpr_ctx *ctx,
+			   const char *name, tree args, tree call,
+			   bool *non_constant_p)
 {
-  tree inst = lookup_template_class (get_identifier (name), tvec,
+  tree inst = lookup_template_class (get_identifier (name), args,
 				     /*in_decl*/NULL_TREE,
 				     /*context*/std_node,
 				     tf_warning_or_error);
@@ -4724,12 +4783,22 @@ eval_common_type (location_t loc, const constexpr_ctx *ctx, tree tvec,
     {
       if (!cxx_constexpr_quiet_p (ctx))
 	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::type%>",
-		  name, tvec);
+		  name, args);
       *non_constant_p = true;
       return call;
     }
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
+}
+
+/* Process std::meta::common_{type,reference}.  */
+
+static tree
+eval_common_type (location_t loc, const constexpr_ctx *ctx, tree tvec,
+		  tree call, bool *non_constant_p, const char *name)
+{
+  return finish_library_type_trait (loc, ctx, name, tvec, call,
+				    non_constant_p);
 }
 
 /* Process std::meta::underlying_type.  */
@@ -4764,22 +4833,24 @@ eval_invoke_result (location_t loc, const constexpr_ctx *ctx, tree type,
   TREE_VEC_ELT (args, 0) = type;
   for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
     TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (tvec, i);
-  tree inst = lookup_template_class (get_identifier ("invoke_result"), args,
-				     /*in_decl*/NULL_TREE,
-				     /*context*/std_node,
-				     tf_warning_or_error);
-  tree tret = make_typename_type (inst, type_identifier,
-				  none_type, tf_warning_or_error);
-  if (tret == error_mark_node)
-    {
-      if (!cxx_constexpr_quiet_p (ctx))
-	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::type%>",
-		  "invoke_result", args);
-      *non_constant_p = true;
-      return call;
-    }
-  tret = strip_typedefs (tret);
-  return get_reflection_raw (loc, tret);
+  return finish_library_type_trait (loc, ctx, "invoke_result", args, call,
+				    non_constant_p);
+}
+
+/* Process std::meta::unwrap_{reference,ref_decay}.  */
+
+static tree
+eval_unwrap_reference (location_t loc, const constexpr_ctx *ctx, tree type,
+		       tree call, bool *non_constant_p, tree *jump_target,
+		       const char *name)
+{
+  if (eval_is_type (type) != boolean_true_node)
+    return throw_exception_nontype (loc, ctx, type, jump_target);
+
+  tree args = make_tree_vec (1);
+  TREE_VEC_ELT (args, 0) = type;
+  return finish_library_type_trait (loc, ctx, name, args, call,
+				    non_constant_p);
 }
 
 /* Process std::meta::type_order.  */
@@ -5291,7 +5362,7 @@ eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
 
 static tree
 eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree *jump_target)
+		   tree call, bool *non_constant_p, tree *jump_target)
 {
   if (eval_is_type (type) != boolean_true_node)
     return throw_exception_nontype (loc, ctx, type, jump_target);
@@ -5300,24 +5371,8 @@ eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
   /* Create std::variant_size<TYPE>::value.  */
   tree args = make_tree_vec (1);
   TREE_VEC_ELT (args, 0) = type;
-  tree inst = lookup_template_class (get_identifier ("variant_size"), args,
-				     /*in_decl*/NULL_TREE, /*context*/std_node,
-				     tf_warning_or_error);
-  inst = complete_type (inst);
-  if (inst == error_mark_node
-      || !COMPLETE_TYPE_P (inst)
-      || !CLASS_TYPE_P (inst))
-    return NULL_TREE;
-  tree val = lookup_qualified_name (inst, value_identifier,
-				    LOOK_want::NORMAL, /*complain*/true);
-  if (val == error_mark_node)
-    return NULL_TREE;
-  if (VAR_P (val) || TREE_CODE (val) == CONST_DECL)
-    val = maybe_constant_value (val, NULL_TREE, mce_true);
-  if (TREE_CODE (val) == INTEGER_CST)
-    return val;
-  else
-    return NULL_TREE;
+  return finish_library_value_trait (loc, ctx, "variant_size", args, call,
+				     non_constant_p);
 }
 
 /* Process std::meta::variant_alternative.
@@ -7305,6 +7360,38 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	  return eval_is_nothrow_assignable_type (loc, ctx, h, h1,
 						  jump_target);
 	}
+      if (!strcmp (ident, "swappable_with_type"))
+	{
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
+	  return eval_is_swappable_with_type (loc, ctx, h, h1, call,
+					      non_constant_p, jump_target,
+					      "is_swappable_with");
+	}
+      if (!strcmp (ident, "swappable_type"))
+	return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
+				       jump_target, "is_swappable");
+      if (!strcmp (ident, "nothrow_swappable_with_type"))
+	{
+	  tree i1 = get_info (ctx, call, 1, non_constant_p, overflow_p,
+			      jump_target);
+	  if (*jump_target)
+	    return NULL_TREE;
+	  if (*non_constant_p)
+	    return call;
+	  tree h1 = REFLECT_EXPR_HANDLE (i1);
+	  return eval_is_swappable_with_type (loc, ctx, h, h1, call,
+					      non_constant_p, jump_target,
+					      "is_nothrow_swappable_with");
+	}
+      if (!strcmp (ident, "nothrow_swappable_type"))
+	return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
+				       jump_target, "is_nothrow_swappable");
       if (!strcmp (ident, "data_member_spec"))
 	return eval_is_data_member_spec (h, kind);
       if (!strcmp (ident, "lvalue_reference_qualified"))
@@ -7552,20 +7639,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return tsize;
     }
   if (id_equal (name, "variant_size"))
-    {
-      tree tsize = eval_variant_size (loc, ctx, h, jump_target);
-      if (*jump_target)
-	return NULL_TREE;
-      if (!tsize)
-	{
-	  if (!cxx_constexpr_quiet_p (ctx))
-	    error_at (loc, "couldn%'t compute %qs of %qT", "variant_size", h);
-	  *non_constant_p = true;
-	  return call;
-	}
-      return tsize;
-    }
-  if (!strcmp (ident, "invoke_result"))
+   return eval_variant_size (loc, ctx, h, call, non_constant_p, jump_target);
+  if (id_equal (name, "invoke_result"))
     {
       tree hvec = get_type_info_vec (loc, ctx, call, 1, non_constant_p,
 				     overflow_p, jump_target);
@@ -7576,6 +7651,10 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_invoke_result (loc, ctx, h, hvec, call,
 				 non_constant_p, jump_target);
     }
+  if (id_equal (name, "unwrap_reference")
+      || id_equal (name, "unwrap_ref_decay"))
+    return eval_unwrap_reference (loc, ctx, h, call, non_constant_p,
+				  jump_target, ident);
   if (id_equal (name, "can_substitute"))
     {
       tree hvec = get_info_vec (loc, ctx, call, 1, non_constant_p,

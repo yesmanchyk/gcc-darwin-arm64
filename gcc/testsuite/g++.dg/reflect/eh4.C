@@ -145,6 +145,18 @@ eval (int n)
     case 43:
       invoke_result (^^S, { ^^S, ^^n, ^^S });
       break;
+    case 44:
+      is_swappable_with_type (^^S, ^^n);
+      break;
+    case 45:
+      is_swappable_with_type (^^n, ^^S);
+      break;
+    case 46:
+      is_nothrow_swappable_with_type (^^S, ^^n);
+      break;
+    case 47:
+      is_nothrow_swappable_with_type (^^n, ^^S);
+      break;
     default:
       break;
     }
@@ -203,3 +215,7 @@ static_assert (test (40));
 static_assert (test (41));
 static_assert (test (42));
 static_assert (test (43));
+static_assert (test (44));
+static_assert (test (45));
+static_assert (test (46));
+static_assert (test (47));

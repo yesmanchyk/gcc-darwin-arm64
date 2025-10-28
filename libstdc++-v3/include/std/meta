@@ -443,6 +443,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_copy_assignable_type(info);
     consteval bool is_move_assignable_type(info);
 
+    consteval bool is_swappable_with_type(info, info);
+    consteval bool is_swappable_type(info);
+
     consteval bool is_destructible_type(info);
 
     template<reflection_range _R = initializer_list<info>>
@@ -465,6 +468,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_nothrow_assignable_type(info, info);
     consteval bool is_nothrow_copy_assignable_type(info);
     consteval bool is_nothrow_move_assignable_type(info);
+
+    consteval bool is_nothrow_swappable_with_type(info, info);
+    consteval bool is_nothrow_swappable_type(info);
 
     consteval bool is_nothrow_destructible_type(info);
     consteval bool is_nothrow_relocatable_type(info);
@@ -536,6 +542,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval info underlying_type(info);
     template<reflection_range _R = initializer_list<info>>
       consteval info invoke_result(info, _R&&);
+    consteval info unwrap_reference(info);
+    consteval info unwrap_ref_decay(info);
 
     consteval size_t tuple_size(info);
     consteval info tuple_element(size_t, info);

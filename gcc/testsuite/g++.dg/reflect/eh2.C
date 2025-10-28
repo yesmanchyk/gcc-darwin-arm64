@@ -88,3 +88,7 @@ static_assert ((remove_cvref (^^i), true)); // { dg-error "non-constant|uncaught
 static_assert ((decay (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((underlying_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_implicit_lifetime_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((is_swappable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((is_nothrow_swappable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((unwrap_reference (^^i), true)); // { dg-error "non-constant|uncaught exception" }
+static_assert ((unwrap_ref_decay (^^i), true)); // { dg-error "non-constant|uncaught exception" }
