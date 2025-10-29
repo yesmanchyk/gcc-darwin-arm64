@@ -7446,20 +7446,11 @@ compare_reflections (tree lhs, tree rhs)
   /* Sometimes the ARRAY_REFs differ only in that one has a location
      and the other doesn't.  ??? Maybe strip the location and fall back
      to ==?  */
-  else if (TREE_CODE (lhs) == ARRAY_REF
-	   && TREE_CODE (lhs) == ARRAY_REF)
+  else if (TREE_CODE (lhs) == ARRAY_REF && TREE_CODE (rhs) == ARRAY_REF)
     return (TREE_TYPE (lhs) == TREE_TYPE (rhs)
 	    && TREE_OPERAND (lhs, 0) == TREE_OPERAND (rhs, 0)
 	    && TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1)
 	    && TREE_OPERAND (lhs, 2) == TREE_OPERAND (rhs, 2));
-  /* finish_enum_value_list uses copy_node and then we end up with
-     exactly the same enumerator trees, but not identical.  */
-  // TODO use value = wide_int_to_tree (enumtype, wi::to_wide (value));
-  else if (TREE_CODE (lhs) == INTEGER_CST
-	   && TREE_CODE (rhs) == INTEGER_CST
-	   && TREE_TYPE (lhs) == TREE_TYPE (rhs)
-	   && tree_int_cst_equal (lhs, rhs))
-    return true;
 
   return lhs == rhs;
 }
