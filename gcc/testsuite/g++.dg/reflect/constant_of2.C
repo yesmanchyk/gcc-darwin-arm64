@@ -27,7 +27,7 @@ static constexpr Enum e = A;
 enum EnumCls { CA };
 static constexpr EnumCls ce = CA;
 
-static_assert(constant_of (^^A) != constant_of (^^CA));
+static_assert (constant_of (^^A) != constant_of (^^CA));
 static_assert (constant_of (^^A) != reflect_constant (0));
 static_assert (constant_of (^^A) == reflect_constant (Enum (0)));
 

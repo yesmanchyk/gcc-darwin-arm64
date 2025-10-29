@@ -2322,6 +2322,7 @@ has_type (tree r, reflect_kind kind)
       || eval_is_annotation (r) == boolean_true_node
       || eval_is_function_parameter (r, kind) == boolean_true_node
       || eval_is_object (kind) == boolean_true_node
+      || eval_is_value (kind) == boolean_true_node
       || kind == REFLECT_BASE
       || kind == REFLECT_DATA_MEMBER_SPEC)
     return true;
@@ -2464,20 +2465,26 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   if (eval_is_annotation (r) == boolean_true_node)
     r = TREE_VALUE (TREE_VALUE (r));
-  else
-    {
-      r = convert_from_reference (r);
-      if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
-			      /*address_p=*/false,
-			      /*member_access_p=*/false,
-			      /*complain_p=*/false))
-	return throw_exception (loc, ctx, "reflection does not represent an "
-					  "annotation or a valid argument to "
-					  "a splice-expression",
-				fun, jump_target);
-    }
-  return eval_reflect_constant (loc, ctx, cv_unqualified (TREE_TYPE (r)), r,
-				jump_target, fun);
+  else if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
+			       /*address_p=*/false,
+			       /*member_access_p=*/false,
+			       /*complain_p=*/false)
+	   /* One cannot query the value of a function/function template.
+	      ??? But if [:^^X:] where X is a template is OK, should we
+	      really throw?  */
+	   || eval_is_function (r) == boolean_true_node
+	   || eval_is_template (r) == boolean_true_node)
+    return throw_exception (loc, ctx, "reflection does not represent an "
+				      "annotation or a valid argument to "
+				      "a splice-expression",
+			    fun, jump_target);
+
+  /* Figure out the type for reflect_constant.  */
+  tree type = TREE_TYPE (convert_from_reference (r));
+  type = type_decays_to (type);
+  type = cv_unqualified (type);
+
+  return eval_reflect_constant (loc, ctx, type, r, jump_target, fun);
 }
 
 /* Process std::meta::dealias.

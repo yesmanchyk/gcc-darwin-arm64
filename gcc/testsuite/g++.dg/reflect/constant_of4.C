@@ -34,16 +34,15 @@ static_assert (!constant_of_ok (^^T));
 
 template<typename>
 struct X { };
-// I suppose the [:^^X:] splice-expression is valid, so we don't throw.
-constexpr auto v = constant_of (^^X); // { dg-error "" }
+static_assert (!constant_of_ok (^^X));
 static_assert (!constant_of_ok (^^X<int>));
 
 constexpr int foo () { return 42; }
-constexpr auto v2 = constant_of (^^foo); // { dg-error "" }
+static_assert (!constant_of_ok (^^foo));
 
 template<int N>
 constexpr int bar () { return N; }
-constexpr auto v3 = constant_of (^^bar); // { dg-error "" }
+static_assert (!constant_of_ok (^^bar));
 
 template<int N>
 constexpr int V = N;
