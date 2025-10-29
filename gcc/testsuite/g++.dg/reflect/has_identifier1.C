@@ -12,6 +12,8 @@ struct S { };
 using T = int;
 using U = S;
 enum E { E1, E2 };
+enum { E3, E4 };
+typedef enum { E5, E6 } E7;
 
 static_assert (!has_identifier (null_reflection));
 static_assert (!has_identifier (^^int));
@@ -26,11 +28,11 @@ static_assert (!has_identifier (^^int));
 static_assert (!has_identifier (^^unsigned long long));
 static_assert (!has_identifier (^^long &&));
 static_assert (has_identifier (^^E1));
-// TODO: the standard doesn't specify what happens on enumeral types.
-// nor annotations nor non-class non-type alias types.
-// We probably want has_identifier on enumeral types unless they
-// are unnamed, but I think not on other types and not on annotations.
-//static_assert (has_identifier (^^E));
+static_assert (has_identifier (^^E));
+static_assert (!has_identifier (parent_of (^^E3)));
+static_assert (has_identifier (parent_of (^^E5)));
+static_assert (has_identifier (^^E7));
+static_assert (has_identifier (dealias (^^E7)));
 [[=1]] int w;
 static_assert (!has_identifier (annotations_of (^^w)[0]));
 static_assert (!has_identifier (data_member_spec (^^int, { .bit_width = 0 })));
@@ -60,6 +62,7 @@ typedef struct {
 } SV;
 static_assert (has_identifier (^^SV));
 static_assert (has_identifier (parent_of (^^SV::a)));
+static_assert (has_identifier (dealias (^^SV)));
 
 template <int N>
 struct ST
@@ -211,3 +214,10 @@ corge ()
 {
   __extension__ constexpr bool b = has_identifier (({ struct S2 { }; ^^S2; }));
 }
+
+typedef enum {
+  E8,
+  E9 = has_identifier (parent_of (^^E8)) ? 2 : 3,
+} E10;
+static_assert (E9 == 3);
+static_assert (has_identifier (parent_of (^^E8)));

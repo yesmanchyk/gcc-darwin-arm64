@@ -3072,12 +3072,19 @@ eval_has_identifier (tree r, reflect_kind kind)
 		     || (DECL_P (TYPE_NAME (r))
 			 && !DECL_NAME (TYPE_NAME (r)))))
     return boolean_false_node;
-  if (CLASS_TYPE_P (r))
+  if (CLASS_TYPE_P (r) || eval_is_type_alias (r) == boolean_true_node)
     {
       if (eval_has_template_arguments (r) == boolean_true_node)
 	return boolean_false_node;
       else
 	return boolean_true_node;
+    }
+  if (TYPE_P (r))
+    {
+      if (TREE_CODE (r) == ENUMERAL_TYPE)
+	return boolean_true_node;
+      else
+	return boolean_false_node;
     }
   if (eval_is_function (r) == boolean_true_node)
     {
@@ -3128,13 +3135,6 @@ eval_has_identifier (tree r, reflect_kind kind)
   if (eval_is_structured_binding (r) == boolean_true_node)
     {
       if (strchr (IDENTIFIER_POINTER (DECL_NAME (r)), '#'))
-	return boolean_false_node;
-      else
-	return boolean_true_node;
-    }
-  if (eval_is_type_alias (r) == boolean_true_node)
-    {
-      if (eval_has_template_arguments (r) == boolean_true_node)
 	return boolean_false_node;
       else
 	return boolean_true_node;

@@ -17,6 +17,8 @@ struct S { };
 using T = int;
 using U = S;
 enum E { E1, E2 };
+enum { E3, E4 };
+typedef enum { E5, E6 } E7;
 
 static_assert (u8identifier_of (^^T) == std::u8string_view (u8"T"));
 static_assert (u8identifier_of (^^S) == std::u8string_view (u8"S"));
@@ -24,11 +26,9 @@ static_assert (u8identifier_of (^^U) == std::u8string_view (u8"U"));
 static_assert (u8identifier_of (^^std) == std::u8string_view (u8"std"));
 static_assert (u8identifier_of (^^std::meta) == std::u8string_view (u8"meta"));
 static_assert (u8identifier_of (^^E1) == std::u8string_view (u8"E1"));
-// TODO: the standard doesn't specify what happens on enumeral types.
-// nor annotations nor non-class non-type alias types.
-// We probably want u8identifier_of on enumeral types unless they
-// are unnamed, but I think not on other types and not on annotations.
-//static_assert (u8identifier_of (^^E) == std::u8string_view (u8"E"));
+static_assert (u8identifier_of (^^E) == std::u8string_view (u8"E"));
+static_assert (u8identifier_of (parent_of (^^E5)) == std::u8string_view (u8"E7"));
+static_assert (u8identifier_of (^^E7) == std::u8string_view (u8"E7"));
 static_assert (u8identifier_of (data_member_spec (^^long, { .name = u8"foo", .bit_width = 6 })) == std::u8string_view (u8"foo"));
 static_assert (u8identifier_of (data_member_spec (^^long, { .name = u8"extremely_long_string_used_as_identifier" })) == std::u8string_view (u8"extremely_long_string_used_as_identifier"));
 
@@ -50,6 +50,7 @@ typedef struct {
 } SV;
 static_assert (u8identifier_of (^^SV) == std::u8string_view (u8"SV"));
 static_assert (u8identifier_of (parent_of (^^SV::a)) == std::u8string_view (u8"SV"));
+static_assert (u8identifier_of (dealias (^^SV)) == std::u8string_view (u8"SV"));
 
 template <int N>
 struct ST
@@ -159,3 +160,9 @@ static_assert (u8identifier_of (^^s) == std::u8string_view (u8"s"));
 int qu\u00E6 = 1;
 
 static_assert (u8identifier_of (^^qu\u00E6) == std::u8string_view (u8"qu\N{LATIN SMALL LETTER AE}"));
+
+typedef enum {
+  E8,
+  E9
+} E10;
+static_assert (u8identifier_of (parent_of (^^E8)) == std::u8string_view (u8"E10"));

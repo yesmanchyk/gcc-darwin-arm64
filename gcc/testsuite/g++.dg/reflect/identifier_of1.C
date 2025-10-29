@@ -17,6 +17,8 @@ struct S { };
 using T = int;
 using U = S;
 enum E { E1, E2 };
+enum { E3, E4 };
+typedef enum { E5, E6 } E7;
 
 static_assert (identifier_of (^^T) == std::string_view ("T"));
 static_assert (identifier_of (^^S) == std::string_view ("S"));
@@ -24,11 +26,10 @@ static_assert (identifier_of (^^U) == std::string_view ("U"));
 static_assert (identifier_of (^^std) == std::string_view ("std"));
 static_assert (identifier_of (^^std::meta) == std::string_view ("meta"));
 static_assert (identifier_of (^^E1) == std::string_view ("E1"));
-// TODO: the standard doesn't specify what happens on enumeral types.
-// nor annotations nor non-class non-type alias types.
-// We probably want identifier_of on enumeral types unless they
-// are unnamed, but I think not on other types and not on annotations.
-//static_assert (identifier_of (^^E) == std::string_view ("E"));
+static_assert (identifier_of (^^E) == std::string_view ("E"));
+static_assert (identifier_of (parent_of (^^E5)) == std::string_view ("E7"));
+static_assert (identifier_of (^^E7) == std::string_view ("E7"));
+static_assert (identifier_of (dealias (^^E7)) == std::string_view ("E7"));
 static_assert (identifier_of (data_member_spec (^^long, { .name = "foo", .bit_width = 6 })) == std::string_view ("foo"));
 static_assert (identifier_of (data_member_spec (^^long, { .name = "extremely_long_string_used_as_identifier" })) == std::string_view ("extremely_long_string_used_as_identifier"));
 
@@ -50,6 +51,7 @@ typedef struct {
 } SV;
 static_assert (identifier_of (^^SV) == std::string_view ("SV"));
 static_assert (identifier_of (parent_of (^^SV::a)) == std::string_view ("SV"));
+static_assert (identifier_of (dealias (^^SV)) == std::string_view ("SV"));
 
 template <int N>
 struct ST
@@ -155,3 +157,9 @@ struct {
 } s;
 
 static_assert (identifier_of (^^s) == std::string_view ("s"));
+
+typedef enum {
+  E8,
+  E9
+} E10;
+static_assert (identifier_of (parent_of (^^E8)) == std::string_view ("E10"));
