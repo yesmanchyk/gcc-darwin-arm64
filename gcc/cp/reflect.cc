@@ -1114,7 +1114,13 @@ eval_is_variable (const_tree r, reflect_kind kind)
 	  /* The definition of a variable excludes non-static data members.  */
 	  && !DECL_ANON_UNION_VAR_P (r)
 	  /* A structured binding is not a variable.  */
-	  && !(DECL_DECOMPOSITION_P (r) && !DECL_DECOMP_IS_BASE (r))))
+	  && !(DECL_DECOMPOSITION_P (r) && !DECL_DECOMP_IS_BASE (r)))
+      || (VAR_P (r)
+	  /* Underlying variable of tuple using structured binding is a
+	     variable.  */
+	  && kind == REFLECT_VAR
+	  && DECL_DECOMPOSITION_P (r)
+	  && !DECL_DECOMP_IS_BASE (r)))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -1303,9 +1309,11 @@ get_type_info_vec (location_t loc, const constexpr_ctx *ctx, tree call, int n,
    Returns: true if r represents a structured binding.  Otherwise, false.  */
 
 static tree
-eval_is_structured_binding (const_tree r)
+eval_is_structured_binding (const_tree r, reflect_kind kind)
 {
-  if (DECL_DECOMPOSITION_P (r) && !DECL_DECOMP_IS_BASE (r))
+  if (DECL_DECOMPOSITION_P (r)
+      && !DECL_DECOMP_IS_BASE (r)
+      && kind != REFLECT_VAR)
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -3138,7 +3146,7 @@ eval_has_identifier (tree r, reflect_kind kind)
       else
 	return boolean_true_node;
     }
-  if (eval_is_structured_binding (r) == boolean_true_node)
+  if (eval_is_structured_binding (r, kind) == boolean_true_node)
     {
       if (strchr (IDENTIFIER_POINTER (DECL_NAME (r)), '#'))
 	return boolean_false_node;
@@ -6030,22 +6038,73 @@ static vec<constructor_elt, va_gc> *
 namespace_members_of (location_t loc, tree ns)
 {
   vec<constructor_elt, va_gc> *elts = nullptr;
-  for (tree b : *DECL_NAMESPACE_BINDINGS (ns))
+  hash_set<tree> *seen = nullptr;
+  for (tree o : *DECL_NAMESPACE_BINDINGS (ns))
     {
-      tree m = b;
-      if (VAR_P (b) && DECL_ANON_UNION_VAR_P (b))
-	continue;
-      if (TREE_CODE (b) == TYPE_DECL)
-	m = TREE_TYPE (b);
-      if (!members_of_representable_p (ns, m))
-	continue;
-      if (DECL_DECOMPOSITION_P (m) && !DECL_DECOMP_IS_BASE (m))
-	continue;
-      /* I don't see much point in calling eval_is_accessible here,
-	 won't it always return true?  */
-      CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
-			      get_reflection_raw (loc, m));
+      if (TREE_CODE (o) == OVERLOAD && OVL_LOOKUP_P (o))
+	{
+	  if (TREE_TYPE (o))
+	    {
+	      tree m = TREE_TYPE (TREE_TYPE (o));
+	      if (members_of_representable_p (ns, m))
+		CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+					get_reflection_raw (loc, m));
+	    }
+	  if (OVL_DEDUP_P (o) || !OVL_FUNCTION (o))
+	    continue;
+	  o = OVL_FUNCTION (o);
+	}
+      for (ovl_iterator iter (o); iter; ++iter)
+	{
+	  if (iter.hidden_p ())
+	    continue;
+	  tree b = *iter;
+	  tree m = b;
+
+	  if (VAR_P (b) && DECL_ANON_UNION_VAR_P (b))
+	    {
+	      /* TODO: This doesn't handle namespace N { static union {}; }
+		 but we pedwarn on that, so perhaps it doesn't need to be
+		 handled.  */
+	      tree v = DECL_VALUE_EXPR (b);
+	      gcc_assert (v && TREE_CODE (v) == COMPONENT_REF);
+	      tree var = TREE_OPERAND (v, 0);
+	      tree type = TREE_TYPE (var);
+	      if (!seen)
+		seen = new hash_set<tree>;
+	      if (members_of_representable_p (ns, type) && !seen->add (type))
+		CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+					get_reflection_raw (loc, type));
+	      if (members_of_representable_p (ns, var) && !seen->add (var))
+		CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+					get_reflection_raw (loc, var));
+	      continue;
+	    }
+	  if (TREE_CODE (b) == TYPE_DECL)
+	    m = TREE_TYPE (b);
+	  if (!members_of_representable_p (ns, m))
+	    continue;
+	  if (DECL_DECOMPOSITION_P (m) && !DECL_DECOMP_IS_BASE (m))
+	    {
+	      tree base = DECL_DECOMP_BASE (m);
+	      if (!seen)
+		seen = new hash_set<tree>;
+	      if (members_of_representable_p (ns, base) && !seen->add (base))
+		CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+					get_reflection_raw (loc, base));
+	      if (!DECL_HAS_VALUE_EXPR_P (m))
+		CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+					get_reflection_raw (loc, m,
+							    REFLECT_VAR));
+	      continue;
+	    }
+	  /* I don't see much point in calling eval_is_accessible here,
+	     won't it always return true?  */
+	  CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
+				  get_reflection_raw (loc, m));
+	}
     }
+  delete seen;
   if (elts)
     elts->qsort (members_cmp);
   return elts;
@@ -6941,7 +7000,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_OBJECT:
       return eval_is_object (kind);
     case METAFN_IS_STRUCTURED_BINDING:
-      return eval_is_structured_binding (h);
+      return eval_is_structured_binding (h, kind);
     case METAFN_IS_CLASS_MEMBER:
       return eval_is_class_member (h);
     case METAFN_IS_NAMESPACE_MEMBER:

@@ -1926,6 +1926,9 @@ enum reflect_kind : addr_space_t {
   REFLECT_OBJECT,
   /* The reflection represents a value.  */
   REFLECT_VALUE,
+  /* The reflection represents a variable.  Used for underlying
+     variable of tuple structured binding.  */
+  REFLECT_VAR,
   /* The reflection represents a function parameter.  */
   REFLECT_PARM,
   /* The reflection represents a data member description.  */
