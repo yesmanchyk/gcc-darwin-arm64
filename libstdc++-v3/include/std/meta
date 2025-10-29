@@ -87,8 +87,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.exception], class exception
     class exception : public std::exception {
     private:
-      //optional<string> _M_what;
-      std::string_view _M_what;
+      string _M_what;
       u8string _M_u8what;
       info _M_from;
       source_location _M_where;
@@ -97,12 +96,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       consteval exception(u8string_view __what, info __from,
 			  source_location __where
 			  = source_location::current()) noexcept
-	: _M_u8what{__what}, _M_from{__from}, _M_where{__where} { }
+	: _M_what{_S_exception_cvt_from_utf8(__what)}, _M_u8what{__what},
+	  _M_from{__from}, _M_where{__where} {}
 
       consteval exception(string_view __what, info __from,
 			  source_location __where
 			  = source_location::current()) noexcept
-	: _M_what{__what}, _M_from{__from}, _M_where{__where} { }
+	: _M_what{__what}, _M_u8what{_S_exception_cvt_to_utf8(__what)},
+	  _M_from{__from}, _M_where{__where} {}
 
       exception(const exception&) = default;
       exception(exception&&) = default;
@@ -111,10 +112,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       exception& operator=(exception&&) = default;
 
       constexpr const char *what() const noexcept override
-      { return _M_what.data (); }
+      {
+	// If u8string is not empty and string is empty, conversion
+	// from UTF-8 to ordinary literal encoding failed.
+	// In that case what() should be non-constant.
+	if (_M_what.size() == 0 && _M_u8what.size() != 0)
+	  asm("");
+	return _M_what.c_str();
+      }
       consteval u8string_view u8what() const noexcept { return _M_u8what; }
       consteval info from() const noexcept { return _M_from; }
       consteval source_location where() const noexcept { return _M_where; }
+    private:
+      // Helper special template metafunctions to convert from UTF-8 to
+      // ordinary literal encoding and vice versa.  On conversion failure
+      // they just return an empty {,u8}string_view.
+      template<ranges::input_range _R>
+        static consteval u8string_view _S_exception_cvt_to_utf8(_R&&);
+      template<ranges::input_range _R>
+        static consteval string_view _S_exception_cvt_from_utf8(_R&&);
     };
 
     // [meta.reflection.operators], operator representations

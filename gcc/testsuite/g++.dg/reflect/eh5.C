@@ -23,7 +23,8 @@ foo (info x)
       std::source_location loc = ex.where ();
       if (loc.line () != std::source_location::current ().line () - 7
 	  || from != ^^std::meta::is_class_type
-	  || what != "reflection does not represent a type")
+	  || what != "reflection does not represent a type"
+	  || ex.u8what () != u8"reflection does not represent a type")
 	return false;
       return true;
     }
@@ -44,7 +45,8 @@ bar (info x)
       std::source_location loc = ex.where ();
       if (loc.line () != std::source_location::current ().line () - 7
 	  || from != ^^std::meta::parameters_of
-	  || what != "reflection does not represent a function or function type")
+	  || what != "reflection does not represent a function or function type"
+	  || ex.u8what () != u8"reflection does not represent a function or function type")
 	return false;
       return true;
     }
@@ -65,7 +67,8 @@ baz (info x)
       std::source_location loc = ex.where ();
       if (loc.line () != std::source_location::current ().line () - 7
 	  || from != ^^std::meta::data_member_spec
-	  || what != "name is a keyword")
+	  || what != "name is a keyword"
+	  || ex.u8what () != u8"name is a keyword")
 	return false;
       return true;
     }
@@ -86,7 +89,8 @@ qux (info x)
       std::source_location loc = ex.where ();
       if (loc.line () != std::source_location::current ().line () - 7
 	  || from != ^^std::meta::can_substitute
-	  || what != "invalid argument to can_substitute")
+	  || what != "invalid argument to can_substitute"
+	  || ex.u8what () != u8"invalid argument to can_substitute")
 	return false;
       return true;
     }

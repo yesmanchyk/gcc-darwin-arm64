@@ -3726,7 +3726,7 @@ cxa_allocate_and_throw_exception (location_t loc, const constexpr_ctx *ctx,
   /* This simulates a call to __cxa_allocate_exception.  We need
      (struct exception *) &heap -- memory on the heap so that
      it can survive the stack being unwound.  */
-  tree arr = build_array_type_nelts (type, 1);
+  tree arr = build_array_of_n_type (type, 1);
   tree var = cxa_allocate_exception (loc, ctx, arr, size_zero_node);
   DECL_NAME (var) = heap_identifier;
   ctx->global->put_value (var, NULL_TREE);

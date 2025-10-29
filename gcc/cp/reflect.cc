@@ -1,4 +1,4 @@
-  /* C++ reflection code.
+/* C++ reflection code.
    Copyright (C) 2025 Free Software Foundation, Inc.
    Written by Marek Polacek <polacek@redhat.com>
 
@@ -521,7 +521,7 @@ fail_ret:
 	  {
 	    if (TREE_CODE (retvec[i]) != INTEGER_CST)
 	      return throw_exception (loc, ctx,
-				      N_("array element not a constant integer"),
+				      "array element not a constant integer",
 				      fun, jump_target);
 	  }
 	else
@@ -529,7 +529,7 @@ fail_ret:
 	    gcc_assert (kind == REFLECT_CONSTANT_ARRAY);
 	    tree expr = convert_reflect_constant_arg (valuet, retvec[i]);
 	    if (expr == error_mark_node)
-	      return throw_exception (loc, ctx, N_("reflect_constant failed"),
+	      return throw_exception (loc, ctx, "reflect_constant failed",
 				      fun, jump_target);
 	    if (VAR_P (expr))
 	      expr = unshare_expr (DECL_INITIAL (expr));
@@ -918,9 +918,21 @@ get_meta_exception_object (location_t loc, const char *what, tree from)
   type = TREE_TYPE (type);
   vec<constructor_elt, va_gc> *elts = nullptr;
   what = _(what);
+  /* Translate what from SOURCE_CHARSET to exec charset.  */
+  cpp_string istr, ostr;
+  istr.len = strlen (what) + 1;
+  istr.text = (const unsigned char *) what;
+  if (!cpp_translate_string (parse_in, &istr, &ostr, CPP_STRING, false))
+    {
+      what = "";
+      ostr.text = NULL;
+    }
+  else
+    what = (const char *) ostr.text;
   if (TREE_CODE (from) == FUNCTION_DECL && DECL_TEMPLATE_INFO (from))
     from = DECL_TI_TEMPLATE (from);
   tree string_lit = build_string (strlen (what) + 1, what);
+  free (const_cast <unsigned char *> (ostr.text));
   TREE_TYPE (string_lit) = char_array_type_node;
   string_lit = fix_string_type (string_lit);
   CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE, string_lit);
@@ -2230,20 +2242,14 @@ eval_operator_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 temp_string_literal (const char *name, tree elt_type)
 {
-  cpp_string cstr = { 0, 0 }, strname;
-  size_t len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
-  char *namep = XNEWVEC (char, len);
-  snprintf (namep, len, "\"%s\"", name);
-  strname.text = (unsigned char *) namep;
-  strname.len = len - 1;
-  if (!cpp_interpret_string (parse_in, &strname, 1, &cstr,
+  cpp_string istr, ostr;
+  istr.len = strlen (name) + 1;
+  istr.text = (const unsigned char *) name;
+  if (!cpp_translate_string (parse_in, &istr, &ostr,
 			     elt_type == char_type_node
-			     ? CPP_STRING : CPP_UTF8STRING))
-    {
-      XDELETEVEC (namep);
-      return NULL_TREE;
-    }
-  name = (const char *) cstr.text;
+			     ? CPP_STRING : CPP_UTF8STRING, false))
+    return NULL_TREE;
+  name = (const char *) ostr.text;
   tree ret = build_string_literal (strlen (name) + 1, name, elt_type);
   free (const_cast <char *> (name));
   return ret;
@@ -6514,6 +6520,116 @@ eval_has_inaccessible_subobjects (location_t loc, const constexpr_ctx *ctx,
 						       jump_target, fun);
 }
 
+/* Implement std::meta::exception::_S_exception_cvt_to_utf8.  This is
+   an implementation specific metafunction which translates string_view
+   into u8string_view for use in std::meta::exception constructors.
+   On translation failure returns an empty u8string_view.  */
+
+static tree
+eval_exception__S_exception_cvt_to_utf8 (location_t loc,
+					 const constexpr_ctx *ctx,
+					 tree call, bool *non_constant_p,
+					 bool *overflow_p, tree *jump_target,
+					 tree fun)
+{
+  tree str = get_range_elts (loc, ctx, call, 0, non_constant_p, overflow_p,
+			     jump_target, REFLECT_CONSTANT_STRING, fun);
+  if (*jump_target)
+    return NULL_TREE;
+  if (*non_constant_p)
+    return call;
+  if (TREE_CODE (str) != STRING_CST
+      || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (str))) != char_type_node)
+    {
+      error_at (loc, "unexpected argument to %<_S_exception_cvt_to_utf8%>");
+      *non_constant_p = true;
+      return call;
+    }
+  /* We need to translate the string twice for the theoretical case
+     of non-UTF8 SOURCE_CHARSET.  First translate from exec charset to
+     SOURCE_CHARSET...  */
+  cpp_string istr, ostr;
+  istr.len = TREE_STRING_LENGTH (str) + 1;
+  istr.text = (const unsigned char *) TREE_STRING_POINTER (str);
+  const char *name;
+  if (!cpp_translate_string (parse_in, &istr, &ostr, CPP_STRING, true))
+    {
+      ostr.text = NULL;
+      name = "";
+    }
+  else
+    name = (const char *) ostr.text;
+  /* And then let temp_string_literal translate from SOURCE_CHARSET to
+     UTF-8.  */
+  str = temp_string_literal (name, char8_type_node);
+  free (const_cast <unsigned char *> (ostr.text));
+  if (str == NULL_TREE)
+    {
+      str = temp_string_literal ("", char8_type_node);
+      gcc_assert (str);
+    }
+  releasing_vec args (make_tree_vector_single (str));
+  tree ret = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					&args, TREE_TYPE (call), LOOKUP_NORMAL,
+					tf_warning_or_error);
+  return build_cplus_new (TREE_TYPE (call), ret, tf_warning_or_error);
+}
+
+/* Implement std::meta::exception::_S_exception_cvt_from_utf8.  This is
+   an implementation specific metafunction which translates u8string_view
+   into string_view for use in std::meta::exception constructors.
+   On translation failure returns an empty string_view.  */
+
+static tree
+eval_exception__S_exception_cvt_from_utf8 (location_t loc,
+					   const constexpr_ctx *ctx,
+					   tree call, bool *non_constant_p,
+					   bool *overflow_p, tree *jump_target,
+					   tree fun)
+{
+  tree str = get_range_elts (loc, ctx, call, 0, non_constant_p, overflow_p,
+			     jump_target, REFLECT_CONSTANT_STRING, fun);
+  if (*jump_target)
+    return NULL_TREE;
+  if (*non_constant_p)
+    return call;
+  if (TREE_CODE (str) != STRING_CST
+      || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (str))) != char8_type_node)
+    {
+      error_at (loc, "unexpected argument to %<_S_exception_cvt_from_utf8%>");
+      *non_constant_p = true;
+      return call;
+    }
+  /* We need to translate the string twice for the theoretical case
+     of non-UTF8 SOURCE_CHARSET.  First translate from UTF-8 to
+     SOURCE_CHARSET...  */
+  cpp_string istr, ostr;
+  istr.len = TREE_STRING_LENGTH (str) + 1;
+  istr.text = (const unsigned char *) TREE_STRING_POINTER (str);
+  const char *name;
+  if (!cpp_translate_string (parse_in, &istr, &ostr, CPP_UTF8STRING, true))
+    {
+      ostr.text = NULL;
+      name = "";
+    }
+  else
+    name = (const char *) ostr.text;
+  /* And then let temp_string_literal translate from SOURCE_CHARSET to
+     exec charset.  */
+  str = temp_string_literal (name, char_type_node);
+  free (const_cast <unsigned char *> (ostr.text));
+  if (str == NULL_TREE)
+    {
+      str = temp_string_literal ("", char_type_node);
+      gcc_assert (str);
+    }
+  releasing_vec args (make_tree_vector_single (str));
+  tree ret = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					&args, TREE_TYPE (call), LOOKUP_NORMAL,
+					tf_warning_or_error);
+  return build_cplus_new (TREE_TYPE (call), ret, tf_warning_or_error);
+}
+
 #include "metafns.h"
 
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
@@ -7205,6 +7321,28 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 	  && id_equal (DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun))),
 		       "access_context"))
 	return eval_access_context_current (loc, ctx, call, non_constant_p);
+      goto not_found;
+    case METAFN_EXCEPTION__S_EXCEPTION_CVT_TO_UTF8:
+    case METAFN_EXCEPTION__S_EXCEPTION_CVT_FROM_UTF8:
+      if (DECL_CLASS_SCOPE_P (fun)
+	  && TYPE_NAME (DECL_CONTEXT (fun))
+	  && TREE_CODE (TYPE_NAME (DECL_CONTEXT (fun))) == TYPE_DECL
+	  && DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun)))
+	  && id_equal (DECL_NAME (TYPE_NAME (DECL_CONTEXT (fun))),
+		       "exception"))
+	{
+	  if (minfo->code == METAFN_EXCEPTION__S_EXCEPTION_CVT_TO_UTF8)
+	    return eval_exception__S_exception_cvt_to_utf8 (loc, ctx, call,
+							    non_constant_p,
+							    overflow_p,
+							    jump_target, fun);
+	  else
+	    return eval_exception__S_exception_cvt_from_utf8 (loc, ctx, call,
+							      non_constant_p,
+							      overflow_p,
+							      jump_target,
+							      fun);
+	}
       goto not_found;
     }
   goto not_found;
