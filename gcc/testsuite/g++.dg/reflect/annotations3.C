@@ -76,3 +76,11 @@ struct V { int a, b, c; };
 static_assert (type_of (annotations_of (^^an)[0]) == ^^int);
 static_assert (type_of (annotations_of (^^an)[1]) == ^^const V);
 static_assert (type_of (annotations_of (^^an)[2]) == ^^double);
+
+struct W { [[=1, =2L, =3U, =4UL]] int a; [[=V { 2, 3, 4 }, =1.0f]] int b; };
+static_assert (type_of (annotations_of (^^W::a)[0]) == ^^int);
+static_assert (type_of (annotations_of (^^W::a)[1]) == ^^long);
+static_assert (type_of (annotations_of (^^W::a)[2]) == ^^unsigned);
+static_assert (type_of (annotations_of (^^W::a)[3]) == ^^long unsigned);
+static_assert (type_of (annotations_of (^^W::b)[0]) == ^^const V);
+static_assert (type_of (annotations_of (^^W::b)[1]) == ^^float);

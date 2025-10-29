@@ -3450,7 +3450,7 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	|| eval_is_namespace (r) == boolean_true_node
 	|| eval_is_enumerator (r) == boolean_true_node
 	/* || eval_is_base (r) == boolean_true_node */
-	/* || eval_is_nonstatic_data_member (r) == boolean_true_node */))
+	|| eval_is_nonstatic_data_member (r) == boolean_true_node))
     return throw_exception (loc, ctx,
 			    "reflection does not represent a type,"
 			    " type alias, variable, function, namespace,"
