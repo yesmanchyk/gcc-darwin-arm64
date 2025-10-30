@@ -2958,7 +2958,7 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
     type = TREE_TYPE (r);
   else
     type = type_of (r, kind);
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  if (!complete_type_or_maybe_complain (type, NULL_TREE, tf_none))
     return throw_exception (loc, ctx, "reflection with incomplete type",
 			    fun, jump_target);
   tree ret = c_sizeof_or_alignof_type (loc, type, true, false, 0);
@@ -3017,7 +3017,7 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
     return fold_convert (ret_type, TREE_VEC_ELT (r, 3));
   else
     type = type_of (r, kind);
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  if (!complete_type_or_maybe_complain (type, NULL_TREE, tf_none))
     return throw_exception (loc, ctx, "reflection with incomplete type",
 			    fun, jump_target);
   tree ret = c_sizeof_or_alignof_type (loc, type, true, false, 0);
@@ -3461,7 +3461,8 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
   if (type)
     {
       type = maybe_strip_typedefs (type);
-      if (!TYPE_P (type) || !COMPLETE_TYPE_P (type))
+      if (!TYPE_P (type)
+	  || !complete_type_or_maybe_complain (type, NULL_TREE, tf_none))
 	return throw_exception (loc, ctx,
 				"reflection does not represent a complete"
 				" type or type alias", fun, jump_target);
@@ -6158,6 +6159,9 @@ class_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	      || DECL_BASE_DESTRUCTOR_P (field)
 	      || DECL_DELETING_DESTRUCTOR_P (field))
 	    continue;
+	  /* Ignore functions with unsatisfied constraints.  */
+	  if (!constraints_satisfied_p (field))
+	    continue;
 	}
       if (members_of_representable_p (r, m))
 	{
@@ -6340,7 +6344,8 @@ eval_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
   vec<constructor_elt, va_gc> *elts;
   if (TREE_CODE (r) == NAMESPACE_DECL)
     elts = namespace_members_of (loc, r);
-  else if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  else if (CLASS_TYPE_P (r)
+	   && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
 			       jump_target, 0, fun);
@@ -6372,7 +6377,8 @@ eval_bases_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  if (CLASS_TYPE_P (r)
+      && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
 			     jump_target, 0, fun);
@@ -6400,7 +6406,8 @@ eval_static_data_members_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  if (CLASS_TYPE_P (r)
+      && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
 			       jump_target, 1, fun);
@@ -6429,7 +6436,8 @@ eval_nonstatic_data_members_of (location_t loc, const constexpr_ctx *ctx,
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  if (CLASS_TYPE_P (r)
+      && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       elts = class_members_of (loc, ctx, r, actx, call, non_constant_p,
 			       jump_target, 2, fun);
@@ -6458,7 +6466,8 @@ eval_subobjects_of (location_t loc, const constexpr_ctx *ctx, tree r,
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  if (CLASS_TYPE_P (r)
+      && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
 			     jump_target, 0, fun);
@@ -6502,7 +6511,8 @@ eval_has_inaccessible_nonstatic_data_members (location_t loc,
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  if (CLASS_TYPE_P (r)
+      && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       if (LAMBDA_TYPE_P (r))
 	return throw_exception (loc, ctx, "closure type", fun,
@@ -6537,7 +6547,8 @@ eval_has_inaccessible_bases (location_t loc, const constexpr_ctx *ctx,
 {
   r = maybe_strip_typedefs (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
-  if (CLASS_TYPE_P (r) && COMPLETE_TYPE_P (r))
+  if (CLASS_TYPE_P (r)
+      && complete_type_or_maybe_complain (r, NULL_TREE, tf_none))
     {
       elts = class_bases_of (loc, ctx, r, actx, call, non_constant_p,
 			     jump_target, 1, fun);

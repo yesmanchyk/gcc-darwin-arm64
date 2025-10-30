@@ -457,3 +457,68 @@ static_assert ((members_of (^^N2, gctx) | filter (is_namespace) | to <vector> ()
 static_assert ((members_of (^^N2, gctx) | filter (is_namespace_alias) | to <vector> ()).size () == 1);
 static_assert ((members_of (^^N2, gctx) | filter (is_concept) | to <vector> ()).size () == 1);
 static_assert ((members_of (^^N2, gctx) | filter (is_variable) | to <vector> ()).size () == 1);
+
+namespace N3 {
+  struct A {
+    union { int a; };
+  };
+
+  struct B {
+    static int foo (int);
+    static long foo (long);
+    static short foo (short);
+    static int foo (int, int);
+    static double foo (double, float);
+  };
+
+  template <typename, typename>
+  constexpr bool c = false;
+
+  template <typename T>
+  constexpr bool c <T, T> = true;
+
+  template <typename T>
+  struct C {
+    void foo () requires (c <T, int>);
+    void bar () requires (c <T, long>);
+    void baz () requires (c <T, long>);
+  };
+}
+
+static_assert (members_of (^^N3::A, gctx).size () == 8);
+static_assert (is_union_type (members_of (^^N3::A, gctx)[0]));
+static_assert (!has_identifier (members_of (^^N3::A, gctx)[0]));
+static_assert (is_nonstatic_data_member (members_of (^^N3::A, gctx)[1]));
+static_assert (!has_identifier (members_of (^^N3::A, gctx)[1]));
+static_assert (check_special_members (members_of (^^N3::A, gctx), 6, true, true, true, true, true, true));
+
+static_assert (members_of (^^N3::B, gctx).size () == 11);
+static_assert (is_function (members_of (^^N3::B, gctx)[0]));
+static_assert (identifier_of (members_of (^^N3::B, gctx)[0]) == "foo");
+static_assert (type_of (members_of (^^N3::B, gctx)[0]) == ^^int (int));
+static_assert (is_function (members_of (^^N3::B, gctx)[1]));
+static_assert (identifier_of (members_of (^^N3::B, gctx)[1]) == "foo");
+static_assert (type_of (members_of (^^N3::B, gctx)[1]) == ^^long (long));
+static_assert (is_function (members_of (^^N3::B, gctx)[2]));
+static_assert (identifier_of (members_of (^^N3::B, gctx)[2]) == "foo");
+static_assert (type_of (members_of (^^N3::B, gctx)[2]) == ^^short (short));
+static_assert (is_function (members_of (^^N3::B, gctx)[3]));
+static_assert (identifier_of (members_of (^^N3::B, gctx)[3]) == "foo");
+static_assert (type_of (members_of (^^N3::B, gctx)[3]) == ^^int (int, int));
+static_assert (is_function (members_of (^^N3::B, gctx)[4]));
+static_assert (identifier_of (members_of (^^N3::B, gctx)[4]) == "foo");
+static_assert (type_of (members_of (^^N3::B, gctx)[4]) == ^^double (double, float));
+static_assert (check_special_members (members_of (^^N3::B, gctx), 6, true, true, true, true, true, true));
+
+static_assert (members_of (^^N3::C <int>, gctx).size () == 7);
+static_assert (is_function (members_of (^^N3::C <int>, gctx)[0]));
+static_assert (identifier_of (members_of (^^N3::C <int>, gctx)[0]) == "foo");
+static_assert (check_special_members (members_of (^^N3::C <int>, gctx), 6, true, true, true, true, true, true));
+static_assert (members_of (^^N3::C <long>, gctx).size () == 8);
+static_assert (is_function (members_of (^^N3::C <long>, gctx)[0]));
+static_assert (identifier_of (members_of (^^N3::C <long>, gctx)[0]) == "bar");
+static_assert (is_function (members_of (^^N3::C <long>, gctx)[1]));
+static_assert (identifier_of (members_of (^^N3::C <long>, gctx)[1]) == "baz");
+static_assert (check_special_members (members_of (^^N3::C <long>, gctx), 6, true, true, true, true, true, true));
+static_assert (members_of (^^N3::C <short>, gctx).size () == 6);
+static_assert (check_special_members (members_of (^^N3::C <short>, gctx), 6, true, true, true, true, true, true));
