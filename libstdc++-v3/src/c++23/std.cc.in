@@ -2063,9 +2063,9 @@ export namespace std
     using std::meta::type_of;
     using std::meta::object_of;
     using std::meta::constant_of;
-    // using std::meta::is_public;
-    // using std::meta::is_protected;
-    // using std::meta::is_private;
+    using std::meta::is_public;
+    using std::meta::is_protected;
+    using std::meta::is_private;
     // using std::meta::is_virtual;
     // using std::meta::is_pure_virtual;
     // using std::meta::is_override;

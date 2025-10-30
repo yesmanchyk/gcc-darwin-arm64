@@ -1340,12 +1340,132 @@ eval_is_class_member (tree r)
     r = TYPE_NAME (r);
   else if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
     return boolean_true_node;
+  else if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      // TODO: move this code into reusable function
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
+
   if (DECL_P (r) && DECL_CLASS_SCOPE_P (r))
     return boolean_true_node;
   else if (TYPE_P (r) && TYPE_CLASS_SCOPE_P (r))
     return boolean_true_node;
   else
     return boolean_false_node;
+}
+
+/* Helper function for eval_is_{public, protected, private}.  */
+
+static tree
+eval_is_expected_access (tree r, reflect_kind kind, tree expected_access)
+{
+  if (eval_is_class_member (r) == boolean_true_node)
+    {
+      r = MAYBE_BASELINK_FUNCTIONS (r);
+      r = OVL_FIRST (r);
+
+      if (TYPE_P (r))
+	{
+	if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+	  return boolean_false_node;
+	r = TYPE_NAME (r);
+	}
+
+      if (TREE_CODE (r) == BIT_NOT_EXPR)
+	{
+	  // TODO: move this code into reusable function
+	  tree t = TREE_OPERAND (r, 0);
+	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	    lazily_declare_fn (sfk_destructor, t);
+	  r = CLASSTYPE_DESTRUCTOR (t);
+	  gcc_assert (r != NULL_TREE);
+	}
+
+      bool matches = false;
+      if (expected_access == access_private_node)
+	matches = TREE_PRIVATE (r);
+      else if (expected_access == access_protected_node)
+	matches = TREE_PROTECTED (r);
+      else if (expected_access == access_public_node)
+	matches = !(TREE_PRIVATE (r) || TREE_PROTECTED (r));
+      else
+	gcc_unreachable ();
+
+      if (matches)
+	return boolean_true_node;
+      else
+	return boolean_false_node;
+    }
+
+  if (kind == REFLECT_BASE)
+    {
+      gcc_assert (TREE_CODE (r) == TREE_BINFO);
+      tree c = r;
+      while (BINFO_INHERITANCE_CHAIN (c))
+	c = BINFO_INHERITANCE_CHAIN (c);
+
+      vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (c);
+      tree base_binfo;
+      for (unsigned ix = 0; BINFO_BASE_ITERATE (c, ix, base_binfo); ix++)
+	{
+	  if (base_binfo == r)
+	    {
+	      tree access = (accesses ? (*accesses)[ix] : access_public_node);
+	      if (access == expected_access)
+		return boolean_true_node;
+	      else
+		return boolean_false_node;
+	    }
+	}
+      gcc_unreachable ();
+    }
+
+  return boolean_false_node;
+}
+
+/* Process std::meta::is_public.
+   Returns: true if r represents either:
+   - a class member or unnamed bit-field that is public or
+   - a direct base class relationship (D, B) for which
+   B is a public base class of D.
+   Otherwise, false.  */
+
+static tree
+eval_is_public (tree r, reflect_kind kind)
+{
+  return eval_is_expected_access (r, kind, access_public_node);
+}
+
+/* Process std::meta::is_protected.
+   Returns: true if r represents either:
+   - a class member or unnamed bit-field that is protected, or
+   - a direct base class relationship (D, B) for which
+   B is a protected base class of D.
+   Otherwise, false.  */
+
+static tree
+eval_is_protected (tree r, reflect_kind kind)
+{
+  return eval_is_expected_access (r, kind, access_protected_node);
+}
+
+/* Process std::meta::is_private
+   Returns: true if r represents either:
+   - a class member or unnamed bit-field that is private, or
+   - a direct base class relationship (D, B) for which
+   B is a private base class of D.
+   Otherwise, false.  */
+
+static tree
+eval_is_private (tree r, reflect_kind kind)
+{
+  return eval_is_expected_access (r, kind, access_private_node);
 }
 
 /* Process std::meta::is_namespace_member.
@@ -6887,8 +7007,11 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_CONSTANT_OF:
       return eval_constant_of (loc, ctx, h, jump_target, fun);
     case METAFN_IS_PUBLIC:
+      return eval_is_public (h, kind);
     case METAFN_IS_PROTECTED:
+      return eval_is_protected (h, kind);
     case METAFN_IS_PRIVATE:
+      return eval_is_private (h, kind);
     case METAFN_IS_VIRTUAL:
     case METAFN_IS_PURE_VIRTUAL:
     case METAFN_IS_OVERRIDE:

@@ -57,6 +57,7 @@ static_assert (!is_class_member (^^ns));
 static_assert (!is_class_member (^^ns_alias));
 static_assert (!is_class_member (reflect_constant (3)));
 static_assert (!is_class_member (^^cls));
+static_assert (is_class_member (^^cls::~cls));
 static_assert (is_class_member (^^cls::dm));
 static_assert (is_class_member (^^cls::ref_dm));
 static_assert (is_class_member (^^cls::static_dm));
