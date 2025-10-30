@@ -221,12 +221,12 @@ get_null_reflection ()
   return get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
 }
 
-/* Do strip_typedefs on T, but only for type aliases.  */
+/* Do strip_typedefs on T, but only for types.  */
 
 static tree
 maybe_strip_typedefs (tree t)
 {
-  if (TYPE_P (t) && typedef_variant_p (t))
+  if (TYPE_P (t))
     return strip_typedefs (t);
   return t;
 }
@@ -2486,7 +2486,7 @@ type_of (tree r, reflect_kind kind)
     r = DECL_BIT_FIELD_TYPE (r);
   else
     r = TREE_TYPE (r);
-  return r;
+  return strip_typedefs (r);
 }
 
 /* Process std::meta::type_of.  Returns:

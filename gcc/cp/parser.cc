@@ -10045,18 +10045,55 @@ cp_parser_reflect_expression (cp_parser *parser)
     return get_reflection (loc, t);
   /* Nope.  Well then, maybe it's a type-id.  */
   cp_parser_parse_tentatively (parser);
+
+  /* Unfortunately we need to distinguish in
+     template <typename> struct cls_tmpl {};
+     template <typename T> using cls_tmpl_alias = const cls_tmpl <T>;
+
+     ^^cls_tmpl_alias <int> which is a type alias from
+     ^^const cls_tmpl_alias <int>
+     ^^cls_tmpl_alias <int> const
+     ^^cls_tmpl_alias <int> *
+     etc. which are just types, not type aliases.  Parse tentatively
+     type specifiers and check that there is just ds_type_spec specified
+     and it is a specialization of a template alias, in that case later
+     on if cp_parser_type_id parses the same tokens don't strip typedefs.  */
+  if (!talias)
+    {
+      cp_decl_specifier_seq type_specifier_seq;
+
+      /* Parse the type-specifier-seq.  */
+      cp_parser_type_specifier_seq (parser, CP_PARSER_FLAGS_NONE,
+				    /*is_declaration=*/false, false,
+				    &type_specifier_seq);
+      if (is_typedef_decl (type_specifier_seq.type)
+	  && TYPE_ALIAS_TEMPLATE_INFO (TREE_TYPE (type_specifier_seq.type)))
+	{
+	  int i;
+	  for (i = ds_first; i < ds_last; ++i)
+	    if (i != ds_type_spec && type_specifier_seq.locations[i])
+	      break;
+	  if (i == ds_last)
+	    {
+	      talias = type_specifier_seq.type;
+	      next = cp_lexer_peek_token (parser->lexer);
+	    }
+	}
+      cp_parser_abort_tentative_parse (parser);
+      cp_parser_parse_tentatively (parser);
+    }
+
   t = cp_parser_type_id (parser);
   if (cp_parser_parse_definitely (parser))
     {
-      if (TYPE_P (t) && typedef_variant_p (t))
+      if (TYPE_P (t))
 	{
 	  /* With using A = int; ^^A is a type alias but
 	     ^^const A or ^^A & or ^^A const is not.
 	     With template <typename T> using B = C <T>;
 	     ^^B <int> is a type alias though.  */
-	  if ((talias == NULL_TREE
-	       || cp_lexer_peek_token (parser->lexer) != next)
-	      && !TYPE_ALIAS_TEMPLATE_INFO (t))
+	  if (talias == NULL_TREE
+	      || cp_lexer_peek_token (parser->lexer) != next)
 	    t = strip_typedefs (t);
 	}
       return get_reflection (loc, t);
