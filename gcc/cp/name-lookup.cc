@@ -6662,8 +6662,14 @@ handle_namespace_attrs (tree ns, tree attributes)
 					      DECL_ATTRIBUTES (ns));
 	}
       else if (is_attribute_p ("annotation ", name))
-	DECL_ATTRIBUTES (ns) = tree_cons (TREE_PURPOSE (d), args,
-					  DECL_ATTRIBUTES (ns));
+	{
+	  const attribute_spec *as = lookup_attribute_spec (TREE_PURPOSE (d));
+	  bool no_add_attrs = false;
+	  as->handler (&ns, name, args, 0, &no_add_attrs);
+	  if (!no_add_attrs)
+	    DECL_ATTRIBUTES (ns) = tree_cons (TREE_PURPOSE (d), args,
+					      DECL_ATTRIBUTES (ns));
+	}
       else if (!attribute_ignored_p (d))
 	{
 	  warning (OPT_Wattributes, "%qD attribute directive ignored",

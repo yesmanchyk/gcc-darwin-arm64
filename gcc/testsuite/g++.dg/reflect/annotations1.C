@@ -11,10 +11,7 @@ foo (int n)
   [[=1]] int x1;
   auto a = [] [[=1]] () {};
   auto b = [] constexpr [[=1]] {};	// { dg-error "annotation on a type other than class or enumeration definition" }
-
-
   auto c = [] noexcept [[=1]] {};	// { dg-error "annotation on a type other than class or enumeration definition" }
-
   auto d = [] () [[=1]] {};		// { dg-error "annotation on a type other than class or enumeration definition" }
   auto e = new int [n] [[=1]];		// { dg-warning "attributes ignored on outermost array type in new expression" }
   auto e2 = new int [n] [[=1]] [42];	// { dg-warning "attributes ignored on outermost array type in new expression" }
@@ -130,7 +127,7 @@ struct [[=1]] I
   static int i4;
 };
 [[=1]] int I::i4 = 0;
-struct J : [[=1]] C {};			// { dg-bogus "attributes on base specifiers are ignored" "" { xfail *-*-* } }
+struct J : [[=1]] C {};
 template <typename T>
 concept K [[=1]] = requires { true; };
 typedef int L [[=1]];

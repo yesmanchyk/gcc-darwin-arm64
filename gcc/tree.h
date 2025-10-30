@@ -1240,6 +1240,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->list.purpose)
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->list.value)
 
+/* In TREE_VALUE of an attribute this means the attribute argument
+   is never equal to different attribute argument with the same value.  */
+#define ATTR_UNIQUE_VALUE_P(NODE) (TREE_LIST_CHECK (NODE)->base.protected_flag)
+
 /* In a TREE_VEC node.  */
 #define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->base.u.length)
 #define TREE_VEC_BEGIN(NODE) (&TREE_VEC_CHECK (NODE)->vec.a[0])

@@ -18437,6 +18437,8 @@ xref_basetypes (tree ref, tree base_list)
   unsigned max_vbases = 0; /* Maximum direct & indirect virtual bases.  */
   unsigned max_bases = 0;  /* Maximum direct bases.  */
   unsigned max_dvbases = 0; /* Maximum direct virtual bases.  */
+  /* Highest direct base index with annotations.  */
+  unsigned max_annotated_base = 0;
   int i;
   tree default_access;
   tree igo_prev; /* Track Inheritance Graph Order.  */
@@ -18474,6 +18476,8 @@ xref_basetypes (tree ref, tree base_list)
       else
 	{
 	  max_bases++;
+	  if (TREE_CODE (TREE_PURPOSE (*basep)) == TREE_LIST)
+	    max_annotated_base = max_bases;
 	  if (TREE_TYPE (*basep))
 	    max_dvbases++;
 	  if (CLASS_TYPE_P (basetype))
@@ -18502,7 +18506,8 @@ xref_basetypes (tree ref, tree base_list)
 
   if (max_bases)
     {
-      vec_alloc (BINFO_BASE_ACCESSES (binfo), max_bases);
+      vec_alloc (BINFO_BASE_ACCESSES (binfo), max_bases + max_annotated_base);
+      BINFO_BASE_ACCESSES (binfo)->quick_grow (max_bases + max_annotated_base);
       /* A C++98 POD cannot have base classes.  */
       CLASSTYPE_NON_LAYOUT_POD_P (ref) = true;
 
@@ -18532,6 +18537,30 @@ xref_basetypes (tree ref, tree base_list)
   for (igo_prev = binfo; base_list; base_list = TREE_CHAIN (base_list))
     {
       tree access = TREE_PURPOSE (base_list);
+      tree annotations = NULL_TREE;
+      if (TREE_CODE (access) == TREE_LIST)
+	{
+	  annotations = TREE_VALUE (access);
+	  access = TREE_PURPOSE (access);
+	  for (tree *d = &annotations; *d; )
+	    {
+	      tree name = get_attribute_name (*d);
+	      tree args = TREE_VALUE (*d);
+	      if (is_attribute_p ("annotation ", name))
+		{
+		  const attribute_spec *as
+		    = lookup_attribute_spec (TREE_PURPOSE (*d));
+		  bool no_add_attrs = false;
+		  as->handler (&binfo, name, args, 0, &no_add_attrs);
+		  if (no_add_attrs)
+		    {
+		      *d = TREE_CHAIN (*d);
+		      continue;
+		    }
+		}
+	      d = &TREE_CHAIN (*d);
+	    }
+	}
       int via_virtual = TREE_TYPE (base_list) != NULL_TREE;
       tree basetype = TREE_VALUE (base_list);
 
@@ -18598,8 +18627,12 @@ xref_basetypes (tree ref, tree base_list)
       if (!BINFO_INHERITANCE_CHAIN (base_binfo))
 	BINFO_INHERITANCE_CHAIN (base_binfo) = binfo;
 
+      unsigned len;
+      len = BINFO_N_BASE_BINFOS (binfo);
       BINFO_BASE_APPEND (binfo, base_binfo);
-      BINFO_BASE_ACCESS_APPEND (binfo, access);
+      BINFO_BASE_ACCESS (binfo, len) = access;
+      if (len < max_annotated_base)
+	BINFO_BASE_ACCESS (binfo, max_bases + len) = annotations;
       continue;
 
     dropped_base:
@@ -18613,6 +18646,17 @@ xref_basetypes (tree ref, tree base_list)
       if (CLASS_TYPE_P (basetype))
 	max_vbases
 	  -= vec_safe_length (CLASSTYPE_VBASECLASSES (basetype));
+    }
+
+  unsigned len = BINFO_N_BASE_BINFOS (binfo);
+  if (len < max_bases)
+    {
+      if (len && max_annotated_base)
+	memmove (&BINFO_BASE_ACCESS (binfo, len),
+		 &BINFO_BASE_ACCESS (binfo, max_bases),
+		 MIN (max_annotated_base, len) * sizeof (tree));
+      BINFO_BASE_ACCESSES (binfo)->truncate (len + MIN (max_annotated_base,
+							len));
     }
 
   if (CLASSTYPE_VBASECLASSES (ref)

@@ -31211,8 +31211,11 @@ cp_parser_base_clause (cp_parser* parser)
      public
 
    Returns a TREE_LIST.  The TREE_PURPOSE will be one of
-   ACCESS_{DEFAULT,PUBLIC,PROTECTED,PRIVATE}_[VIRTUAL]_NODE to
-   indicate the specifiers provided.  The TREE_VALUE will be a TYPE
+   ACCESS_{DEFAULT,PUBLIC,PROTECTED,PRIVATE}_NODE to
+   indicate the specifiers provided, or if the base specifier
+   has any annotations, a TREE_LIST with TREE_PURPOSE the
+   ACCESS_{DEFAULT,PUBLIC,PROTECTED,PRIVATE}_NODE and
+   TREE_VALUE the list of annotations.  The TREE_VALUE will be a TYPE
    (or the ERROR_MARK_NODE) indicating the type that was specified.  */
 
 static tree
@@ -31228,10 +31231,29 @@ cp_parser_base_specifier (cp_parser* parser)
   tree type;
   location_t attrs_loc = cp_lexer_peek_token (parser->lexer)->location;
   tree std_attrs = cp_parser_std_attribute_spec_seq (parser);
+  tree annotations = NULL_TREE;
 
-  if (std_attrs != NULL_TREE && any_nonignored_attribute_p (std_attrs))
-    warning_at (attrs_loc, OPT_Wattributes,
-		"attributes on base specifiers are ignored");
+  if (std_attrs != NULL_TREE)
+    {
+      tree *pannotations = &annotations;
+      for (tree attr = std_attrs; attr; attr = TREE_CHAIN (attr))
+	{
+	  tree name = get_attribute_name (attr);
+	  if (is_attribute_p ("annotation ", name))
+	    {
+	      *pannotations = attr;
+	      pannotations = &TREE_CHAIN (attr);
+	    }
+	  else if (!attribute_ignored_p (attr))
+	    {
+	      if (std_attrs)
+		warning_at (attrs_loc, OPT_Wattributes,
+			    "attributes on base specifiers are ignored");
+	      std_attrs = NULL_TREE;
+	    }
+	}
+      *pannotations = NULL_TREE;
+    }
 
   /* Process the optional `virtual' and `access-specifier'.  */
   while (!done)
@@ -31345,7 +31367,7 @@ cp_parser_base_specifier (cp_parser* parser)
   if (type == error_mark_node)
     return error_mark_node;
 
-  return finish_base_specifier (type, access, virtual_p);
+  return finish_base_specifier (type, access, virtual_p, annotations);
 }
 
 /* Exception handling [gram.exception] */

@@ -4449,15 +4449,18 @@ finish_template_type (tree name, tree args, int entering_scope)
     return TYPE_NAME (type);
 }
 
-/* Finish processing a BASE_CLASS with the indicated ACCESS_SPECIFIER.
-   Return a TREE_LIST containing the ACCESS_SPECIFIER and the
-   BASE_CLASS, or NULL_TREE if an error occurred.  The
+/* Finish processing a BASE_CLASS with the indicated ACCESS_SPECIFIER
+   and ANNOTATIONS.
+   Return a TREE_LIST containing the ACCESS_SPECIFIER (or if there are
+   ANNOTATIONS, TREE_LIST containing the ACCESS_SPECIFIER and ANNOTATIONS)
+   and the BASE_CLASS, or NULL_TREE if an error occurred.  The
    ACCESS_SPECIFIER is one of
-   access_{default,public,protected_private}_node.  For a virtual base
+   access_{default,public,protected,private}_node.  For a virtual base
    we set TREE_TYPE.  */
 
 tree
-finish_base_specifier (tree base, tree access, bool virtual_p)
+finish_base_specifier (tree base, tree access, bool virtual_p,
+		       tree annotations)
 {
   tree result;
 
@@ -4479,6 +4482,8 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
 	     class type?  */
 	  base = TYPE_MAIN_VARIANT (base);
 	}
+      if (annotations)
+	access = build_tree_list (access, annotations);
       result = build_tree_list (access, base);
       if (virtual_p)
 	TREE_TYPE (result) = integer_type_node;

@@ -5769,6 +5769,7 @@ handle_annotation_attribute (tree *node, tree ARG_UNUSED (name),
       if (TREE_VALUE (args) == error_mark_node)
         *no_add_attrs = true;
     }
+  ATTR_UNIQUE_VALUE_P (args) = 1;
   return NULL_TREE;
 }
 
