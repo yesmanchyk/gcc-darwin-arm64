@@ -9988,9 +9988,6 @@ cp_parser_reflection_name (cp_parser *parser)
   tree decl = cp_parser_lookup_name_simple (parser, name, loc);
   if (name != error_mark_node && decl == error_mark_node)
     cp_parser_name_lookup_error (parser, name, decl, NLE_NULL, loc);
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    /* Let cp_parser_type_id handle this.  */
-    cp_parser_simulate_error (parser);
 
   return decl;
 }
@@ -10026,13 +10023,44 @@ cp_parser_reflect_expression (cp_parser *parser)
   /* We don't know what this might be.  Try and see what works.  */
   cp_parser_parse_tentatively (parser);
   tree t = cp_parser_reflection_name (parser);
+  tree talias = NULL_TREE;
+  cp_token *next = NULL;
+  if (TREE_CODE (t) == TYPE_DECL && !cp_parser_error_occurred (parser))
+    {
+      /* Need to call cp_parser_type_id, because say
+	 using A = int;
+	 ^^A &
+	 should parse the type id rather than reflection-name.
+	 Though, remember the TYPE_DECL and next token in that case
+	 if it is a type alias and if cp_parser_type_id parses the
+	 same tokens, don't strip_typedefs.  */
+      if (is_typedef_decl (t))
+	{
+	  talias = TREE_TYPE (t);
+	  next = cp_lexer_peek_token (parser->lexer);
+	}
+      cp_parser_simulate_error (parser);
+    }
   if (cp_parser_parse_definitely (parser))
     return get_reflection (loc, t);
   /* Nope.  Well then, maybe it's a type-id.  */
   cp_parser_parse_tentatively (parser);
   t = cp_parser_type_id (parser);
   if (cp_parser_parse_definitely (parser))
-    return get_reflection (loc, t);
+    {
+      if (TYPE_P (t) && typedef_variant_p (t))
+	{
+	  /* With using A = int; ^^A is a type alias but
+	     ^^const A or ^^A & or ^^A const is not.
+	     With template <typename T> using B = C <T>;
+	     ^^B <int> is a type alias though.  */
+	  if ((talias == NULL_TREE
+	       || cp_lexer_peek_token (parser->lexer) != next)
+	      && !TYPE_ALIAS_TEMPLATE_INFO (t))
+	    t = strip_typedefs (t);
+	}
+      return get_reflection (loc, t);
+    }
   /* Try an id-expression.  */
   {
     cp_parser_parse_tentatively (parser);
