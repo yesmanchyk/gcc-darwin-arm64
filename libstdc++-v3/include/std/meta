@@ -351,6 +351,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval size_t size_of(info);
     consteval size_t bit_size_of(info);
 
+    // [meta.reflection.extract], value extraction
+    template<class _Tp>
+    consteval _Tp extract(info);
+
     // [meta.reflection.substitute], reflection substitution
     template<class _R>
       concept reflection_range = ranges::input_range<_R>

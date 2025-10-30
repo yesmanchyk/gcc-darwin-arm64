@@ -2593,6 +2593,11 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
    Throws: meta::exception unless either r represents an annotation or
    [: R :] is a valid splice-expression.  */
 
+// We should have
+//   } else if constexpr (is_array(type_of(R))) {
+//    return reflect_constant_array([: R :]);
+// in the pseudocode above.
+
 static tree
 eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		  tree *jump_target, tree fun)
@@ -6820,6 +6825,215 @@ eval_exception__S_exception_cvt_from_utf8 (location_t loc,
   return build_cplus_new (TREE_TYPE (call), ret, tf_warning_or_error);
 }
 
+/* Helper for eval_extract, extracting a reference.
+   Returns: If r represents an object O, then a reference to O.
+   Otherwise, a reference to the object declared, or referred to, by the
+   variable represented by r.
+   Throws: meta::exception unless
+   -- r represents a variable or object of type U,
+   -- is_convertible_v<remove_reference_t<U>(*)[],
+      remove_reference_t<T>(*)[]> is true, and
+   -- If r represents a variable, then either that variable is usable in
+      constant expressions or its lifetime began within the core constant
+      expression currently under evaluation.  */
+
+static tree
+extract_ref (location_t loc, const constexpr_ctx *ctx, tree T, tree r,
+	     reflect_kind kind, tree *jump_target, tree fun)
+{
+  auto adjust_type = [](tree type) -> tree
+    {
+      if (TYPE_REF_P (type))
+	type = TREE_TYPE (type);
+      type = build_cplus_array_type (type, NULL_TREE);
+      return build_pointer_type (type);
+    };
+
+  const bool var_p = eval_is_variable (r, kind) == boolean_true_node;
+  if (var_p || eval_is_object (kind) == boolean_true_node)
+    {
+      /* The wording is saying that U is the type of r.  */
+      tree U = TREE_TYPE (r);
+      if (is_convertible (adjust_type (U), adjust_type (T))
+	  && (!var_p || is_constant_expression (r)))
+	{
+	  if (TYPE_REF_P (TREE_TYPE (r)))
+	    {
+	      r = DECL_INITIAL (r);
+	      r = maybe_get_reference_referent (r);
+	    }
+	  return build_address (r);
+	}
+    }
+
+  return throw_exception (loc, ctx, "value cannot be extracted", fun,
+			  jump_target);
+}
+
+/* Helper for extract_value.  Return true iff we can extract value of
+   type U using type T.  */
+
+static bool
+can_extract_value_p (tree T, tree U)
+{
+  if (POINTER_TYPE_P (U)
+      && (similar_type_p (T, U)
+	  || (FUNCTION_POINTER_TYPE_P (T) && FUNCTION_POINTER_TYPE_P (U)))
+      && is_convertible (U, T))
+    return true;
+  else if (same_type_ignoring_top_level_qualifiers_p (T, U))
+    return true;
+  else if (TREE_CODE (U) == ARRAY_TYPE
+	   && POINTER_TYPE_P (T)
+	   && is_convertible (U, T))
+    return true;
+  else if (LAMBDA_TYPE_P (U)
+	   && FUNCTION_POINTER_TYPE_P (T)
+	   && is_convertible (U, T))
+    return true;
+  return false;
+}
+
+/* Helper for eval_extract, extracting a value.
+   Let U be the type of the value or object that r represents.
+   Returns: static_cast<T>([:R:]), where R is a constant expression of
+   type info such that R == r is true.
+   Throws: meta::exception unless
+   -- U is a pointer type, T and U are either similar or both function pointer
+      types, and is_convertible_v<U, T> is true,
+   -- U is not a pointer type and the cv-unqualified types of T and U are the
+      same,
+   -- U is an array type, T is a pointer type, and the value r represents is
+      convertible to T, or
+   -- U is a closure type, T is a function pointer type, and the value that r
+      represents is convertible to T.  */
+
+static tree
+extract_value (location_t loc, const constexpr_ctx *ctx, tree T, tree r,
+	       tree *jump_target, tree fun)
+{
+  if (!REFLECT_EXPR_P (r))
+    return throw_exception (loc, ctx, "value cannot be extracted", fun,
+			    jump_target);
+  r = REFLECT_EXPR_HANDLE (r);
+  if (!can_extract_value_p (T, TREE_TYPE (r)))
+    return throw_exception (loc, ctx, "value cannot be extracted", fun,
+			    jump_target);
+  return build_static_cast (loc, T, r, tf_none);
+}
+
+/* Helper for extract_member_or_function.  Return true iff we can
+   extract NSDM R of kind KIND using type T.  */
+
+static bool
+can_extract_member_or_function_p (tree T, tree r, reflect_kind kind)
+{
+  if (eval_is_nonstatic_data_member (r) == boolean_true_node)
+    {
+      if (eval_is_bit_field (r, kind) == boolean_true_node)
+	return false;
+      /* static union { int m; }; extract<int>(^^m); is invalid.  */
+      if (VAR_P (r) && DECL_ANON_UNION_VAR_P (r))
+	return false;
+      /* Create the X C::* type.  */
+      tree type = build_offset_type (CP_DECL_CONTEXT (r), TREE_TYPE (r));
+      if (similar_type_p (type, T) && is_convertible (type, T))
+	return true;
+      return false;
+    }
+  else if (DECL_IOBJ_MEMBER_FUNCTION_P (r))
+    {
+      tree F = TREE_TYPE (r);
+      F = build_pointer_type (F);
+      F = build_ptrmemfunc_type (F);
+      if (same_type_p (T, F))
+	return true;
+      return false;
+    }
+  else if (TREE_CODE (r) == FUNCTION_DECL)
+    {
+      tree F = TREE_TYPE (r);
+      F = build_pointer_type (F);
+      if (same_type_p (T, F))
+	return true;
+      return false;
+    }
+
+  return false;
+}
+
+/* Helper for eval_extract, extracting a NSDM or function.
+   Returns:
+   -- If T is a pointer type, then a pointer value pointing to the function
+      represented by r.
+   -- Otherwise, a pointer-to-member value designating the non-static data
+      member or function represented by r.
+   Throws: meta::exception unless
+   -- r represents a non-static data member with type X, that is not
+      a bit-field, that is a direct member of class C, T and X C::*
+      are similar types, and is_convertible_v<X C::*, T> is true;
+   -- r represents an implicit object member function with type F or
+      F noexcept that is a direct member of a class C, and T is F C::*; or
+   -- r represents a non-member function, static member function, or
+      explicit object member function of function type F or F noexcept, and
+      T is F*.  */
+
+static tree
+extract_member_or_function (location_t loc, const constexpr_ctx *ctx,
+			    tree T, tree r, reflect_kind kind,
+			    tree *jump_target, tree fun)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (!can_extract_member_or_function_p (T, r, kind))
+    return throw_exception (loc, ctx, "value cannot be extracted", fun,
+			    jump_target);
+
+  const tsubst_flags_t complain = (cxx_constexpr_quiet_p (ctx)
+				   ? tf_none : tf_warning_or_error);
+  if (POINTER_TYPE_P (T))
+    return build_address (r);
+  else
+    {
+      if (!mark_used (r, complain))
+	return error_mark_node;
+      r = build_offset_ref (DECL_CONTEXT (r), r, /*address_p=*/true, complain);
+      r = cp_build_addr_expr (r, complain);
+      return r;
+    }
+}
+
+/* Process std::meta::extract.
+   Let U be remove_cv_t<T>.
+   Effects: Equivalent to:
+     if constexpr (is_reference_type(^^T)) {
+       return extract-ref<T>(r);
+     } else if constexpr (is_nonstatic_data_member(r) || is_function(r)) {
+       return extract-member-or-function<U>(r);
+     } else {
+       return extract-value<U>(constant_of(r));
+     }
+  */
+
+static tree
+eval_extract (location_t loc, const constexpr_ctx *ctx, tree type, tree r,
+	      reflect_kind kind, tree *jump_target, tree fun)
+{
+  if (eval_is_reference_type (loc, type) == boolean_true_node)
+    return extract_ref (loc, ctx, type, r, kind, jump_target, fun);
+  type = cv_unqualified (type);
+  if (eval_is_nonstatic_data_member (r) == boolean_true_node
+      || eval_is_function (r) == boolean_true_node)
+    return extract_member_or_function (loc, ctx, type, r, kind, jump_target,
+				       fun);
+  else
+    {
+      r = eval_constant_of (loc, ctx, r, jump_target, fun);
+      if (*jump_target)
+	return NULL_TREE;
+      return extract_value (loc, ctx, type, r, jump_target, fun);
+    }
+}
+
 #include "metafns.h"
 
 /* Expand a call to a metafunction FUN.  CALL is the CALL_EXPR.
@@ -7211,7 +7425,10 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_bit_size_of (loc, ctx, h, kind, TREE_TYPE (call),
 			       jump_target, fun);
     case METAFN_EXTRACT:
-      gcc_unreachable ();
+      {
+	type = TREE_VEC_ELT (get_template_innermost_arguments (fun), 0);
+	return eval_extract (loc, ctx, type, h, kind, jump_target, fun);
+      }
     case METAFN_CAN_SUBSTITUTE:
       return eval_can_substitute (loc, ctx, h, hvec, jump_target, fun);
     case METAFN_SUBSTITUTE:

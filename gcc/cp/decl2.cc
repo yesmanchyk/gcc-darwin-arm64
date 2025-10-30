@@ -5143,6 +5143,12 @@ no_linkage_error (tree decl)
     /* An imported decl is ok.  */
     return;
 
+  /* Metafunctions are magic and should be considered defined even though
+     they have no bodies.  ??? This can't be checked in decl_defined_p;
+     we'd get redefinition errors for some of our metafunctions.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL && metafunction_p (decl))
+    return;
+
   tree t = no_linkage_check (TREE_TYPE (decl), /*relaxed_p=*/false);
   if (t == NULL_TREE)
     /* The type that got us on no_linkage_decls must have gotten a name for
