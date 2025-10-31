@@ -36,10 +36,11 @@
 #include <array>
 #include <initializer_list>
 #include <optional>
+#include <source_location>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <source_location>
 //#include <type_traits>
 
 #define __glibcxx_want_reflection
@@ -52,6 +53,7 @@ namespace std _GLIBCXX_VISIBILITY(default)
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 #if __has_builtin(__builtin_is_string_literal)
+  // [meta.string.literal], checking string literals
   consteval bool is_string_literal(const char* __p)
   {
     return __builtin_is_string_literal(__p);
@@ -128,9 +130,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // ordinary literal encoding and vice versa.  On conversion failure
       // they just return an empty {,u8}string_view.
       template<ranges::input_range _R>
-        static consteval u8string_view _S_exception_cvt_to_utf8(_R&&);
+	static consteval u8string_view _S_exception_cvt_to_utf8(_R&&);
       template<ranges::input_range _R>
-        static consteval string_view _S_exception_cvt_from_utf8(_R&&);
+	static consteval string_view _S_exception_cvt_from_utf8(_R&&);
     };
 
     // [meta.reflection.operators], operator representations
@@ -353,7 +355,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     // [meta.reflection.extract], value extraction
     template<class _Tp>
-    consteval _Tp extract(info);
+      consteval _Tp extract(info);
 
     // [meta.reflection.substitute], reflection substitution
     template<class _R>
@@ -369,13 +371,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     // [meta.reflection.result], expression result reflection
     template<typename _Tp>
       requires (is_copy_constructible_v<_Tp>)
-    consteval info reflect_constant(_Tp);
+      consteval info reflect_constant(_Tp);
     template<typename _Tp>
       requires (!is_function_v<remove_reference_t<_Tp>>)
-    consteval info reflect_object(_Tp&);
+      consteval info reflect_object(_Tp&);
     template<typename _Tp>
       requires (is_function_v<remove_reference_t<_Tp>>)
-    consteval info reflect_function(_Tp&);
+      consteval info reflect_function(_Tp&);
 
     // [meta.reflection.array], promoting to static storage arrays
     template<ranges::input_range _R>
@@ -600,6 +602,44 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   } // namespace meta
+
+  // [meta.define.static], promoting to static storage strings
+  template<ranges::input_range _R>
+    consteval const ranges::range_value_t<_R>*
+    define_static_string(_R&& __r)
+    {
+      auto __str = meta::reflect_constant_string(__r);
+      return meta::extract<const ranges::range_value_t<_R>*>(__str);
+    }
+
+  template<ranges::input_range _R>
+    consteval span<const ranges::range_value_t<_R>>
+    define_static_array(_R&& __r)
+    {
+      using _Tp = ranges::range_value_t<_R>;
+      auto __array = meta::reflect_constant_array(__r);
+      auto __type = meta::type_of(__array);
+      if (meta::is_array_type(__type))
+	return span<const _Tp>(meta::extract<const _Tp*>(__array),
+			       meta::extent(__type, 0U));
+      else
+	return span<const _Tp>();
+    }
+
+  template<class _Tp>
+    consteval const remove_cvref_t<_Tp>*
+    define_static_object(_Tp&& __t)
+    {
+      using _Up = remove_cvref_t<_Tp>;
+      if constexpr (meta::is_class_type(^^_Up))
+	{
+	  auto __cst = meta::reflect_constant(std::forward<_Tp>(__t));
+	  return std::addressof(meta::extract<const _Up&>(__cst));
+	}
+      else
+	return std::define_static_array(span<const _Up>(std::addressof(__t),
+							1)).data();
+    }
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std

@@ -2042,15 +2042,15 @@ export namespace std
 #if __has_builtin(__builtin_is_string_literal)
   using std::is_string_literal;
 #endif
-  // using std::define_static_string;
-  // using std::define_static_array;
-  // using std::define_static_object;
+  using std::define_static_string;
+  using std::define_static_array;
+  using std::define_static_object;
   namespace meta
   {
     using std::meta::info;
     using std::meta::exception;
     using std::meta::operators;
-    // TODO: using enum operators?
+    using enum std::meta::operators;
     using std::meta::operator_of;
     using std::meta::symbol_of;
     using std::meta::u8symbol_of;
