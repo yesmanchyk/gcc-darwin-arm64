@@ -12782,19 +12782,30 @@ instantiate_class_template (tree type)
 	{
 	  tree base;
 	  tree access = BINFO_BASE_ACCESS (pbinfo, i);
+	  tree annotations = NULL_TREE;
           tree expanded_bases = NULL_TREE;
           int idx, len = 1;
 
+	  if (i + BINFO_BASE_BINFOS (pbinfo)->length ()
+	      < vec_safe_length (BINFO_BASE_ACCESSES (pbinfo)))
+	    annotations
+	      = BINFO_BASE_ACCESS (pbinfo,
+				   i + BINFO_BASE_BINFOS (pbinfo)->length ());
+
           if (PACK_EXPANSION_P (BINFO_TYPE (pbase_binfo)))
             {
-              expanded_bases =
-		tsubst_pack_expansion (BINFO_TYPE (pbase_binfo),
-				       args, tf_error, NULL_TREE);
+	      expanded_bases
+		= tsubst_pack_expansion (BINFO_TYPE (pbase_binfo),
+					 args, tf_error, NULL_TREE);
               if (expanded_bases == error_mark_node)
                 continue;
 
               len = TREE_VEC_LENGTH (expanded_bases);
             }
+
+	  if (annotations)
+	    annotations = tsubst_attributes (annotations, args,
+					     tf_warning_or_error, NULL_TREE);
 
           for (idx = 0; idx < len; idx++)
             {
@@ -12809,7 +12820,11 @@ instantiate_class_template (tree type)
               if (base == error_mark_node)
                 continue;
 
-              base_list = tree_cons (access, base, base_list);
+	      tree acc = access;
+	      if (annotations)
+		acc = build_tree_list (access, idx == 0 ? annotations
+					       : copy_list (annotations));
+	      base_list = tree_cons (acc, base, base_list);
               if (BINFO_VIRTUAL_P (pbase_binfo))
                 TREE_TYPE (base_list) = integer_type_node;
             }

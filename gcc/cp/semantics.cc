@@ -4483,7 +4483,7 @@ finish_base_specifier (tree base, tree access, bool virtual_p,
 	  base = TYPE_MAIN_VARIANT (base);
 	}
       if (annotations)
-	access = build_tree_list (access, annotations);
+	access = build_tree_list (access, nreverse (annotations));
       result = build_tree_list (access, base);
       if (virtual_p)
 	TREE_TYPE (result) = integer_type_node;
