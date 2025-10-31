@@ -1468,6 +1468,30 @@ eval_is_private (tree r, reflect_kind kind)
   return eval_is_expected_access (r, kind, access_private_node);
 }
 
+/* Process std::meta::is_pure_virtual.
+   Returns: true if r represents a pure virtual method.
+   Otherwise, false.  */
+
+static tree
+eval_is_pure_virtual (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  if (TREE_CODE (r) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
+    {
+      tree t = TREE_OPERAND (r, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	lazily_declare_fn (sfk_destructor, t);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+	r = dtor;
+    }
+  if (TREE_CODE (r) == FUNCTION_DECL && DECL_PURE_VIRTUAL_P (r))
+    return boolean_true_node;
+  else
+    return boolean_false_node;
+}
+
 /* Process std::meta::is_namespace_member.
    Returns: true if r represents a namespace member.  Otherwise, false.  */
 
@@ -7227,7 +7251,9 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_PRIVATE:
       return eval_is_private (h, kind);
     case METAFN_IS_VIRTUAL:
+      gcc_unreachable ();
     case METAFN_IS_PURE_VIRTUAL:
+      return eval_is_pure_virtual (h);
     case METAFN_IS_OVERRIDE:
     case METAFN_IS_FINAL:
       gcc_unreachable ();
