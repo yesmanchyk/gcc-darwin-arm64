@@ -100,3 +100,37 @@ static_assert (type_of (annotations_of (^^an2)[7]) == ^^long long);
 static_assert (type_of (annotations_of (^^an2)[8]) == ^^const V);
 static_assert (type_of (annotations_of (^^an2)[9]) == ^^unsigned long long);
 static_assert (type_of (annotations_of (^^an2)[10]) == ^^unsigned long long);
+
+namespace [[=1, =2U]] [[=3L, =4.0]] N
+{
+  static_assert (annotations_of (^^N).size () == 4);
+  static_assert (type_of (annotations_of (^^N)[0]) == ^^int);
+  static_assert (type_of (annotations_of (^^N)[1]) == ^^unsigned);
+  static_assert (type_of (annotations_of (^^N)[2]) == ^^long);
+  static_assert (type_of (annotations_of (^^N)[3]) == ^^double);
+}
+
+namespace [[=5.0f]] [[=6LL]] N
+{
+  static_assert (annotations_of (^^N).size () == 6);
+  static_assert (type_of (annotations_of (^^N)[0]) == ^^int);
+  static_assert (type_of (annotations_of (^^N)[1]) == ^^unsigned);
+  static_assert (type_of (annotations_of (^^N)[2]) == ^^long);
+  static_assert (type_of (annotations_of (^^N)[3]) == ^^double);
+  static_assert (type_of (annotations_of (^^N)[4]) == ^^float);
+  static_assert (type_of (annotations_of (^^N)[5]) == ^^long long);
+}
+
+struct F { int f; };
+struct G { int g; };
+struct H { int h; };
+struct I : [[=1U, =2L]] [[=3]] F, [[=4ULL]] G, H { int i; };
+
+constexpr auto ctx = access_context::unchecked ();
+static_assert (annotations_of (bases_of (^^I, ctx)[0]).size () == 3);
+static_assert (type_of (annotations_of (bases_of (^^I, ctx)[0])[0]) == ^^unsigned);
+static_assert (type_of (annotations_of (bases_of (^^I, ctx)[0])[1]) == ^^long);
+static_assert (type_of (annotations_of (bases_of (^^I, ctx)[0])[2]) == ^^int);
+static_assert (annotations_of (bases_of (^^I, ctx)[1]).size () == 1);
+static_assert (type_of (annotations_of (bases_of (^^I, ctx)[1])[0]) == ^^unsigned long long);
+static_assert (annotations_of (bases_of (^^I, ctx)[2]).size () == 0);

@@ -1410,19 +1410,16 @@ eval_is_expected_access (tree r, reflect_kind kind, tree expected_access)
       while (BINFO_INHERITANCE_CHAIN (c))
 	c = BINFO_INHERITANCE_CHAIN (c);
 
-      vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (c);
       tree base_binfo;
       for (unsigned ix = 0; BINFO_BASE_ITERATE (c, ix, base_binfo); ix++)
-	{
-	  if (base_binfo == r)
-	    {
-	      tree access = (accesses ? (*accesses)[ix] : access_public_node);
-	      if (access == expected_access)
-		return boolean_true_node;
-	      else
-		return boolean_false_node;
-	    }
-	}
+	if (base_binfo == r)
+	  {
+	    tree access = BINFO_BASE_ACCESS (c, ix);
+	    if (access == expected_access)
+	      return boolean_true_node;
+	    else
+	      return boolean_false_node;
+	  }
       gcc_unreachable ();
     }
 
@@ -3598,7 +3595,7 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	|| eval_is_function (r) == boolean_true_node
 	|| eval_is_namespace (r) == boolean_true_node
 	|| eval_is_enumerator (r) == boolean_true_node
-	/* || eval_is_base (r) == boolean_true_node */
+	|| eval_is_base (r, kind) == boolean_true_node
 	|| eval_is_nonstatic_data_member (r) == boolean_true_node))
     return throw_exception (loc, ctx,
 			    "reflection does not represent a type,"
@@ -3618,12 +3615,29 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
       type = remove_const (type);
     }
 
-  if (TYPE_P (r))
+  if (kind == REFLECT_BASE)
+    {
+      gcc_assert (TREE_CODE (r) == TREE_BINFO);
+      tree c = r, binfo = r, base_binfo;
+      while (BINFO_INHERITANCE_CHAIN (c))
+        c = BINFO_INHERITANCE_CHAIN (c);
+
+      r = NULL_TREE;
+      for (unsigned ix = 0; BINFO_BASE_ITERATE (c, ix, base_binfo); ix++)
+        if (base_binfo == binfo)
+	  {
+	    if (ix + BINFO_BASE_BINFOS (c)->length ()
+		< vec_safe_length (BINFO_BASE_ACCESSES (c)))
+	      r = BINFO_BASE_ACCESS (c, ix + BINFO_BASE_BINFOS (c)->length ());
+	    break;
+	  }
+    }
+  else if (TYPE_P (r))
     r = TYPE_ATTRIBUTES (r);
   else if (DECL_P (r))
     r = DECL_ATTRIBUTES (r);
   else
-    gcc_unreachable (); // TODO: Handle eval_is_base?
+    gcc_unreachable ();
   vec<constructor_elt, va_gc> *elts = nullptr;
   for (tree a = r; (a = lookup_attribute ("internal ", "annotation ", a));
        a = TREE_CHAIN (a))

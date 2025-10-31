@@ -18560,6 +18560,7 @@ xref_basetypes (tree ref, tree base_list)
 		}
 	      d = &TREE_CHAIN (*d);
 	    }
+	  annotations = nreverse (annotations);
 	}
       int via_virtual = TREE_TYPE (base_list) != NULL_TREE;
       tree basetype = TREE_VALUE (base_list);
