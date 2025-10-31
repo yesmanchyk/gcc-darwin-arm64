@@ -22,6 +22,10 @@ struct C : A {
   void foo() final;
 };
 
+struct D final : A {
+  static_assert (is_final (^^D));
+};
+
 static_assert (!std::meta::is_final (^^A));
 static_assert (std::meta::is_final (^^B));
 static_assert (!std::meta::is_final (^^C));
@@ -50,4 +54,3 @@ static_assert (!std::meta::is_final (^^c));
 static_assert (!std::meta::is_final (std::meta::type_of (^^a)));
 static_assert (std::meta::is_final (std::meta::type_of (^^b)));
 static_assert (!std::meta::is_final (std::meta::type_of (^^c)));
-

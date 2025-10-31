@@ -4097,7 +4097,7 @@ eval_is_final_type (location_t loc, tree type)
    Otherwise, false.  */
 
 static tree
-eval_is_final (location_t loc, tree r)
+eval_is_final (tree r)
 {
   if (eval_is_function (r) == boolean_true_node)
     {
@@ -4117,8 +4117,10 @@ eval_is_final (location_t loc, tree r)
 	return boolean_false_node;
     }
 
-  if (eval_is_type (r) == boolean_true_node)
-    return eval_is_final_type (loc, r);
+  if (eval_is_type (r) == boolean_true_node
+      && CLASS_TYPE_P (r)
+      && CLASSTYPE_FINAL (r))
+    return boolean_true_node;
 
   return boolean_false_node;
 }
@@ -7302,7 +7304,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_OVERRIDE:
       gcc_unreachable ();
     case METAFN_IS_FINAL:
-      return eval_is_final (loc, h);
+      return eval_is_final (h);
     case METAFN_IS_DELETED:
       return eval_is_deleted (h);
     case METAFN_IS_DEFAULTED:
