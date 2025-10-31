@@ -4092,6 +4092,37 @@ eval_is_final_type (location_t loc, tree type)
   return eval_type_trait (loc, type, CPTK_IS_FINAL);
 }
 
+/* Process std::meta::is_final.
+   Returns: true if r represents a final class or a final member function.
+   Otherwise, false.  */
+
+static tree
+eval_is_final (location_t loc, tree r)
+{
+  if (eval_is_function (r) == boolean_true_node)
+    {
+      r = MAYBE_BASELINK_FUNCTIONS (r);
+      if (TREE_CODE (r) == BIT_NOT_EXPR)
+	{
+	  tree t = TREE_OPERAND (r, 0);
+	  if (CLASSTYPE_LAZY_DESTRUCTOR (t))
+	    lazily_declare_fn (sfk_destructor, t);
+	  r = CLASSTYPE_DESTRUCTOR (t);
+	  gcc_assert (r != NULL_TREE);
+	}
+
+      if (DECL_FINAL_P (r))
+	return boolean_true_node;
+      else
+	return boolean_false_node;
+    }
+
+  if (eval_is_type (r) == boolean_true_node)
+    return eval_is_final_type (loc, r);
+
+  return boolean_false_node;
+}
+
 /* Process std::meta::is_aggregate_type.  */
 
 static tree
@@ -7269,8 +7300,9 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_PURE_VIRTUAL:
       return eval_is_pure_virtual (h);
     case METAFN_IS_OVERRIDE:
-    case METAFN_IS_FINAL:
       gcc_unreachable ();
+    case METAFN_IS_FINAL:
+      return eval_is_final (loc, h);
     case METAFN_IS_DELETED:
       return eval_is_deleted (h);
     case METAFN_IS_DEFAULTED:
