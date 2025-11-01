@@ -29543,6 +29543,27 @@ value_dependent_expression_p (tree expression)
 	    if (value_dependent_expression_p (op))
 	      return true;
 	  }
+	if (flag_reflection && !fn && CALL_EXPR_FN (expression))
+	  {
+	    fn = MAYBE_BASELINK_FUNCTIONS (CALL_EXPR_FN (expression));
+	    if (fn && TREE_CODE (fn) != FUNCTION_DECL)
+	      fn = NULL_TREE;
+	  }
+	/* [meta.reflection.access.context]/8: An invocation of current that
+	   appears at a program point P is value-dependent if eval-point(P)
+	   is enclosed by a scope corresponding to a templated entity.  */
+	if (flag_reflection
+	    && fn
+	    && metafunction_p (fn)
+	    && id_equal (DECL_NAME (fn), "current")
+	    && DECL_CLASS_SCOPE_P (fn)
+	    && TYPE_NAME (DECL_CONTEXT (fn))
+	    && TREE_CODE (TYPE_NAME (DECL_CONTEXT (fn))) == TYPE_DECL
+	    && DECL_NAME (TYPE_NAME (DECL_CONTEXT (fn)))
+	    && id_equal (DECL_NAME (TYPE_NAME (DECL_CONTEXT (fn))),
+			 "access_context"))
+	  return true;
+
 	return false;
       }
 
