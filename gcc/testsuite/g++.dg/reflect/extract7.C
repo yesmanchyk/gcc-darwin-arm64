@@ -19,20 +19,9 @@ static_assert(annotations_of(^^fn).size() == 6);
 void fn();
 static_assert(annotations_of(^^fn).size() == 6);
 
-constexpr auto idxOf = [](int v) consteval {
-  auto annots = annotations_of(^^fn);
-  for (size_t k = 0; k < annots.size(); ++k)
-    if (extract<int>(annots[k]) == v)
-      return k;
-
-  __builtin_unreachable();
-};
-constexpr auto p1 = idxOf(1), p4 = idxOf(4);
-
-static_assert(extract<int>(annotations_of(^^fn)[p1]) == 1);
-static_assert(extract<int>(annotations_of(^^fn)[p1 + 1]) == 2);
-static_assert(extract<int>(annotations_of(^^fn)[p1 + 2]) == 3);
-
-static_assert(extract<int>(annotations_of(^^fn)[p4]) == 4);
-static_assert(extract<int>(annotations_of(^^fn)[p4 + 1]) == 5);
-static_assert(extract<int>(annotations_of(^^fn)[p4 + 2]) == 6);
+static_assert(extract<int>(annotations_of(^^fn)[0]) == 1);
+static_assert(extract<int>(annotations_of(^^fn)[1]) == 2);
+static_assert(extract<int>(annotations_of(^^fn)[2]) == 3);
+static_assert(extract<int>(annotations_of(^^fn)[3]) == 4);
+static_assert(extract<int>(annotations_of(^^fn)[4]) == 5);
+static_assert(extract<int>(annotations_of(^^fn)[5]) == 6);
