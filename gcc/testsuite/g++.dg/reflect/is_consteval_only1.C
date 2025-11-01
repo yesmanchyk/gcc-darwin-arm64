@@ -70,3 +70,9 @@ static_assert (!is_consteval_only_type (^^M<E>));
 static_assert (is_consteval_only_type (^^M<A>));
 static_assert (!is_consteval_only_type (^^N<E>));
 static_assert (!is_consteval_only_type (^^N<A>));
+
+static_assert (is_consteval_only_type (^^std::meta::exception));
+static_assert (is_consteval_only_type (^^std::meta::access_context));
+static_assert (!is_consteval_only_type (^^std::meta::member_offset));
+static_assert (is_consteval_only_type (^^std::meta::data_member_options));
+static_assert (is_consteval_only_type (type_of (^^std::meta::data_member_options::name)));
