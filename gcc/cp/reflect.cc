@@ -1463,8 +1463,9 @@ eval_is_private (tree r, reflect_kind kind)
 }
 
 /* Process std::meta::is_virtual.
-   Returns: true if r represents a virtual method
-   or virtual base class relationship.  Otherwise, false.  */
+   Returns: true if r represents either a virtual member function or a direct
+   base class relationship (D,B) for which B is a virtual base class of D.
+   Otherwise, false.  */
 
 static tree
 eval_is_virtual (tree r, reflect_kind kind)
@@ -1480,7 +1481,7 @@ eval_is_virtual (tree r, reflect_kind kind)
 }
 
 /* Process std::meta::is_pure_virtual.
-   Returns: true if r represents a pure virtual method.
+   Returns: true if r represents a member function that is pure virtual.
    Otherwise, false.  */
 
 static tree
@@ -1491,6 +1492,48 @@ eval_is_pure_virtual (tree r)
     return boolean_true_node;
   else
     return boolean_false_node;
+}
+
+/* Helper function for eval_is_override, return true if FNDECL in TYPE
+   overrides another function.  */
+
+static bool
+is_override (tree type, tree fndecl)
+{
+  tree binfo = TYPE_BINFO (type), base_binfo;
+  int ix;
+
+  for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
+    {
+      tree basetype = BINFO_TYPE (base_binfo);
+      if (TYPE_POLYMORPHIC_P (basetype))
+	{
+	  if (look_for_overrides_here (basetype, fndecl))
+	    return true;
+	  if (is_override (basetype, fndecl))
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* Process std::meta::is_override.
+   Returns: true if r represents a member function that overrides another
+   member function.  Otherwise, false.  */
+
+static tree
+eval_is_override (tree r)
+{
+  r = maybe_get_reflection_fndecl (r);
+  if (TREE_CODE (r) == FUNCTION_DECL
+      && DECL_CLASS_SCOPE_P (r)
+      && !DECL_CONSTRUCTOR_P (r)
+      && (IDENTIFIER_VIRTUAL_P (DECL_NAME (r))
+	  || DECL_CONV_FN_P (r))
+      && !DECL_STATIC_FUNCTION_P (r)
+      && is_override (DECL_CONTEXT (r), r))
+    return boolean_true_node;
+  return boolean_false_node;
 }
 
 /* Process std::meta::is_namespace_member.
@@ -7256,7 +7299,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_PURE_VIRTUAL:
       return eval_is_pure_virtual (h);
     case METAFN_IS_OVERRIDE:
-      gcc_unreachable ();
+      return eval_is_override (h);
     case METAFN_IS_FINAL:
       return eval_is_final (h);
     case METAFN_IS_DELETED:
