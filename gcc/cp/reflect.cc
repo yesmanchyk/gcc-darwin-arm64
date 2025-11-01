@@ -7816,7 +7816,7 @@ splice (tree refl)
    have to call this recursively, sigh.  */
 
 static tree
-consteval_only_type_r (tree *tp, int *, void *data)
+consteval_only_type_r (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
   /* Types can contain themselves recursively, hence this.  */
@@ -7828,13 +7828,28 @@ consteval_only_type_r (tree *tp, int *, void *data)
   if (REFLECTION_TYPE_P (t))
     return t;
 
+  if (typedef_variant_p (t))
+    {
+      *walk_subtrees = 0;
+      if (tree r = cp_walk_tree (&TYPE_MAIN_VARIANT (t), consteval_only_type_r,
+				 visited, visited))
+	return r;
+      return NULL_TREE;
+    }
+
   if (RECORD_OR_UNION_TYPE_P (t))
-    for (tree member = TYPE_FIELDS (t);
-	 member; member = DECL_CHAIN (member))
-      if (TREE_CODE (member) == FIELD_DECL)
-	if (tree r = cp_walk_tree (&TREE_TYPE (member), consteval_only_type_r,
-				   visited, visited))
-	  return r;
+    {
+      /* Don't walk template arguments; A<info>::type isn't a consteval-only
+	 type.  */
+      *walk_subtrees = 0;
+      /* So we have to walk the fields manually.  */
+      for (tree member = TYPE_FIELDS (t);
+	   member; member = DECL_CHAIN (member))
+	if (TREE_CODE (member) == FIELD_DECL)
+	  if (tree r = cp_walk_tree (&TREE_TYPE (member),
+				     consteval_only_type_r, visited, visited))
+	    return r;
+    }
 
   return NULL_TREE;
 }
@@ -7861,6 +7876,16 @@ consteval_only_p (tree t)
 
   if (!TYPE_P (t))
     t = TREE_TYPE (t);
+
+  if (!t)
+    return false;
+
+  /* We need the complete type otherwise we'd have no fields for class
+     templates and thus come up with zilch for things like
+       template<typename T>
+       struct X : T { };
+     which could be consteval-only, depending on T.  */
+  t = complete_type (t);
 
   /* Classes with std::meta::info members are also consteval-only.  */
   hash_set<tree> visited;
