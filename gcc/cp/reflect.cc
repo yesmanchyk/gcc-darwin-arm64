@@ -2581,6 +2581,8 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
 // We should have
 //   } else if constexpr (is_array(type_of(R))) {
 //    return reflect_constant_array([: R :]);
+//   } else if constexpr (is_function_type(type_of(R)) {
+//   return reflect_function([:R:]);
 // in the pseudocode above.
 
 static tree
@@ -7842,6 +7844,9 @@ consteval_only_type_r (tree *tp, int *, void *data)
    compounded from a consteval-only type", or something that has
    a consteval-only type.  */
 
+// <https://cplusplus.github.io/LWG/lwg-active.html#4422>
+// meta::access_context should be a consteval-only type
+
 bool
 consteval_only_p (tree t)
 {
@@ -7862,8 +7867,8 @@ consteval_only_p (tree t)
   return !!cp_walk_tree (&t, consteval_only_type_r, &visited, &visited);
 }
 
-/* Give an error if a consteval-only expression EXPR, or a consteval-only
-   variable EXPR not declared constexpr/constinit) is used outside
+/* Detect if a consteval-only expression EXPR or a consteval-only
+   variable EXPR not declared constexpr/constinit is used outside
    a manifestly constant-evaluated context.  E.g.:
 
      void f() {
@@ -7879,10 +7884,11 @@ consteval_only_p (tree t)
        auto z = r;
      }
 
-   is OK.  Return true if we found a problem.  */
+   is OK.  If COMPLAIN, emit an error; otherwise we're in the search-only
+   mode.  Return true if we found a problematic expression.  */
 
 bool
-check_out_of_consteval_use (tree expr)
+check_out_of_consteval_use (tree expr, bool complain/*=true*/)
 {
   if (!flag_reflection || in_immediate_context ())
     return false;
@@ -7958,29 +7964,35 @@ check_out_of_consteval_use (tree expr)
 	  return NULL_TREE;
 	}
 
-      /* Yep, gotta complain.  */
-      if (VAR_P (t))
-	{
-	  auto_diagnostic_group d;
-	  error_at (cp_expr_loc_or_input_loc (t),
-		    "consteval-only variable %qD not declared %<constexpr%> "
-		    "used outside a constant-evaluated context", t);
-	  if (TREE_STATIC (t) || CP_DECL_THREAD_LOCAL_P (t))
-	    inform (DECL_SOURCE_LOCATION (t), "add %<constexpr%> or "
-		    "%<constinit%>");
-	  else
-	    inform (DECL_SOURCE_LOCATION (t), "add %<constexpr%>");
-	}
-      else
-	error_at (cp_expr_loc_or_input_loc (t),
-		  "consteval-only expressions are only allowed in "
-		  "a constant-evaluated context");
-
       *walk_subtrees = false;
       return t;
     };
 
-  return !!cp_walk_tree_without_duplicates (&expr, walker, nullptr);
+  if (tree t = cp_walk_tree_without_duplicates (&expr, walker, nullptr))
+    {
+      if (complain)
+	{
+	  if (VAR_P (t))
+	    {
+	      auto_diagnostic_group d;
+	      error_at (cp_expr_loc_or_input_loc (t),
+			"consteval-only variable %qD not declared %<constexpr%> "
+			"used outside a constant-evaluated context", t);
+	      if (TREE_STATIC (t) || CP_DECL_THREAD_LOCAL_P (t))
+		inform (DECL_SOURCE_LOCATION (t), "add %<constexpr%> or "
+			"%<constinit%>");
+	      else
+		inform (DECL_SOURCE_LOCATION (t), "add %<constexpr%>");
+	    }
+	  else
+	    error_at (cp_expr_loc_or_input_loc (t),
+		      "consteval-only expressions are only allowed in "
+		      "a constant-evaluated context");
+	}
+      return true;
+    }
+
+  return false;
 }
 
 /* Return true if the reflections LHS and RHS are equal.  */

@@ -9927,23 +9927,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	    break;
 	  }
 
-	/* Detect consteval-only smuggling: turning a consteval-only object
-	   into one that is not consteval-only.  */
-	if (consteval_only_p (op)
-	    && !consteval_only_p (type)
-	    /* Like below, don't diagnose inside a call to std::construct_at,
-	       std::allocator<T>::{,de}allocate, because that is
-	       compiler-generated code.  */
-	    && !is_std_construct_at (ctx->call)
-	    && !is_std_allocator_allocate (ctx->call))
-	  {
-	    if (!ctx->quiet)
-	       error_at (loc, "conversion from consteval-only type %qT to "
-			 "non-consteval-only type %qT", TREE_TYPE (op), type);
-	    *non_constant_p = true;
-	    return t;
-	  }
-
 	/* [expr.const]: a conversion from type cv void* to a pointer-to-object
 	   type cannot be part of a core constant expression as a resolution to
 	   DR 1312.  */
@@ -10825,6 +10808,37 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
 	    error_at (cp_expr_loc_or_input_loc (t),
 		      "constant evaluation returns address of immediate "
 		      "function %qD", immediate_fndecl);
+	}
+      r = t;
+      non_constant_p = true;
+    }
+
+  /* Detect consteval-only smuggling: turning a consteval-only object
+     into one that is not.  For instance, in
+       struct B { };
+       struct D : B { info r; };
+       constexpr D d{^^::};
+       constexpr const B &b = d; // #1
+     #1 is wrong because D is a consteval-only type but B is not.  */
+  if (flag_reflection
+      && !non_constant_p
+      && object
+      && POINTER_TYPE_P (TREE_TYPE (object))
+      && !consteval_only_p (object)
+      && check_out_of_consteval_use (r, /*complain=*/false))
+    {
+      if (!allow_non_constant)
+	{
+	  if (TYPE_REF_P (TREE_TYPE (object)))
+	    error_at (cp_expr_loc_or_input_loc (t),
+		      "reference into an object of consteval-only type is "
+		      "not a constant expression unless it also has "
+		      "consteval-only type");
+	  else
+	    error_at (cp_expr_loc_or_input_loc (t),
+		      "pointer into an object of consteval-only type is "
+		      "not a constant expression unless it also has "
+		      "consteval-only type");
 	}
       r = t;
       non_constant_p = true;

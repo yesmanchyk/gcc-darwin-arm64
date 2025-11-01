@@ -10,12 +10,12 @@ struct Derived : Base {
 };
 consteval const Base &fn1() {
   static constexpr Derived d;
-  return d;	      // { dg-error "conversion from consteval-only type" }
+  return d;
 }
-constexpr auto &ref = fn1();
+constexpr auto &ref = fn1(); // { dg-error "reference into an object of consteval-only type" }
 
 consteval void *fn2() {
   static constexpr auto v = ^^int;
-  return (void *)&v;  // { dg-error "conversion from consteval-only type" }
+  return (void *)&v;
 }
-constexpr const void *ptr = fn2();
+constexpr const void *ptr = fn2(); // { dg-error "pointer into an object of consteval-only type" }
