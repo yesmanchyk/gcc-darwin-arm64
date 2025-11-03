@@ -8104,16 +8104,26 @@ compare_reflections (tree lhs, tree rhs)
 	    && tree_int_cst_equal (TREE_VEC_ELT (lhs, 3),
 				   TREE_VEC_ELT (rhs, 3))
 	    && TREE_VEC_ELT (lhs, 4) == TREE_VEC_ELT (rhs, 4));
-  /* Sometimes the ARRAY_REFs differ only in that one has a location
-     and the other doesn't.  ??? Maybe strip the location and fall back
-     to ==?  */
-  else if (TREE_CODE (lhs) == ARRAY_REF && TREE_CODE (rhs) == ARRAY_REF)
-    return (TREE_TYPE (lhs) == TREE_TYPE (rhs)
-	    && TREE_OPERAND (lhs, 0) == TREE_OPERAND (rhs, 0)
-	    && TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1)
-	    && TREE_OPERAND (lhs, 2) == TREE_OPERAND (rhs, 2));
 
-  return lhs == rhs;
+  if (lhs == rhs)
+    return true;
+
+  /* Some trees are not shared.  */
+  if (TREE_CODE (lhs) == TREE_CODE (rhs))
+    switch (TREE_CODE (lhs))
+      {
+      case ARRAY_REF:
+	return (TREE_TYPE (lhs) == TREE_TYPE (rhs)
+		&& TREE_OPERAND (lhs, 0) == TREE_OPERAND (rhs, 0)
+		&& TREE_OPERAND (lhs, 1) == TREE_OPERAND (rhs, 1)
+		&& TREE_OPERAND (lhs, 2) == TREE_OPERAND (rhs, 2));
+      case REAL_CST:
+	return cp_tree_equal (lhs, rhs);
+      default:
+	break;
+      }
+
+  return false;
 }
 
 /* Return true if T is a valid splice-type-specifier.
