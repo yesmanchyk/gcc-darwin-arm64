@@ -50,8 +50,8 @@ static_assert (has_linkage (^^cls));
 static_assert (!has_linkage (^^cls::dm));
 static_assert (!has_linkage (^^cls::ref_dm));
 static_assert (has_linkage (^^cls::static_dm));
-//static_assert (has_linkage (^^cls::mem_fun));
-//static_assert (has_linkage (^^cls::static_mem_fun));
+static_assert (has_linkage (^^cls::mem_fun));
+static_assert (has_linkage (^^cls::static_mem_fun));
 static_assert (!has_linkage (^^cls::type));
 static_assert (has_linkage (^^cls_var));
 static_assert (has_linkage (^^onion));
@@ -65,7 +65,7 @@ static_assert (has_linkage (^^ptr));
 static_assert (has_linkage (^^cls_tmpl));
 static_assert (has_linkage (^^cls_tmpl<int>));
 static_assert (has_linkage (^^incomplete_cls<int>));
-//static_assert (!has_linkage (^^fun_tmpl));
+static_assert (has_linkage (^^fun_tmpl));
 static_assert (has_linkage (^^fun_tmpl<int>));
 static_assert (has_linkage (^^conc));
 static_assert (!has_linkage (substitute (^^conc, { ^^int })));
@@ -88,7 +88,7 @@ template<typename T, info R, info R2, info R3>
 void
 f ()
 {
-//  static_assert (!has_linkage (^^T));
+  static_assert (!has_linkage (^^T));
   static_assert (has_linkage (R));
   static_assert (has_linkage (R2));
   static_assert (has_linkage (R3));

@@ -1928,14 +1928,18 @@ eval_has_internal_linkage (tree r, reflect_kind kind)
       && eval_is_template (r) == boolean_false_node
       && eval_is_namespace (r) == boolean_false_node)
     return boolean_false_node;
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   if (TYPE_P (r))
     {
-      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+      if (TYPE_NAME (r) == NULL_TREE
+	  || !DECL_P (TYPE_NAME (r))
+	  || (!DECL_IMPLICIT_TYPEDEF_P (TYPE_NAME (r))
+	      && TYPE_NAME (r) == TYPE_NAME (TYPE_MAIN_VARIANT (r))
+	      && !TYPE_MAIN_DECL (r)))
 	return boolean_false_node;
       r = TYPE_NAME (r);
     }
-  r = MAYBE_BASELINK_FUNCTIONS (r);
   if (decl_linkage (r) == lk_internal)
     return boolean_true_node;
   else
@@ -1955,14 +1959,18 @@ eval_has_module_linkage (tree r, reflect_kind kind)
       && eval_is_template (r) == boolean_false_node
       && eval_is_namespace (r) == boolean_false_node)
     return boolean_false_node;
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   if (TYPE_P (r))
     {
-      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+      if (TYPE_NAME (r) == NULL_TREE
+	  || !DECL_P (TYPE_NAME (r))
+	  || (!DECL_IMPLICIT_TYPEDEF_P (TYPE_NAME (r))
+	      && TYPE_NAME (r) == TYPE_NAME (TYPE_MAIN_VARIANT (r))
+	      && !TYPE_MAIN_DECL (r)))
 	return boolean_false_node;
       r = TYPE_NAME (r);
     }
-  r = MAYBE_BASELINK_FUNCTIONS (r);
   if (decl_linkage (r) == lk_external
       && DECL_LANG_SPECIFIC (r)
       && DECL_MODULE_ATTACH_P (r)
@@ -1985,14 +1993,18 @@ eval_has_external_linkage (tree r, reflect_kind kind)
       && eval_is_template (r) == boolean_false_node
       && eval_is_namespace (r) == boolean_false_node)
     return boolean_false_node;
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   if (TYPE_P (r))
     {
-      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+      if (TYPE_NAME (r) == NULL_TREE
+	  || !DECL_P (TYPE_NAME (r))
+	  || (!DECL_IMPLICIT_TYPEDEF_P (TYPE_NAME (r))
+	      && TYPE_NAME (r) == TYPE_NAME (TYPE_MAIN_VARIANT (r))
+	      && !TYPE_MAIN_DECL (r)))
 	return boolean_false_node;
       r = TYPE_NAME (r);
     }
-  r = MAYBE_BASELINK_FUNCTIONS (r);
   if (decl_linkage (r) == lk_external
       && !(DECL_LANG_SPECIFIC (r)
 	   && DECL_MODULE_ATTACH_P (r)
@@ -2015,14 +2027,18 @@ eval_has_c_language_linkage (tree r, reflect_kind kind)
       && eval_is_template (r) == boolean_false_node
       && eval_is_namespace (r) == boolean_false_node)
     return boolean_false_node;
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   if (TYPE_P (r))
     {
-      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+      if (TYPE_NAME (r) == NULL_TREE
+	  || !DECL_P (TYPE_NAME (r))
+	  || (!DECL_IMPLICIT_TYPEDEF_P (TYPE_NAME (r))
+	      && TYPE_NAME (r) == TYPE_NAME (TYPE_MAIN_VARIANT (r))
+	      && !TYPE_MAIN_DECL (r)))
 	return boolean_false_node;
       r = TYPE_NAME (r);
     }
-  r = MAYBE_BASELINK_FUNCTIONS (r);
   if (TREE_CODE (r) != NAMESPACE_DECL
       && decl_linkage (r) == lk_external
       && DECL_LANGUAGE (r) == lang_c)
@@ -2044,10 +2060,15 @@ eval_has_linkage (tree r, reflect_kind kind)
       && eval_is_template (r) == boolean_false_node
       && eval_is_namespace (r) == boolean_false_node)
     return boolean_false_node;
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   if (TYPE_P (r))
     {
-      if (TYPE_NAME (r) == NULL_TREE || !DECL_P (TYPE_NAME (r)))
+      if (TYPE_NAME (r) == NULL_TREE
+	  || !DECL_P (TYPE_NAME (r))
+	  || (!DECL_IMPLICIT_TYPEDEF_P (TYPE_NAME (r))
+	      && TYPE_NAME (r) == TYPE_NAME (TYPE_MAIN_VARIANT (r))
+	      && !TYPE_MAIN_DECL (r)))
 	return boolean_false_node;
       r = TYPE_NAME (r);
     }

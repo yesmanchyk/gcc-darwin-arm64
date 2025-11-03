@@ -65,7 +65,7 @@ static_assert (has_external_linkage (^^ptr));
 static_assert (has_external_linkage (^^cls_tmpl));
 static_assert (has_external_linkage (^^cls_tmpl<int>));
 static_assert (has_external_linkage (^^incomplete_cls<int>));
-//static_assert (!has_external_linkage (^^fun_tmpl));
+static_assert (has_external_linkage (^^fun_tmpl));
 static_assert (has_external_linkage (^^fun_tmpl<int>));
 static_assert (has_external_linkage (^^conc));
 static_assert (!has_external_linkage (substitute (^^conc, { ^^int })));
@@ -88,7 +88,7 @@ template<typename T, info R, info R2, info R3>
 void
 f ()
 {
-//  static_assert (!has_external_linkage (^^T));
+  static_assert (!has_external_linkage (^^T));
   static_assert (has_external_linkage (R));
   static_assert (has_external_linkage (R2));
   static_assert (has_external_linkage (R3));
