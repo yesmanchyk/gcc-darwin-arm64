@@ -76,3 +76,8 @@ static_assert (is_consteval_only_type (^^std::meta::access_context));
 static_assert (!is_consteval_only_type (^^std::meta::member_offset));
 static_assert (is_consteval_only_type (^^std::meta::data_member_options));
 static_assert (is_consteval_only_type (type_of (^^std::meta::data_member_options::name)));
+
+struct O;
+static_assert (!is_consteval_only_type (^^O));
+struct O { info i; };
+static_assert (is_consteval_only_type (^^O));
