@@ -3767,7 +3767,11 @@ write_expression (tree expr)
 	   template <auto V> constexpr int e = [:V:];
 	 when it's instantiated with a reflection.  */
       tree h = REFLECT_EXPR_HANDLE (expr);
-      if (TYPE_P (h))
+      if (h == unknown_type_node)
+	/* How do I mangle a null reflection? :(  */;
+      else if (h == global_namespace)
+	/* I don't believe :: should be mangled.  */;
+      else if (TYPE_P (h))
 	write_type (h);
       else
 	write_expression (h);

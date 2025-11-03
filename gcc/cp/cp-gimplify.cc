@@ -1291,6 +1291,27 @@ cp_build_init_expr_for_ctor (tree call, tree init)
   return init;
 }
 
+/* For every DECL_EXPR check if it declares a consteval-only variable and
+   if so, overwrite it with a no-op.  The point here is not to leak
+   consteval-only variables into the middle end.  */
+
+static tree
+wipe_consteval_only_r (tree *stmt_p, int *, void *)
+{
+  if (TREE_CODE (*stmt_p) == DECL_EXPR)
+    {
+      tree d = DECL_EXPR_DECL (*stmt_p);
+      if (VAR_P (d) && consteval_only_p (d))
+	{
+	  /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
+	  *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
+	  /* And skip varpool_node::finalize_decl.  */
+	  DECL_HAS_VALUE_EXPR_P (d) = true;
+	}
+    }
+  return NULL_TREE;
+}
+
 /* A walk_tree callback for cp_fold_function and cp_fully_fold_init to handle
    immediate functions.  */
 
@@ -1328,17 +1349,9 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
 	for (tree s : tsi_range (stmt))
 	  if (check_out_of_consteval_use (s))
 	    *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
-      if (TREE_CODE (stmt) == DECL_EXPR)
-	{
-	  tree d = DECL_EXPR_DECL (stmt);
-	  if (VAR_P (d) && consteval_only_p (d))
-	    {
-	      /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
-	      *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
-	      /* And skip varpool_node::finalize_decl.  */
-	      DECL_HAS_VALUE_EXPR_P (d) = true;
-	    }
-	}
+      /* Check & clear consteval-only DECL_EXPRs.  It's a tree walk because
+	 we can have nested BIND_EXPRs.  */
+      cp_walk_tree (&stmt, wipe_consteval_only_r, nullptr, nullptr);
       /* We can't resolve all TEMPLATE_ID_EXPRs while creating reflections
 	 because cp_parser_postfix_dot_deref_expression wants to see the
 	 original TEMPLATE_ID_EXPR.  Resolve them now so that we don't crash
@@ -1450,6 +1463,22 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
 	  *walk_subtrees = 0;
 	  return stmt;
 	}
+      /* If we called a consteval function and it evaluated to a consteval-only
+	 expression, it could be a problem if we are outside a manifestly
+	 constant-evaluated context.  */
+      else if ((data->flags & ff_genericize)
+	       && check_out_of_consteval_use (e, complain))
+	{
+	  *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
+	  if (complain & tf_error)
+	    return NULL_TREE;
+	  else
+	    {
+	      *walk_subtrees = 0;
+	      return stmt;
+	    }
+	}
+
       /* We've evaluated the consteval function call.  */
       if (call_p)
 	{

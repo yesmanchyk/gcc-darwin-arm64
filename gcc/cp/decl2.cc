@@ -2459,6 +2459,10 @@ maybe_make_one_only (tree decl)
   if (! flag_weak)
     return;
 
+  /* These are not to be output.  */
+  if (consteval_only_p (decl))
+    return;
+
   /* We can't set DECL_COMDAT on functions, or cp_finish_file will think
      we can get away with not emitting them if they aren't used.  We need
      to for variables so that cp_finish_decl will update their linkage,
@@ -2615,6 +2619,10 @@ var_finalized_p (tree var)
 void
 mark_needed (tree decl)
 {
+  /* These are not to be output.  */
+  if (consteval_only_p (decl))
+    return;
+
   TREE_USED (decl) = 1;
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
