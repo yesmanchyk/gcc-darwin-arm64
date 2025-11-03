@@ -39,6 +39,31 @@ static_assert (^^const cls_tmpl_alias <int> == ^^const cls_tmpl <int>);
 static_assert (^^cls_tmpl_alias <int> const == ^^const cls_tmpl <int>);
 static_assert (^^cls_tmpl_alias <int> && == ^^const cls_tmpl <int> &&);
 
+namespace N1
+{
+  template <typename> struct cls_tmpl {};
+  template <typename T> using cls_tmpl_alias = const cls_tmpl <T>;
+
+  static_assert (is_type_alias (^^N1::cls_tmpl_alias <int>));
+  static_assert (!is_type_alias (^^const N1::cls_tmpl_alias <int>));
+  static_assert (!is_type_alias (^^N1::cls_tmpl_alias <int> const));
+  static_assert (!is_type_alias (^^N1::cls_tmpl_alias <int> &&));
+  static_assert (^^N1::cls_tmpl_alias <int> != ^^const N1::cls_tmpl <int>);
+  static_assert (^^N1::cls_tmpl_alias <int> != ^^const N1::cls_tmpl_alias <int>);
+  static_assert (^^const N1::cls_tmpl_alias <int> == ^^const N1::cls_tmpl <int>);
+  static_assert (^^N1::cls_tmpl_alias <int> const == ^^const N1::cls_tmpl <int>);
+  static_assert (^^N1::cls_tmpl_alias <int> && == ^^const N1::cls_tmpl <int> &&);
+  static_assert (is_type_alias (^^N1:: template cls_tmpl_alias <int>));
+  static_assert (!is_type_alias (^^const N1:: template cls_tmpl_alias <int>));
+  static_assert (!is_type_alias (^^N1:: template cls_tmpl_alias <int> const));
+  static_assert (!is_type_alias (^^N1:: template cls_tmpl_alias <int> &&));
+  static_assert (^^N1:: template cls_tmpl_alias <int> != ^^const N1:: template cls_tmpl <int>);
+  static_assert (^^N1:: template cls_tmpl_alias <int> != ^^const N1:: template cls_tmpl_alias <int>);
+  static_assert (^^const N1:: template cls_tmpl_alias <int> == ^^const N1:: template cls_tmpl <int>);
+  static_assert (^^N1:: template cls_tmpl_alias <int> const == ^^const N1:: template cls_tmpl <int>);
+  static_assert (^^N1:: template cls_tmpl_alias <int> && == ^^const N1:: template cls_tmpl <int> &&);
+}
+
 const I a = 42;
 static_assert (!is_type_alias (type_of (^^a)));
 static_assert (type_of (^^a) == ^^const int);
