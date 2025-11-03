@@ -3120,6 +3120,88 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return fold_convert (ret_type, ret);
 }
 
+/* Process std::meta::alignment_of.
+   Returns:
+   -- If dealias(r) represents a type T, then alignment_of(add_pointer(r)) if
+      T is a reference type and the alignment requirement of T otherwise.
+   -- Otherwise, if dealias(r) represents a variable or object, then the
+      alignment requirement of the variable or object.
+   -- Otherwise, if r represents a direct base class relationship, then
+      alignment_of(type_of(r)).
+   -- Otherwise, if r represents a non-static data member M of a class C,
+      then the alignment of the direct member subobject corresponding to M of a
+      complete object of type C.
+   -- Otherwise, r represents a data member description (T,N,A,W,NUA).
+      If A is not _|_, then the value A.  Otherwise, alignment_of(^^T).
+   Throws: meta::exception unless all of the following conditions are met:
+   -- dealias(r) is a reflection of a type, object, variable of non-reference
+      type, non-static data member that is not a bit-field, direct base class
+      relationship, or data member description.
+   -- If dealias(r) represents a type, then is_complete_type(r) is true.  */
+
+static tree
+eval_alignment_of (location_t loc, const constexpr_ctx *ctx, tree r,
+		   reflect_kind kind, tree ret_type, tree *jump_target,
+		   tree fun)
+{
+  if (eval_is_type (r) != boolean_true_node
+      && eval_is_object (kind) != boolean_true_node
+      && (eval_is_variable (r, kind) != boolean_true_node
+	  || TYPE_REF_P (TREE_TYPE (r)))
+      && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
+      && kind != REFLECT_BASE
+      && (kind != REFLECT_DATA_MEMBER_SPEC
+	  /* LWG4429 || TREE_VEC_ELT (r, 3) */))
+    return throw_exception (loc, ctx, "reflection not suitable for alignment_of",
+			    fun, jump_target);
+  if (!INTEGRAL_TYPE_P (ret_type))
+    {
+      error_at (loc, "unexpected return type of %qs", "std::meta::alignment_of");
+      return build_zero_cst (ret_type);
+    }
+  tree type;
+  if (kind == REFLECT_DATA_MEMBER_SPEC)
+    {
+      if (TREE_VEC_ELT (r, 2))
+	return fold_convert (ret_type, TREE_VEC_ELT (r, 2));
+      else
+	type = TREE_VEC_ELT (r, 0);
+    }
+  else if (kind == REFLECT_BASE)
+    type = BINFO_TYPE (r);
+  else if (TREE_CODE (r) == FIELD_DECL
+	   || eval_is_variable (r, kind) == boolean_true_node
+	   || (eval_is_object (kind) == boolean_true_node
+	       && DECL_P (r)
+	       && TREE_CODE (r) != FUNCTION_DECL))
+    return build_int_cst (ret_type, MAX (DECL_ALIGN (r) / BITS_PER_UNIT, 1));
+  else if (TYPE_P (r))
+    type = r;
+  else if (eval_is_object (kind) == boolean_true_node)
+    {
+      if (TREE_CODE (r) == COMPONENT_REF)
+	return build_int_cst (ret_type, MAX (DECL_ALIGN (TREE_OPERAND (r, 1))
+					     / BITS_PER_UNIT, 1));
+      else
+	type = TREE_TYPE (r);
+    }
+  else
+    gcc_unreachable ();
+  if (TYPE_REF_P (type))
+    type = ptr_type_node;
+  if (!complete_type_or_maybe_complain (type, NULL_TREE, tf_none))
+    return throw_exception (loc, ctx, "reflection with incomplete type",
+			    fun, jump_target);
+  if (FUNC_OR_METHOD_TYPE_P (type))
+    return throw_exception (loc, ctx, "alignment_of on function type",
+			    fun, jump_target);
+  tree ret = c_sizeof_or_alignof_type (loc, type, false, true, 0);
+  if (ret == error_mark_node)
+    return throw_exception (loc, ctx, "reflection with incomplete type",
+			    fun, jump_target);
+  return fold_convert (ret_type, ret);
+}
+
 /* Process std::meta::bit_size_of.
    Returns:
      -- If r represents an unnamed bit-field or a non-static data member that
@@ -7491,7 +7573,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_size_of (loc, ctx, h, kind, TREE_TYPE (call), jump_target,
 			   fun);
     case METAFN_ALIGNMENT_OF:
-      gcc_unreachable ();
+      return eval_alignment_of (loc, ctx, h, kind, TREE_TYPE (call),
+				jump_target, fun);
     case METAFN_BIT_SIZE_OF:
       return eval_bit_size_of (loc, ctx, h, kind, TREE_TYPE (call),
 			       jump_target, fun);

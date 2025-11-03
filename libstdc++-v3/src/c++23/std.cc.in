@@ -2158,7 +2158,7 @@ export namespace std
     using std::meta::member_offset;
     using std::meta::offset_of;
     using std::meta::size_of;
-    // using std::meta::alignment_of;
+    using std::meta::alignment_of;
     using std::meta::bit_size_of;
     using std::meta::extract;
     using std::meta::reflection_range;
