@@ -627,7 +627,6 @@ cp_common_init_ts (void)
   MARK_TS_TYPED (LAMBDA_EXPR);
   MARK_TS_TYPED (TYPE_ARGUMENT_PACK);
   MARK_TS_TYPED (TRAIT_EXPR);
-  MARK_TS_TYPED (REFLECT_EXPR);
 
   /* Random new trees.  */
   MARK_TS_COMMON (BASELINK);
@@ -706,6 +705,7 @@ cp_common_init_ts (void)
   MARK_TS_EXP (VEC_NEW_EXPR);
   MARK_TS_EXP (SPACESHIP_EXPR);
   MARK_TS_EXP (SPLICE_EXPR);
+  MARK_TS_EXP (REFLECT_EXPR);
 
   /* Fold expressions.  */
   MARK_TS_EXP (BINARY_LEFT_FOLD_EXPR);
