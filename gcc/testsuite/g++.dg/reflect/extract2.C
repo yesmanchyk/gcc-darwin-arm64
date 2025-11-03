@@ -125,6 +125,8 @@ struct C {
   static int fn3 ();
   static int fn4 () noexcept;
   int fn5 (this B);
+  int fn6 (int) &;
+  int fn7 (int) &&;
 };
 static_assert (!can_extract<void (C::*)()>(^^C::fn));
 static_assert (!can_extract<int (C::*)() noexcept>(^^C::fn));
@@ -134,3 +136,5 @@ static_assert (!can_extract<int (C::*)()>(^^C::fn4));
 static_assert (!can_extract<int (*)() noexcept>(^^C::fn3));
 static_assert (!can_extract<int (*)()>(^^C::fn4));
 static_assert (!can_extract<int (*)()>(^^C::fn5));
+static_assert (!can_extract<int (C::*)(int) &&>(^^C::fn6));
+static_assert (!can_extract<int (C::*)(int) &>(^^C::fn7));
