@@ -2160,7 +2160,7 @@ export namespace std
     using std::meta::size_of;
     // using std::meta::alignment_of;
     using std::meta::bit_size_of;
-    // using std::meta::extract;
+    using std::meta::extract;
     using std::meta::reflection_range;
     using std::meta::can_substitute;
     using std::meta::substitute;
