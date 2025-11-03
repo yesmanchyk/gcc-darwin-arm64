@@ -46,7 +46,7 @@
 #define __glibcxx_want_reflection
 #include <bits/version.h>
 
-#if __glibcxx_reflection >= 1 // C++ >= 26 && __cpp_impl_reflection
+#if __glibcxx_reflection >= 202506L // C++ >= 26 && __cpp_impl_reflection
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {

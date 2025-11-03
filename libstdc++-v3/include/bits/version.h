@@ -2466,12 +2466,13 @@
 #undef __glibcxx_want_is_implicit_lifetime
 
 #if !defined(__cpp_lib_reflection)
-# if (__cplusplus >  202302L) && (__cpp_impl_reflection >= 202500L)
-#  define __glibcxx_reflection 1L
+# if (__cplusplus >  202302L) && (__cpp_impl_reflection >= 202506L)
+#  define __glibcxx_reflection 202506L
 #  if defined(__glibcxx_want_all) || defined(__glibcxx_want_reflection)
+#   define __cpp_lib_reflection 202506L
 #  endif
 # endif
-#endif /* !defined(__cpp_lib_reflection) && defined(__glibcxx_want_reflection) */
+#endif /* !defined(__cpp_lib_reflection) */
 #undef __glibcxx_want_reflection
 
 #undef __glibcxx_want_all

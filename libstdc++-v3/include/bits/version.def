@@ -2188,16 +2188,15 @@ ftms = {
     v = 202406;
     cxxmin = 26;
     extra_cond = "__SIZEOF_INT128__";
+  };
 };
 
 ftms = {
   name = reflection;
-  // TODO Remove when fully implemented
-  no_stdname = true;
   values = {
-    v = 1; // TODO 202506;
+    v = 202506;
     cxxmin = 26;
-    extra_cond = "__cpp_impl_reflection >= 202500L"; // TODO 202506;
+    extra_cond = "__cpp_impl_reflection >= 202506L";
   };
 };
 
