@@ -6100,8 +6100,8 @@ extract_access_context (location_t loc, tree actx, tree *scope,
 {
   if (TREE_CODE (actx) != CONSTRUCTOR
       || CONSTRUCTOR_NELTS (actx) != 2
-      || TREE_CODE (CONSTRUCTOR_ELT (actx, 0)->value) != REFLECT_EXPR
-      || TREE_CODE (CONSTRUCTOR_ELT (actx, 1)->value) != REFLECT_EXPR)
+      || !REFLECT_EXPR_P (CONSTRUCTOR_ELT (actx, 0)->value)
+      || !REFLECT_EXPR_P (CONSTRUCTOR_ELT (actx, 1)->value))
     {
       error_at (loc, "invalid %<access_context%> argument");
       return false;

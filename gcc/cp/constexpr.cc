@@ -10518,7 +10518,7 @@ find_immediate_fndecl (tree *tp, int *walk_subtrees, void */*data*/)
       && TREE_CODE (PTRMEM_CST_MEMBER (*tp)) == FUNCTION_DECL
       && DECL_IMMEDIATE_FUNCTION_P (PTRMEM_CST_MEMBER (*tp)))
     return PTRMEM_CST_MEMBER (*tp);
-  if (TREE_CODE (*tp) == REFLECT_EXPR)
+  if (REFLECT_EXPR_P (*tp))
     *walk_subtrees = 0;
   return NULL_TREE;
 }
