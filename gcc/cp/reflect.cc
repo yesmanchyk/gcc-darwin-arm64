@@ -3593,7 +3593,8 @@ static reflect_kind
 get_reflection_kind (tree r)
 {
   if (eval_is_type (r) == boolean_true_node
-      || eval_is_template (r) == boolean_true_node)
+      || eval_is_template (r) == boolean_true_node
+      || eval_is_function (r) == boolean_true_node)
     return REFLECT_UNDEF;
   return obvalue_p (r) ? REFLECT_OBJECT : REFLECT_VALUE;
 }
@@ -8006,6 +8007,7 @@ consteval_only_type_r (tree *tp, int *walk_subtrees, void *data)
    compounded from a consteval-only type", or something that has
    a consteval-only type.  */
 
+// <https://cplusplus.github.io/CWG/issues/3101.html> changes the def
 // <https://cplusplus.github.io/LWG/lwg-active.html#4422>
 // meta::access_context should be a consteval-only type
 
