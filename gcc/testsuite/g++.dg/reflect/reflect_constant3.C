@@ -43,8 +43,7 @@ static_assert (!is_object (reflect_constant (ci)));
 
 void fn() {}
 static_assert ([:reflect_constant (&fn):] == &fn);
-// TODO
-//static_assert (type_of (reflect_constant (&fn)) == ^^void(*)());
+static_assert (type_of (reflect_constant (&fn)) == ^^void(*)());
 static_assert (is_value (reflect_constant (&fn)));
 static_assert (!is_object (reflect_constant (&fn)));
 

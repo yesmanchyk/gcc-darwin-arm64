@@ -10,8 +10,7 @@ struct S { int m; };
 
 template <int &> void fn();
 int p[2];
-// TODO
-//static_assert(template_arguments_of(^^fn<p[1]>)[0] == reflect_object(p[1]));
+static_assert(template_arguments_of(^^fn<p[1]>)[0] == reflect_object(p[1]));
 
 template <const int &P>
 void

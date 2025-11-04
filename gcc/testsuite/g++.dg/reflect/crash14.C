@@ -4,5 +4,4 @@
 #include <meta>
 
 constexpr int i = 0;
-// TODO Fix ICE
-//const int p = ++std::meta::extract<const int &>(^^i);
+const int p = ++std::meta::extract<const int &>(^^i); // { dg-error "" }

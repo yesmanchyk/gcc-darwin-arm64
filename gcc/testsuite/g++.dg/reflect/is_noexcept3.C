@@ -51,10 +51,9 @@ static_assert (!is_noexcept (reflect_constant (&::fn1)));
 static_assert (!is_noexcept (reflect_constant (&::fn2)));
 static_assert (!is_noexcept (reflect_constant (&::fn3)));
 
-// TODO Huh?  Doesn't work.
-//static_assert (!is_noexcept (type_of (reflect_constant (&::fn1))));
-//static_assert (!is_noexcept (type_of (reflect_constant (&::fn2))));
-//static_assert (!is_noexcept (type_of (reflect_constant (&::fn3))));
+static_assert (!is_noexcept (type_of (reflect_constant (&::fn1))));
+static_assert (!is_noexcept (type_of (reflect_constant (&::fn2))));
+static_assert (!is_noexcept (type_of (reflect_constant (&::fn3))));
 
 template<typename>
 void tfn1 ();
@@ -71,10 +70,9 @@ static_assert (!is_noexcept (reflect_constant (^^::tfn1<int>)));
 static_assert (!is_noexcept (reflect_constant (^^::tfn2<int>)));
 static_assert (!is_noexcept (reflect_constant (^^::tfn3<int>)));
 
-// TODO Huh?  Doesn't work.
-//static_assert (!is_noexcept (type_of (reflect_constant (^^::tfn1<int>))));
-//static_assert (!is_noexcept (type_of (reflect_constant (^^::tfn2<int>))));
-//static_assert (!is_noexcept (type_of (reflect_constant (^^::tfn3<int>))));
+static_assert (!is_noexcept (type_of (reflect_constant (^^::tfn1<int>))));
+static_assert (!is_noexcept (type_of (reflect_constant (^^::tfn2<int>))));
+static_assert (!is_noexcept (type_of (reflect_constant (^^::tfn3<int>))));
 
 struct S {
   void memfn1 ();
