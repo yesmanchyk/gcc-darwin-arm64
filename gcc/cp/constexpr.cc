@@ -3839,8 +3839,11 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     {
       /* To be able to evaluate a metafunction, we may have to instantiate
 	 constexpr functions.  If we're not allowed to instantiate, leave
-	 this for later.  */
-      if (uid_sensitive_constexpr_evaluation_p ())
+	 this for later.  Don't evaluate metafunctions at all when mce_unknown,
+	 otherwise we might fold those prematurely.  See
+	 g++.dg/reflect/p2996-17.C.  */
+      if (uid_sensitive_constexpr_evaluation_p ()
+	  || ctx->manifestly_const_eval == mce_unknown)
 	{
 	  *non_constant_p = true;
 	  return t;
