@@ -847,6 +847,13 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
     case CALL_EXPR:
       ret = GS_OK;
+      /* At this point any function that takes/returns a consteval-only
+	 expression is a problem.  */
+      for (int i = 0; i < call_expr_nargs (*expr_p); ++i)
+	if (check_out_of_consteval_use (CALL_EXPR_ARG (*expr_p, i)))
+	  ret = GS_ERROR;
+      if (consteval_only_p (TREE_TYPE (*expr_p)))
+	ret = GS_ERROR;
       if (flag_strong_eval_order == 2
 	  && CALL_EXPR_FN (*expr_p)
 	  && !CALL_EXPR_OPERATOR_SYNTAX (*expr_p)
