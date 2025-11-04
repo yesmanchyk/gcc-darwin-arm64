@@ -4,8 +4,6 @@
 
 #include <meta>
 
-// TODO They should work but don't.  Missing cxx_eval_constant_expression?
-
 consteval int
 foo ()
 {
@@ -13,7 +11,7 @@ foo ()
   return std::meta::extract<int>(^^arg);
 }
 
-//static_assert (foo () == 4);
+static_assert (foo () == 4);
 
 consteval int
 bar (int arg)
@@ -21,7 +19,7 @@ bar (int arg)
   return std::meta::extract<int>(^^arg);
 }
 
-//static_assert (bar (4) == 4);
+static_assert (bar (4) == 4);
 
 consteval int
 baz ()

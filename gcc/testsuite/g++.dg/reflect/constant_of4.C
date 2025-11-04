@@ -50,4 +50,4 @@ constexpr int V = N;
 static_assert (!constant_of_ok (^^V));
 
 int x = 10;
-static_assert (!constant_of_ok (^^x));
+constexpr auto rx = constant_of (^^x); // { dg-error "not usable in a constant expression" }

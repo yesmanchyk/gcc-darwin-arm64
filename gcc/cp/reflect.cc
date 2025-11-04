@@ -2651,7 +2651,8 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
 static tree
 eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  tree *jump_target, tree fun)
+		  bool *non_constant_p, bool *overflow_p, tree *jump_target,
+		  tree fun)
 {
   if (eval_is_annotation (r) == boolean_true_node)
     r = TREE_VALUE (TREE_VALUE (r));
@@ -2669,6 +2670,12 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 				      "a splice-expression",
 			    fun, jump_target);
 
+  /* For arrays, we'll call reflect_constant_array instead.  Evaluating
+     an array would give us a CONSTRUCTOR and we'd crash below in
+     eval_reflect_constant trying to take the address of the CONSTRUCTOR.  */
+  if (TREE_CODE (TREE_TYPE (r)) != ARRAY_TYPE)
+    r = cxx_eval_constant_expression (ctx, r, vc_prvalue, non_constant_p,
+				      overflow_p, jump_target);
   /* Figure out the type for reflect_constant.  */
   tree type = TREE_TYPE (convert_from_reference (r));
   type = type_decays_to (type);
@@ -7188,7 +7195,8 @@ extract_member_or_function (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 eval_extract (location_t loc, const constexpr_ctx *ctx, tree type, tree r,
-	      reflect_kind kind, tree *jump_target, tree fun)
+	      reflect_kind kind, bool *non_constant_p, bool *overflow_p,
+	      tree *jump_target, tree fun)
 {
   if (eval_is_reference_type (loc, type) == boolean_true_node)
     return extract_ref (loc, ctx, type, r, kind, jump_target, fun);
@@ -7199,7 +7207,8 @@ eval_extract (location_t loc, const constexpr_ctx *ctx, tree type, tree r,
 				       fun);
   else
     {
-      r = eval_constant_of (loc, ctx, r, jump_target, fun);
+      r = eval_constant_of (loc, ctx, r, non_constant_p, overflow_p,
+			    jump_target, fun);
       if (*jump_target)
 	return NULL_TREE;
       return extract_value (loc, ctx, type, r, jump_target, fun);
@@ -7391,7 +7400,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_OBJECT_OF:
       return eval_object_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_CONSTANT_OF:
-      return eval_constant_of (loc, ctx, h, jump_target, fun);
+      return eval_constant_of (loc, ctx, h, non_constant_p, overflow_p,
+			       jump_target, fun);
     case METAFN_IS_PUBLIC:
       return eval_is_public (h, kind);
     case METAFN_IS_PROTECTED:
@@ -7603,7 +7613,8 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_EXTRACT:
       {
 	type = TREE_VEC_ELT (get_template_innermost_arguments (fun), 0);
-	return eval_extract (loc, ctx, type, h, kind, jump_target, fun);
+	return eval_extract (loc, ctx, type, h, kind, non_constant_p,
+			     overflow_p, jump_target, fun);
       }
     case METAFN_CAN_SUBSTITUTE:
       return eval_can_substitute (loc, ctx, h, hvec, jump_target, fun);

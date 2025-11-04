@@ -107,7 +107,7 @@ static_assert (check_val<&fn>(^^fn));
 static_assert (check_val<&C::k>(^^C::k));
 static_assert (check_val<&C::fn>(^^C::fn));
 static_assert (check_val<42>([]() {
-  constexpr int x = 42;
+  constexpr static int x = 42;
   return ^^x;
 }()));
 
