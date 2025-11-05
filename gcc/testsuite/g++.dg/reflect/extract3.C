@@ -54,8 +54,6 @@ consteval bool foo() {
 }
 static_assert (foo ());
 
-#if 0
-// TODO Fix extract5.C first.
 consteval int
 bar (int arg)
 {
@@ -65,7 +63,6 @@ bar (int arg)
   return val + extract<int>(^^arg);
 }
 static_assert (bar (5) == 9);
-#endif
 
 consteval const int &
 baz ()
