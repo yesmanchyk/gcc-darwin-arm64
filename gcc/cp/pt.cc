@@ -29600,6 +29600,10 @@ value_dependent_expression_p (tree expression)
 	 if it contains a dependent nested-name-specifier, type-id,
 	 namespace-name, or template-name, or if it contains
 	 a value-dependent or type-dependent id-expression.  */
+      if (REFLECT_EXPR_KIND (expression) == REFLECT_BASE)
+	/* Direct base relationship isn't value-dependent and calling
+	   uses_template_parms on TREE_BINFO leads to ICEs.  */
+	return false;
       return uses_template_parms (REFLECT_EXPR_HANDLE (expression));
 
     default:
