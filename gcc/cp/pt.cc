@@ -22970,6 +22970,21 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  }
 	if (outer_automatic_var_p (op))
 	  op = process_outer_var_ref (op, complain);
+	/* Like in cp_parser_splice_expression, for foo.[: bar :]
+	   cp_parser_postfix_dot_deref_expression wants to see an
+	   identifier, BASELINK, or TEMPLATE_ID_EXPR.  */
+	if (SPLICE_EXPR_MEMBER_ACCESS_P (t))
+	  {
+	    if (DECL_P (op))
+	      /* If we are called from tsubst_expr/SCOPE_REF, we'll build
+		 the SCOPE_REF there.  */
+	      op = DECL_NAME (op);
+	    else if (OVL_P (op))
+	      op = OVL_NAME (op);
+	    gcc_assert (identifier_p (op)
+			|| BASELINK_P (op)
+			|| TREE_CODE (op) == TEMPLATE_ID_EXPR);
+	  }
 	RETURN (op);
       }
 

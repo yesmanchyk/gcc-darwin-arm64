@@ -6273,10 +6273,13 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
       /* Grab the unresolved expression then.  */
       t = unresolved;
       if (DECL_P (t))
-	t = DECL_NAME (t);
+	/* We cannot forget what context we came from, so build up
+	   a SCOPE_REF.  */
+	t = build_qualified_name (/*type=*/NULL_TREE, CP_DECL_CONTEXT (t),
+				  DECL_NAME (t), /*template_p=*/false);
       else if (OVL_P (t))
 	t = OVL_NAME (t);
-      gcc_assert (identifier_p (t)
+      gcc_assert (TREE_CODE (t) == SCOPE_REF
 		  || BASELINK_P (t)
 		  || TREE_CODE (t) == SPLICE_EXPR
 		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
@@ -9640,6 +9643,9 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 			    parser->scope, name);
 		  postfix_expression = error_mark_node;
 		}
+	      /* cp_parser_splice_expression may have given us a SCOPE_REF.  */
+	      else if (TREE_CODE (name) == SCOPE_REF)
+		gcc_checking_assert (splice_p);
 	      else
 		name = build_qualified_name (/*type=*/NULL_TREE,
 					     parser->scope,

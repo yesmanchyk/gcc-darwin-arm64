@@ -3406,7 +3406,10 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
 	      && IDENTIFIER_CONV_OP_P (name)
 	      && dependent_type_p (TREE_TYPE (name)))
 	  /* This is OBJECT.[:R:], which is dependent.  */
-	  || dependent_splice_p (name))
+	  || dependent_splice_p (name)
+	  /* This is OBJECT.[:T::R:], which is dependent.  */
+	  || (TREE_CODE (name) == SCOPE_REF
+	      && dependent_splice_p (TREE_OPERAND (name, 1))))
 	{
 	dependent:
 	  return build_min_nt_loc (UNKNOWN_LOCATION, COMPONENT_REF,
@@ -3440,6 +3443,11 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
 	}
       return error_mark_node;
     }
+
+  /* For OBJECT.[:S::fn:] the BASELINK can be inside a SCOPE_REF.
+     This happens, but, until Reflection, not for a class member access.  */
+  if (TREE_CODE (name) == SCOPE_REF && BASELINK_P (TREE_OPERAND (name, 1)))
+    name = TREE_OPERAND (name, 1);
 
   if (BASELINK_P (name))
     /* A member function that has already been looked up.  */
