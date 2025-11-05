@@ -2755,10 +2755,15 @@ eval_is_const (tree r, reflect_kind kind)
     r = type_of (r, kind);
   else
     r = maybe_strip_typedefs (r);
-  if (TYPE_P (r) && TYPE_READONLY (r))
+  r = strip_array_types (r);
+  if (TREE_CODE (r) == METHOD_TYPE)
+    {
+      if (type_memfn_quals (r) & TYPE_QUAL_CONST)
+	return boolean_true_node;
+    }
+  else if (TYPE_P (r) && TYPE_READONLY (r))
     return boolean_true_node;
-  else
-    return boolean_false_node;
+  return boolean_false_node;
 }
 
 /* Process std::meta::is_volatile.
@@ -2773,10 +2778,15 @@ eval_is_volatile (tree r, reflect_kind kind)
     r = type_of (r, kind);
   else
     r = maybe_strip_typedefs (r);
-  if (TYPE_P (r) && TYPE_VOLATILE (r))
+  r = strip_array_types (r);
+  if (TREE_CODE (r) == METHOD_TYPE)
+    {
+      if (type_memfn_quals (r) & TYPE_QUAL_VOLATILE)
+	return boolean_true_node;
+    }
+  else if (TYPE_P (r) && TYPE_VOLATILE (r))
     return boolean_true_node;
-  else
-    return boolean_false_node;
+  return boolean_false_node;
 }
 
 /* Process std::meta::has_template_arguments.

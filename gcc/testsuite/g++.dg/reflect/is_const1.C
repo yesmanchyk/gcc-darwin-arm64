@@ -72,7 +72,7 @@ foo (int a, const long b, T c, int d[4], T &e)
 
 static_assert (!is_const (std::meta::reflect_constant (42)));
 static_assert (!is_const (std::meta::reflect_constant (42.0)));
-//static_assert (!is_const (std::meta::reflect_constant (U { 42 })));
+static_assert (is_const (std::meta::reflect_constant (U { 42 })));
 static_assert (!is_const (std::meta::reflect_object (arr[1])));
 static_assert (!is_const (^^arr));
 static_assert (!is_const (^^fn));
@@ -91,3 +91,26 @@ static_assert (is_const (^^cv));
 struct V { const int a; static const int b; };
 static_assert (is_const (^^V::a));
 static_assert (is_const (^^V::b));
+
+const int arr2[] = {3, 4, 5};
+const int arr3[2][2][2] = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}};
+struct W {
+  void foo () volatile {}
+  void bar () const {}
+};
+static_assert (is_const (^^arr2));
+static_assert (is_const (^^arr3));
+static_assert (!is_const (^^W::foo));
+static_assert (is_const (^^W::bar));
+static_assert (!is_const (^^int));
+static_assert (is_const (^^const int));
+static_assert (!is_const (^^volatile int));
+static_assert (is_const (^^const volatile int));
+static_assert (!is_const (^^int [2]));
+static_assert (is_const (^^const int [2]));
+static_assert (!is_const (^^volatile int [2]));
+static_assert (is_const (^^const volatile int [2]));
+static_assert (!is_const (^^int (int)));
+static_assert (is_const (^^int (int) const));
+static_assert (!is_const (^^int (int) volatile));
+static_assert (is_const (^^int (int) const volatile));

@@ -91,3 +91,26 @@ static_assert (is_volatile (^^cv));
 struct V { volatile int a; static volatile int b; };
 static_assert (is_volatile (^^V::a));
 static_assert (is_volatile (^^V::b));
+
+volatile int arr2[] = {3, 4, 5};
+volatile int arr3[2][2][2] = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}};
+struct W {
+  void foo () volatile {}
+  void bar () const {}
+};
+static_assert (is_volatile (^^arr2));
+static_assert (is_volatile (^^arr3));
+static_assert (is_volatile (^^W::foo));
+static_assert (!is_volatile (^^W::bar));
+static_assert (!is_volatile (^^int));
+static_assert (!is_volatile (^^const int));
+static_assert (is_volatile (^^volatile int));
+static_assert (is_volatile (^^const volatile int));
+static_assert (!is_volatile (^^int [2]));
+static_assert (!is_volatile (^^const int [2]));
+static_assert (is_volatile (^^volatile int [2]));
+static_assert (is_volatile (^^const volatile int [2]));
+static_assert (!is_volatile (^^int (int)));
+static_assert (!is_volatile (^^int (int) const));
+static_assert (is_volatile (^^int (int) volatile));
+static_assert (is_volatile (^^int (int) const volatile));
