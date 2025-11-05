@@ -1048,7 +1048,7 @@ maybe_init_meta_operators (location_t loc)
    source_location value.  */
 
 static tree
-eval_source_location_of (location_t loc, const_tree r,
+eval_source_location_of (location_t loc, tree r, reflect_kind kind,
 			 tree std_source_location)
 {
   if (!NON_UNION_CLASS_TYPE_P (std_source_location))
@@ -1057,6 +1057,16 @@ eval_source_location_of (location_t loc, const_tree r,
       return error_mark_node;
     }
   location_t rloc = UNKNOWN_LOCATION;
+  if (kind == REFLECT_BASE)
+    {
+      /* We don't track location_t of the base specifiers, so at least
+	 for now use location_t of the base parent (i.e. the derived
+	 class).  */
+      tree c = r;
+      while (BINFO_INHERITANCE_CHAIN (c))
+	c = BINFO_INHERITANCE_CHAIN (c);
+      r = BINFO_TYPE (c);
+    }
   if (OVERLOAD_TYPE_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
     rloc = DECL_SOURCE_LOCATION (TYPE_NAME (r));
   else if (DECL_P (r) && r != global_namespace)
@@ -7514,7 +7524,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_display_string_of (loc, ctx, h, kind, jump_target,
 				     char8_type_node, TREE_TYPE (call), fun);
     case METAFN_SOURCE_LOCATION_OF:
-      return eval_source_location_of (loc, h, TREE_TYPE (call));
+      return eval_source_location_of (loc, h, kind, TREE_TYPE (call));
     case METAFN_TYPE_OF:
       return eval_type_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_OBJECT_OF:

@@ -31,6 +31,18 @@ static_assert (source_location_of (^^I).line () == std::source_location::current
 static_assert (source_location_of (dealias (^^I)).line () == std::source_location ().line ());
 typedef S J;
 static_assert (source_location_of (dealias (^^J)).line () == source_location_of (^^S).line ());
+static_assert (source_location_of (data_member_spec (^^int, { .name = "_" })).line () == std::source_location ().line ());
+struct V {};
+struct W : public S, virtual V {};
+static_assert (source_location_of (bases_of (^^W, access_context::current ())[0]).line () == std::source_location::current ().line () - 1);
+static_assert (source_location_of (bases_of (^^W, access_context::current ())[1]).line () == std::source_location::current ().line () - 2);
+struct X : public S,
+	   public V
+{
+};
+static_assert (source_location_of (bases_of (^^X, access_context::current ())[0]).line () == std::source_location::current ().line () - 4);
+// TODO: we don't track location of base specifiers, so just location of the derived class definition is used.
+static_assert (source_location_of (bases_of (^^X, access_context::current ())[1]).line () == std::source_location::current ().line () - 6);
 
 #include <string_view>
 
