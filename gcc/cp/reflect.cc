@@ -3737,11 +3737,11 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
       gcc_assert (TREE_CODE (r) == TREE_BINFO);
       tree c = r, binfo = r, base_binfo;
       while (BINFO_INHERITANCE_CHAIN (c))
-        c = BINFO_INHERITANCE_CHAIN (c);
+	c = BINFO_INHERITANCE_CHAIN (c);
 
       r = NULL_TREE;
       for (unsigned ix = 0; BINFO_BASE_ITERATE (c, ix, base_binfo); ix++)
-        if (base_binfo == binfo)
+	if (base_binfo == binfo)
 	  {
 	    if (ix + BINFO_BASE_BINFOS (c)->length ()
 		< vec_safe_length (BINFO_BASE_ACCESSES (c)))
@@ -5904,21 +5904,131 @@ eval_define_aggregate (location_t loc, const constexpr_ctx *ctx,
 	  return call;
 	}
     }
-  if (cxx_constexpr_manifestly_const_eval (ctx) != mce_true)
+  tree consteval_block = cxx_constexpr_consteval_block (ctx);
+  if (consteval_block == NULL_TREE)
     {
-      /* If define_aggregate is evaluated multiple times,
-	 the second invocation with the same arguments will
-	 necessarily fail.  Limit those to manifestly
-	 constant-evaluation.  */
       if (!cxx_constexpr_quiet_p (ctx))
-	error_at (loc, "%<define_aggregate%> used outside of "
-		       "manifestly constant-evaluation");
+	error_at (loc, "%<define_aggregate%> not evaluated from "
+		       "%<consteval%> block");
       *non_constant_p = true;
       return call;
     }
   iloc_sentinel ils = loc;
   type = strip_typedefs (type);
   type = TYPE_MAIN_VARIANT (type);
+  tree cscope = NULL_TREE, tscope = NULL_TREE;
+  for (tree c = TYPE_CONTEXT (CP_DECL_CONTEXT (consteval_block)); c;
+       c = get_containing_scope (c))
+    {
+      if (c == type)
+	{
+	  auto_diagnostic_group d;
+	  error_at (loc, "%<define_aggregate%> evaluated from "
+			 "%<consteval%> block enclosed by %qT being "
+			 "defined", type);
+	  inform (DECL_SOURCE_LOCATION (consteval_block),
+		  "%<consteval%> block defined here");
+	  return get_reflection_raw (loc, orig_type);
+	}
+      if (cscope == NULL_TREE
+	  && (TYPE_P (c) || TREE_CODE (c) == FUNCTION_DECL))
+	cscope = c;
+    }
+  for (tree c = TYPE_CONTEXT (type); c; c = get_containing_scope (c))
+    {
+      if (c == consteval_block)
+	{
+	  auto_diagnostic_group d;
+	  error_at (loc, "%<define_aggregate%> evaluated from "
+			 "%<consteval%> block which encloses %qT being "
+			 "defined", type);
+	  inform (DECL_SOURCE_LOCATION (consteval_block),
+		  "%<consteval%> block defined here");
+	  return get_reflection_raw (loc, orig_type);
+	}
+      if (tscope == NULL_TREE
+	  && (TYPE_P (c) || TREE_CODE (c) == FUNCTION_DECL))
+	tscope = c;
+    }
+  if (cscope != tscope)
+    {
+      auto_diagnostic_group d;
+      if (cscope && tscope)
+	{
+	  for (tree c = tscope; c; c = get_containing_scope (c))
+	    if (c == cscope)
+	      {
+		if (DECL_P (tscope))
+		  error_at (loc, "%qD intervenes between %qT scope and "
+				 "%<consteval%> block %<define_aggregate%> "
+				 "is evaluated from", tscope, type);
+		else
+		  error_at (loc, "%qT intervenes between %qT scope and "
+				 "%<consteval%> block %<define_aggregate%> "
+				 "is evaluated from", tscope, type);
+		cscope = NULL_TREE;
+		tscope = NULL_TREE;
+		break;
+	      }
+	  for (tree c = cscope; c; c = get_containing_scope (c))
+	    if (c == tscope)
+	      {
+		if (DECL_P (cscope))
+		  error_at (loc, "%qD intervenes between %<consteval%> block "
+				 "%<define_aggregate%> is evaluated from and "
+				 "%qT scope", cscope, type);
+		else
+		  error_at (loc, "%qT intervenes between %<consteval%> block "
+				 "%<define_aggregate%> is evaluated from and "
+				 "%qT scope", cscope, type);
+		cscope = NULL_TREE;
+		tscope = NULL_TREE;
+		break;
+	      }
+	  if (cscope && tscope)
+	    {
+	      if (DECL_P (cscope) && DECL_P (tscope))
+		error_at (loc, "%<define_aggregate%> evaluated from "
+			       "%<consteval%> block enclosed by %qD while "
+			       "%qT type being defined is enclosed by %qD",
+			  cscope, type, tscope);
+	      else if (DECL_P (cscope))
+		error_at (loc, "%<define_aggregate%> evaluated from "
+			       "%<consteval%> block enclosed by %qD while "
+			       "%qT type being defined is enclosed by %qT",
+			  cscope, type, tscope);
+	      else if (DECL_P (tscope))
+		error_at (loc, "%<define_aggregate%> evaluated from "
+			       "%<consteval%> block enclosed by %qT while "
+			       "%qT type being defined is enclosed by %qD",
+			  cscope, type, tscope);
+	      else if (tscope)
+		error_at (loc, "%<define_aggregate%> evaluated from "
+			       "%<consteval%> block enclosed by %qT while "
+			       "%qT type being defined is enclosed by %qT",
+			  cscope, type, tscope);
+	    }
+	}
+      else if (cscope && DECL_P (cscope))
+	error_at (loc, "%qD intervenes between %<consteval%> block "
+		       "%<define_aggregate%> is evaluated from and %qT scope",
+		  cscope, type);
+      else if (cscope)
+	error_at (loc, "%qT intervenes between %<consteval%> block "
+		       "%<define_aggregate%> is evaluated from and %qT scope",
+		  cscope, type);
+      else if (tscope && DECL_P (tscope))
+	error_at (loc, "%qD intervenes between %qT scope and %<consteval%> "
+		       "block %<define_aggregate%> is evaluated from",
+		  tscope, type);
+      else
+	error_at (loc, "%qT intervenes between %qT scope and %<consteval%> "
+		       "block %<define_aggregate%> is evaluated from",
+		  tscope, type);
+      inform (DECL_SOURCE_LOCATION (consteval_block),
+	      "%<consteval%> block defined here");
+      return get_reflection_raw (loc, orig_type);
+    }
   if (primary_template_specialization_p (type))
     {
       type = maybe_process_partial_specialization (type);

@@ -1197,6 +1197,9 @@ public:
   /* If non-null, only allow modification of existing values of the variables
      in this set.  Set by modifiable_tracker, below.  */
   hash_set<tree> *modifiable;
+  /* If cxx_eval_outermost_constant_expr is called on the consteval block
+     operator (), this is the FUNCTION_DECL of that operator ().  */
+  tree consteval_block;
   /* Number of heap VAR_DECL deallocations.  */
   unsigned heap_dealloc_count;
   /* Number of uncaught exceptions.  */
@@ -1215,7 +1218,8 @@ public:
   /* Constructor.  */
   constexpr_global_ctx ()
     : constexpr_ops_count (0), cleanups (NULL), modifiable (nullptr),
-      heap_dealloc_count (0), uncaught_exceptions (0), metafns_called (false) {}
+      consteval_block (NULL_TREE), heap_dealloc_count (0),
+      uncaught_exceptions (0), metafns_called (false) {}
 
   bool is_outside_lifetime (tree t)
   {
@@ -1355,6 +1359,14 @@ cxx_constexpr_caller (const constexpr_ctx *ctx)
     return ctx->call->fundef->decl;
   else
     return NULL_TREE;
+}
+
+/* Return ctx->global->consteval_block.  For use in reflect.cc.  */
+
+tree
+cxx_constexpr_consteval_block (const constexpr_ctx *ctx)
+{
+  return ctx->global->consteval_block;
 }
 
 /* Predicates for the meaning of *jump_target.  */
@@ -10604,6 +10616,12 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
 	    return t;
 	  else
 	    is_consteval = true;
+	  tree lam;
+	  if (manifestly_const_eval == mce_true
+	      && LAMBDA_FUNCTION_P (fndecl)
+	      && (lam = CLASSTYPE_LAMBDA_EXPR (CP_DECL_CONTEXT (fndecl)))
+	      && LAMBDA_EXPR_CONSTEVAL_BLOCK_P (lam))
+	    global_ctx.consteval_block = fndecl;
 	}
     }
   else if (cxx_dialect >= cxx20
