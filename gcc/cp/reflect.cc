@@ -1041,76 +1041,6 @@ maybe_init_meta_operators (location_t loc)
 	}
 }
 
-/* Process std::meta::source_location_of.
-   Returns: If r represents a value, a type other than a class type or an
-   enumeration type, the global namespace, or a data member description,
-   then source_location{}.  Otherwise, an implementation-defined
-   source_location value.  */
-
-static tree
-eval_source_location_of (location_t loc, tree r, reflect_kind kind,
-			 tree std_source_location)
-{
-  if (!NON_UNION_CLASS_TYPE_P (std_source_location))
-    {
-      error_at (loc, "%qT is not a class type", std_source_location);
-      return error_mark_node;
-    }
-  location_t rloc = UNKNOWN_LOCATION;
-  if (kind == REFLECT_BASE)
-    {
-      /* We don't track location_t of the base specifiers, so at least
-	 for now use location_t of the base parent (i.e. the derived
-	 class).  */
-      tree c = r;
-      while (BINFO_INHERITANCE_CHAIN (c))
-	c = BINFO_INHERITANCE_CHAIN (c);
-      r = BINFO_TYPE (c);
-    }
-  if (OVERLOAD_TYPE_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
-    rloc = DECL_SOURCE_LOCATION (TYPE_NAME (r));
-  else if (DECL_P (r) && r != global_namespace)
-    rloc = DECL_SOURCE_LOCATION (r);
-  tree decl = NULL_TREE, field = NULL_TREE;
-  if (rloc != UNKNOWN_LOCATION)
-    {
-      /* Make sure __builtin_source_location (which depends on
-	 std::source_location::__impl) will work without errors.  */
-      tree name = get_identifier ("__impl");
-      decl = lookup_qualified_name (std_source_location, name);
-      if (TREE_CODE (decl) != TYPE_DECL)
-	decl = NULL_TREE;
-      else
-	{
-	  name = get_identifier ("__builtin_source_location");
-	  decl = lookup_qualified_name (global_namespace, name);
-	  if (TREE_CODE (decl) != FUNCTION_DECL
-	      || !fndecl_built_in_p (decl, BUILT_IN_FRONTEND)
-	      || DECL_FE_FUNCTION_CODE (decl) != CP_BUILT_IN_SOURCE_LOCATION
-	      || !require_deduced_type (decl, tf_warning_or_error))
-	    decl = NULL_TREE;
-	}
-    }
-  if (decl)
-    {
-      field = TYPE_FIELDS (std_source_location);
-      field = next_aggregate_field (field);
-      /* Make sure std::source_location has exactly a single non-static
-	 data member (_M_impl in libstdc++, __ptr_ in libc++) with pointer
-	 type.  Return {._M_impl = &*.Lsrc_locN}.  */
-      if (field != NULL_TREE
-	  && POINTER_TYPE_P (TREE_TYPE (field))
-	  && !next_aggregate_field (DECL_CHAIN (field)))
-	{
-	  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (decl)), decl, 0);
-	  SET_EXPR_LOCATION (call, rloc);
-	  call = fold_builtin_source_location (call);
-	  return build_constructor_single (std_source_location, field, call);
-	}
-    }
-  return build_constructor (std_source_location, nullptr);
-}
-
 /* Process std::meta::is_variable.
    Returns: true if r represents a variable.  Otherwise, false.  */
 
@@ -2591,6 +2521,78 @@ eval_type_of (location_t loc, const constexpr_ctx *ctx, tree r,
   return get_reflection_raw (loc, type_of (r, kind));
 }
 
+/* Process std::meta::source_location_of.
+   Returns: If r represents a value, a type other than a class type or an
+   enumeration type, the global namespace, or a data member description,
+   then source_location{}.  Otherwise, an implementation-defined
+   source_location value.  */
+
+static tree
+eval_source_location_of (location_t loc, tree r, reflect_kind kind,
+			 tree std_source_location)
+{
+  if (!NON_UNION_CLASS_TYPE_P (std_source_location))
+    {
+      error_at (loc, "%qT is not a class type", std_source_location);
+      return error_mark_node;
+    }
+  location_t rloc = UNKNOWN_LOCATION;
+  if (kind == REFLECT_BASE)
+    {
+      /* We don't track location_t of the base specifiers, so at least
+	 for now use location_t of the base parent (i.e. the derived
+	 class).  */
+      tree c = r;
+      while (BINFO_INHERITANCE_CHAIN (c))
+	c = BINFO_INHERITANCE_CHAIN (c);
+      r = BINFO_TYPE (c);
+    }
+  if (OVERLOAD_TYPE_P (r) || (TYPE_P (r) && typedef_variant_p (r)))
+    rloc = DECL_SOURCE_LOCATION (TYPE_NAME (r));
+  else if (DECL_P (r) && r != global_namespace)
+    rloc = DECL_SOURCE_LOCATION (r);
+  else if (eval_is_annotation (r) == boolean_true_node)
+    rloc = EXPR_LOCATION (TREE_VALUE (TREE_VALUE (r)));
+  tree decl = NULL_TREE, field = NULL_TREE;
+  if (rloc != UNKNOWN_LOCATION)
+    {
+      /* Make sure __builtin_source_location (which depends on
+	 std::source_location::__impl) will work without errors.  */
+      tree name = get_identifier ("__impl");
+      decl = lookup_qualified_name (std_source_location, name);
+      if (TREE_CODE (decl) != TYPE_DECL)
+	decl = NULL_TREE;
+      else
+	{
+	  name = get_identifier ("__builtin_source_location");
+	  decl = lookup_qualified_name (global_namespace, name);
+	  if (TREE_CODE (decl) != FUNCTION_DECL
+	      || !fndecl_built_in_p (decl, BUILT_IN_FRONTEND)
+	      || DECL_FE_FUNCTION_CODE (decl) != CP_BUILT_IN_SOURCE_LOCATION
+	      || !require_deduced_type (decl, tf_warning_or_error))
+	    decl = NULL_TREE;
+	}
+    }
+  if (decl)
+    {
+      field = TYPE_FIELDS (std_source_location);
+      field = next_aggregate_field (field);
+      /* Make sure std::source_location has exactly a single non-static
+	 data member (_M_impl in libstdc++, __ptr_ in libc++) with pointer
+	 type.  Return {._M_impl = &*.Lsrc_locN}.  */
+      if (field != NULL_TREE
+	  && POINTER_TYPE_P (TREE_TYPE (field))
+	  && !next_aggregate_field (DECL_CHAIN (field)))
+	{
+	  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (decl)), decl, 0);
+	  SET_EXPR_LOCATION (call, rloc);
+	  call = fold_builtin_source_location (call);
+	  return build_constructor_single (std_source_location, field, call);
+	}
+    }
+  return build_constructor (std_source_location, nullptr);
+}
+
 /* If R is (const T &) &foo, get foo.  */
 
 static tree
@@ -2665,7 +2667,7 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 		  tree fun)
 {
   if (eval_is_annotation (r) == boolean_true_node)
-    r = TREE_VALUE (TREE_VALUE (r));
+    r = tree_strip_any_location_wrapper (TREE_VALUE (TREE_VALUE (r)));
   else if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
 			       /*address_p=*/false,
 			       /*member_access_p=*/false,
@@ -3590,7 +3592,8 @@ eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	       TREE_VEC_ELT (r, 4) == boolean_true_node
 	       ? "true" : "false");
   else if (eval_is_annotation (r) == boolean_true_node)
-    pp_printf (&pp, "[[=%E]]", TREE_VALUE (TREE_VALUE (r)));
+    pp_printf (&pp, "[[=%E]]",
+	       tree_strip_any_location_wrapper (TREE_VALUE (TREE_VALUE (r))));
   else
     pp_string (&pp, "<unsupported reflection>");
 #if __GNUC__ >= 10

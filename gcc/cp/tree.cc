@@ -5765,9 +5765,13 @@ handle_annotation_attribute (tree *node, tree ARG_UNUSED (name),
     }
   if (!processing_template_decl)
     {
+      location_t loc = EXPR_LOCATION (TREE_VALUE (args));
       TREE_VALUE (args) = cxx_constant_value (TREE_VALUE (args));
       if (TREE_VALUE (args) == error_mark_node)
         *no_add_attrs = true;
+      auto suppression
+	= make_temp_override (suppress_location_wrappers, 0);
+      TREE_VALUE (args) = maybe_wrap_with_location (TREE_VALUE (args), loc);
     }
   ATTR_UNIQUE_VALUE_P (args) = 1;
   return NULL_TREE;

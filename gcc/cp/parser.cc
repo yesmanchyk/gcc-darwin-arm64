@@ -33251,15 +33251,22 @@ cp_parser_annotation_list (cp_parser *parser)
 					     /*strict_p=*/true);
 	  if (annotation == error_mark_node)
 	    break;
+	  auto suppression
+	    = make_temp_override (suppress_location_wrappers, 0);
+	  annotation = maybe_wrap_with_location (annotation, loc);
+	  annotation = build_tree_list (NULL_TREE, annotation);
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
 	    {
 	      cp_lexer_consume_token (parser->lexer);
 	      annotation = make_pack_expansion (annotation);
+	      if (annotation == error_mark_node)
+		break;
 	    }
 	  attributes = tree_cons (build_tree_list (internal_identifier,
 						   annotation_identifier),
-				  build_tree_list (NULL_TREE, annotation),
-				  attributes);
+				  annotation, attributes);
+	  if (processing_template_decl)
+	    ATTR_IS_DEPENDENT (attributes) = 1;
 	}
       else if (token->type == CPP_NAME
 	       || token->type == CPP_KEYWORD

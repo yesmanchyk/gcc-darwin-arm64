@@ -715,9 +715,14 @@ attribute_takes_identifier_p (const_tree attr_id)
 {
   const struct attribute_spec *spec = lookup_attribute_spec (attr_id);
   if (spec == NULL)
-    /* Unknown attribute that we'll end up ignoring, return true so we
-       don't complain about an identifier argument.  */
-    return true;
+    {
+      /* Unknown attribute that we'll end up ignoring, return true so we
+	 don't complain about an identifier argument.  Except C++
+	 annotations.  */
+      if (c_dialect_cxx () && id_equal (attr_id, "annotation "))
+	return false;
+      return true;
+    }
   else if (!strcmp ("mode", spec->name)
 	   || !strcmp ("format", spec->name)
 	   || !strcmp ("cleanup", spec->name)

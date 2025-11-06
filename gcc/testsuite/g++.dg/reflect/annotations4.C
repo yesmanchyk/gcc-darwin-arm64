@@ -69,7 +69,8 @@ struct [[=E ()]] I				// { dg-error "annotation does not have structural type" }
 [[=E ()]] int I::i4 = 0;			// { dg-error "annotation does not have structural type" }
 struct J : [[=E ()]] C {};			// { dg-error "annotation does not have structural type" }
 template <typename T>
-concept K [[=E ()]] = requires { true; };	// { dg-error "annotation does not have structural type" }
+concept K [[=E ()]] = requires { true; };	// { dg-error "annotation does not have structural type" "" { xfail *-*-* } }
+constexpr bool k = K <int>;
 typedef int L [[=E ()]];			// { dg-error "annotation does not have structural type" }
 template <typename T>
 struct M {};

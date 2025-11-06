@@ -160,3 +160,15 @@ static_assert (annotations_of (bases_of (^^M <J, K, L>, ctx)[4]).size () == 3);
 static_assert (type_of (annotations_of (bases_of (^^M <J, K, L>, ctx)[4])[0]) == ^^unsigned);
 static_assert (type_of (annotations_of (bases_of (^^M <J, K, L>, ctx)[4])[1]) == ^^const V);
 static_assert (type_of (annotations_of (bases_of (^^M <J, K, L>, ctx)[4])[2]) == ^^long long);
+
+template <auto ...V>
+consteval auto
+qux ()
+{
+  [[=1, =V..., =2]] int an;
+  return ^^an;
+}
+
+static_assert (annotations_of (qux <> ()).size () == 2);
+static_assert (annotations_of (qux <3, 4, 5> ()).size () == 5);
+static_assert (annotations_of (qux <V { 1, 2, 3 }, V { 2, 3, 4 }> ()).size () == 4);

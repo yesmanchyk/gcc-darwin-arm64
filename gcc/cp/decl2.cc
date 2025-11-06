@@ -1471,6 +1471,11 @@ is_late_template_attribute (tree attr, tree decl)
   const struct attribute_spec *spec = lookup_attribute_spec (name);
   tree arg;
 
+  /* Handle all annotations as late, so that they aren't incorrectly
+     reordered if some have dependent expressions and others don't.  */
+  if (is_attribute_p ("annotation ", name))
+    return true;
+
   if (!spec)
     /* Unknown attribute.  */
     return false;
@@ -1488,11 +1493,6 @@ is_late_template_attribute (tree attr, tree decl)
 
   /* Attribute tls_model wants to modify the symtab.  */
   if (is_attribute_p ("tls_model", name))
-    return true;
-
-  /* Handle all annotations as late, so that they aren't incorrectly
-     reordered if some have dependent expressions and others don't.  */
-  if (is_attribute_p ("annotation ", name))
     return true;
 
   /* #pragma omp declare simd attribute needs to be always deferred.  */
@@ -1747,6 +1747,10 @@ cp_check_const_attributes (tree attributes)
   for (attr = attributes; attr; attr = TREE_CHAIN (attr))
     {
       if (cxx_contract_attribute_p (attr))
+	continue;
+
+      /* Annotation arguments are handled in handle_annotation_attribute.  */
+      if (is_attribute_p ("annotation ", get_attribute_name (attr)))
 	continue;
 
       tree arg;
