@@ -14,8 +14,6 @@ static_assert ([:r:][0] == 1);
 static_assert ([:r:][1] == 2);
 static_assert ([:r:][2] == 3);
 static_assert ([:r:][3] == 4);
-// ??? clang++ says ^^const int[4] here.  But why, when
-// constant_of is equivalent to reflect_constant([: R :])?
 static_assert (type_of (r) == ^^const int *);
 constexpr auto q = reflect_constant ([: ^^arr :]);
 static_assert (type_of (q) == ^^const int *);

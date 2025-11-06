@@ -31,12 +31,12 @@ static_assert (type_of (constant_of (annotations_of (^^TCls<int>)[0])) == ^^int)
 static_assert (type_of (constant_of (annotations_of (^^TCls<int>)[1])) == ^^int);
 static_assert (type_of (constant_of (annotations_of (^^TCls<int>)[2])) == ^^int);
 static_assert (type_of (constant_of (annotations_of (^^TCls<int>)[3])) == ^^float);
+#endif
 template <typename> [[=5, =5, =6, =3.0f]] void TFn();
 static_assert (type_of (constant_of (annotations_of (^^TFn<int>)[0])) == ^^int);
 static_assert (type_of (constant_of (annotations_of (^^TFn<int>)[1])) == ^^int);
 static_assert (type_of (constant_of (annotations_of (^^TFn<int>)[2])) == ^^int);
 static_assert (type_of (constant_of (annotations_of (^^TFn<int>)[3])) == ^^float);
-#endif
 namespace [[=7, =7, =8, =4.0f]] NS {}
 static_assert (type_of (constant_of (annotations_of (^^NS)[0])) == ^^int);
 static_assert (type_of (constant_of (annotations_of (^^NS)[1])) == ^^int);
@@ -56,7 +56,7 @@ template<info R>
 template<info R>
 struct [[=[:constant_of (annotations_of (R)[0]):]]] Y {};
 
-//static_assert (extract<int>(annotations_of (^^bar<^^::fn>)[0]) == 1);
+static_assert (extract<int>(annotations_of (^^bar<^^::fn>)[0]) == 1);
 //static_assert (extract<int>(annotations_of (^^Y<^^::S>)[0]) == 3);
 
 struct [[=42, =42.0f]] S1;

@@ -22,5 +22,5 @@ struct [[=[:constant_of (annotations_of (R)[0]):]]] Y {};
   which needs to be substituted before we can do anything about it.
   constant_of5.C has the same problem (with extract).  */
 
-//constexpr auto y = constant_of (annotations_of (^^bar<^^::fn>)[0]);
+constexpr auto y = constant_of (annotations_of (^^bar<^^::fn>)[0]);
 //constexpr auto z = constant_of (annotations_of (^^Y<^^::S>)[0]);
