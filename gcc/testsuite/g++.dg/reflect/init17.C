@@ -12,7 +12,7 @@ foo (info i)
 consteval info
 bar ()
 {
-  return ({ constexpr auto a = ^^int; a; });
+  return __extension__ ({ constexpr auto a = ^^int; a; });
 }
 
 struct S {
@@ -22,9 +22,9 @@ struct S {
 void
 g ()
 {
-  constexpr int i = foo (({ constexpr auto a = ^^int; a; }));
-  static constexpr info r = ({ constexpr auto a = ^^int; a; });
+  __extension__ constexpr int i = foo (({ constexpr auto a = ^^int; a; }));
+  __extension__ static constexpr info r = ({ constexpr auto a = ^^int; a; });
   constexpr info o = bar ();
-  constexpr auto sz = sizeof (({ constexpr auto a = ^^int; a; }));
-  constexpr S s{({ constexpr auto a = ^^int; a; })};
+  __extension__ constexpr auto sz = sizeof (({ constexpr auto a = ^^int; a; }));
+  __extension__ constexpr S s{({ constexpr auto a = ^^int; a; })};
 }
