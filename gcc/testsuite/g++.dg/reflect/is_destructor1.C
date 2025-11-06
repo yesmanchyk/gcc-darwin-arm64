@@ -99,3 +99,26 @@ static_assert (!is_destructor (^^S::bar));
 static_assert (!is_destructor (^^S::operator =));
 static_assert (!is_destructor (^^S::operator +=));
 static_assert (!is_destructor (^^T::operator *=));
+
+struct W {};
+static_assert (is_destructor (^^W::~W));
+
+struct X 
+{
+  ~X () = default;
+};
+static_assert (is_destructor (^^X::~X));
+
+struct Y
+{
+  ~Y () = delete;
+};
+static_assert (is_destructor (^^Y::~Y));
+
+struct Z
+{
+  ~Z () {}
+};
+static_assert (is_destructor (^^Z::~Z));
+
+

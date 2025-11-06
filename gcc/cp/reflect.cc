@@ -2245,7 +2245,7 @@ eval_is_move_assignment (tree r)
 static tree
 eval_is_destructor (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == FUNCTION_DECL
       && DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (r))
     return boolean_true_node;
