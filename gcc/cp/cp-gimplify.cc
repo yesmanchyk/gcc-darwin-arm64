@@ -2038,6 +2038,20 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	      cp_walk_tree (&DECL_INITIAL (decl), cp_genericize_r, data, NULL);
 	  wtd->no_sanitize_p = no_sanitize_p;
 	}
+      if (flag_reflection)
+	/* Wipe consteval-only vars from BIND_EXPR_VARS and BLOCK_VARS.  */
+	for (tree *p = &BIND_EXPR_VARS (stmt); *p; )
+	  {
+	    if (VAR_P (*p) && consteval_only_p (*p))
+	      {
+		if (BIND_EXPR_BLOCK (stmt)
+		    && *p == BLOCK_VARS (BIND_EXPR_BLOCK (stmt)))
+		  BLOCK_VARS (BIND_EXPR_BLOCK (stmt)) = DECL_CHAIN (*p);
+		*p = DECL_CHAIN (*p);
+		continue;
+	      }
+	    p = &DECL_CHAIN (*p);
+	  }
       wtd->bind_expr_stack.safe_push (stmt);
       cp_walk_tree (&BIND_EXPR_BODY (stmt),
 		    cp_genericize_r, data, NULL);
