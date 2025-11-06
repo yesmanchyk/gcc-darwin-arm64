@@ -1349,16 +1349,13 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
   /* Most invalid uses of consteval-only types should have been already
      detected at this point.  And the valid ones won't be needed
      anymore.  */
-  if (data->flags & ff_genericize)
+  if (flag_reflection && (data->flags & ff_genericize))
     {
       /* We still may have some wrong uses that persisted until now.  */
       if (complain && TREE_CODE (stmt) == STATEMENT_LIST)
 	for (tree s : tsi_range (stmt))
 	  if (check_out_of_consteval_use (s))
 	    *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
-      /* Check & clear consteval-only DECL_EXPRs.  It's a tree walk because
-	 we can have nested BIND_EXPRs.  */
-      cp_walk_tree (&stmt, wipe_consteval_only_r, nullptr, nullptr);
       /* We can't resolve all TEMPLATE_ID_EXPRs while creating reflections
 	 because cp_parser_postfix_dot_deref_expression wants to see the
 	 original TEMPLATE_ID_EXPR.  Resolve them now so that we don't crash
@@ -1377,6 +1374,18 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
   /* We are looking for &fn or fn().  */
   switch (code)
     {
+    case DECL_EXPR:
+      /* Clear consteval-only DECL_EXPRs.  */
+      if (flag_reflection)
+	{
+	  tree d = DECL_EXPR_DECL (stmt);
+	  if (VAR_P (d) && consteval_only_p (d))
+	    {
+	      *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
+	      DECL_HAS_VALUE_EXPR_P (d) = true;
+	    }
+	}
+      break;
     case CALL_EXPR:
     case AGGR_INIT_EXPR:
       if (tree fn = cp_get_callee (stmt))
@@ -1395,8 +1404,15 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
       if (IF_STMT_CONSTEVAL_P (stmt))
 	{
 	  if (!data->pset.add (stmt))
-	    cp_walk_tree (&ELSE_CLAUSE (stmt), cp_fold_immediate_r, data_,
-			  NULL);
+	    {
+	      cp_walk_tree (&ELSE_CLAUSE (stmt), cp_fold_immediate_r, data_,
+			    nullptr);
+	      if (flag_reflection)
+		/* Check & clear consteval-only DECL_EXPRs even here,
+		   because we wouldn't be walking this subtree otherwise.  */
+		cp_walk_tree (&THEN_CLAUSE (stmt), wipe_consteval_only_r,
+			      data_, nullptr);
+	    }
 	  *walk_subtrees = 0;
 	  return NULL_TREE;
 	}
