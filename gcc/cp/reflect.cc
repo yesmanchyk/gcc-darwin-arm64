@@ -2697,23 +2697,17 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 }
 
 /* Process std::meta::dealias.
-   Returns: A reflection representing the underlying entity of what r
-   represents.
-   Throws: meta::exception unless r represents an entity.  */
+   Returns: If r represents an entity, then a reflection representing the
+   underlying entity of what r represents.  Otherwise, r.
+   This implements LWG 4427 so we do not throw.  */
 
 static tree
-eval_dealias (location_t loc, const constexpr_ctx *ctx, tree r,
-	      tree *jump_target)
+eval_dealias (location_t loc, tree r, reflect_kind kind)
 {
   r = maybe_strip_typedefs (r);
   if (TREE_CODE (r) == NAMESPACE_DECL)
     r = ORIGINAL_NAMESPACE (r);
-  // TODO what's not an entity?
-  // Maybe remove: <https://cplusplus.github.io/LWG/lwg-active.html#4427>
-  else if (0)
-    return throw_exception_generic (loc, ctx, r, jump_target);
-
-  return get_reflection_raw (loc, r);
+  return get_reflection_raw (loc, r, kind);
 }
 
 /* Process std::meta::is_noexcept.
@@ -7684,7 +7678,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_PARENT_OF:
       return eval_parent_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_DEALIAS:
-      return eval_dealias (loc, ctx, h, jump_target);
+      return eval_dealias (loc, h, kind);
     case METAFN_HAS_TEMPLATE_ARGUMENTS:
       return eval_has_template_arguments (h);
     case METAFN_TEMPLATE_OF:
