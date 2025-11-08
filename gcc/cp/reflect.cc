@@ -5845,8 +5845,8 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
       r_K.
    -- If C is a specialization of a templated class T, and C is not a local
       class, then D is an explicit specialization of T.
-   -- For each r_K, there is a corresponding entity M_K belonging to the class
-      scope of D with the following properties:
+   -- For each r_K, there is a corresponding entity M_K with public access
+      belonging to the class scope of D with the following properties:
       -- If N_K is _|_, M_K is an unnamed bit-field.
 	 Otherwise, M_K is a non-static data member whose name is the
 	 identifier N_K.
