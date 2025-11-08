@@ -3306,6 +3306,12 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
    -- If r represents an entity that has a typedef name for linkage purposes,
       then true.
    -- Otherwise, if r represents an unnamed entity, then false.
+   -- Otherwise, if r represents a type alias, then !has_template_arguments(r).
+   -- Otherwise, if r represents a type, then true if
+      -- r represents a cv-unqualified class type and has_template_arguments(r)
+	 is false, or
+      -- r represents a cv-unqualified enumeration type.
+      Otherwise, false.
    -- Otherwise, if r represents a class type, then !has_template_arguments(r).
    -- Otherwise, if r represents a function, then true if
       has_template_arguments(r) is false and the function is not a constructor,
@@ -3332,7 +3338,6 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
    -- Otherwise, if r represents a structured binding, then false if the
       declaration of that structured binding was instantiated from a
       structured binding pack.  Otherwise, true.
-   -- Otherwise, if r represents a type alias, then !has_template_arguments(r).
    -- Otherwise, if r represents an enumerator, non-static-data member,
       namespace, or namespace alias, then true.
    -- Otherwise, if r represents a direct base class relationship, then
@@ -3359,7 +3364,8 @@ eval_has_identifier (tree r, reflect_kind kind)
 		     || (DECL_P (TYPE_NAME (r))
 			 && !DECL_NAME (TYPE_NAME (r)))))
     return boolean_false_node;
-  if (CLASS_TYPE_P (r) || eval_is_type_alias (r) == boolean_true_node)
+  if (eval_is_type_alias (r) == boolean_true_node
+      || (CLASS_TYPE_P (r) && !cv_qualified_p (r)))
     {
       if (eval_has_template_arguments (r) == boolean_true_node)
 	return boolean_false_node;
@@ -3368,7 +3374,7 @@ eval_has_identifier (tree r, reflect_kind kind)
     }
   if (TYPE_P (r))
     {
-      if (TREE_CODE (r) == ENUMERAL_TYPE)
+      if (TREE_CODE (r) == ENUMERAL_TYPE && !cv_qualified_p (r))
 	return boolean_true_node;
       else
 	return boolean_false_node;
