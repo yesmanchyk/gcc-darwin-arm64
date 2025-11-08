@@ -5470,7 +5470,8 @@ eval_variant_alternative (location_t loc, tree i, tree type)
    -- if options.bit_width contains a value V, then
       -- is_integral_type(type) || is_enum_type(type) is true,
       -- options.alignment does not contain a value,
-      -- options.no_unique_address is false, and
+      -- options.no_unique_address is false,
+      -- V is not negative, and
       -- if V equals 0, then options.name does not contain a value; and
    -- if options.alignment contains a value, it is an alignment value not less
       than alignment_of(type).  */
