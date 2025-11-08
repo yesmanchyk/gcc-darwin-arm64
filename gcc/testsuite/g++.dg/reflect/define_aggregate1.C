@@ -61,9 +61,9 @@ consteval {
   if (define_aggregate (^^S7 <42>, { data_member_spec (^^short, { .name = "g" }),
 				     data_member_spec (^^float, { .name = "h" }) }) != ^^S7 <42>)
     throw 9;
-  if (define_aggregate (^^const S8, { data_member_spec (^^U1, { .name = "u" }) }) != ^^const S8)
+  if (define_aggregate (^^S8, { data_member_spec (^^U1, { .name = "u" }) }) != ^^S8)
     throw 10;
-  if (define_aggregate (^^A9, { data_member_spec (^^U1, { .name = "u" }) }) != ^^A9)
+  if (define_aggregate (dealias (^^A9), { data_member_spec (^^U1, { .name = "u" }) }) != ^^S9)
     throw 10;
 }
 

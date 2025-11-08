@@ -5822,11 +5822,12 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
 }
 
 /* Process std::meta::define_aggregate.
-   Let C be the class represented by class_type and r_K be the Kth reflection
+   Let C be the type represented by class_type and r_K be the Kth reflection
    value in mdescrs.
    For every r_K in mdescrs, let (T_K,N_K,A_K,W_K,NUA_K) be the corresponding
    data member description represented by r_K.
    Constant When:
+   -- class_type represents a cv-unqualified class type;
    -- C is incomplete from every point in the evaluation context;
    -- is_data_member_spec(r_K) is true for every r_K;
    -- is_complete_type(T_K) is true for every r_K; and
@@ -5869,6 +5870,22 @@ eval_define_aggregate (location_t loc, const constexpr_ctx *ctx,
       if (!cxx_constexpr_quiet_p (ctx))
 	error_at (loc, "first %<define_aggregate%> argument is not a class "
 		       "type reflection");
+      *non_constant_p = true;
+      return call;
+    }
+  if (typedef_variant_p (type))
+    {
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "first %<define_aggregate%> argument is a reflection "
+		       "of a type alias");
+      *non_constant_p = true;
+      return call;
+    }
+  if (cv_qualified_p (type))
+    {
+      if (!cxx_constexpr_quiet_p (ctx))
+	error_at (loc, "first %<define_aggregate%> argument is not a "
+		       "cv-unqualified class type reflection");
       *non_constant_p = true;
       return call;
     }

@@ -17,11 +17,20 @@ struct S5;
 template <int N>
 struct S7 { long e; short f; };
 S7 <15> s715;
+struct S8;
+using A8 = S8;
+struct S9;
+struct S10;
+struct S11;
 consteval { define_aggregate (^^::, {}); }		// { dg-error "first 'define_aggregate' argument is not a class type reflection" }
 consteval { define_aggregate (^^int, {}); }		// { dg-error "first 'define_aggregate' argument is not a class type reflection" }
 consteval { define_aggregate (^^E, {}); }		// { dg-error "first 'define_aggregate' argument is not a class type reflection" }
 consteval { define_aggregate (^^S0, {}); }		// { dg-error "first 'define_aggregate' argument is a complete class type reflection" }
 consteval { define_aggregate (^^S7 <15>, {}); }		// { dg-error "first 'define_aggregate' argument is a complete class type reflection" }
+consteval { define_aggregate (^^A8, {}); }		// { dg-error "first 'define_aggregate' argument is a reflection of a type alias" }
+consteval { define_aggregate (^^const S9, {}); }	// { dg-error "first 'define_aggregate' argument is not a cv-unqualified class type reflection" }
+consteval { define_aggregate (^^volatile S10, {}); }	// { dg-error "first 'define_aggregate' argument is not a cv-unqualified class type reflection" }
+consteval { define_aggregate (^^S11 const volatile, {}); } // { dg-error "first 'define_aggregate' argument is not a cv-unqualified class type reflection" }
 consteval { define_aggregate (^^S1, { ^^int }); }	// { dg-error "'define_aggregate' argument not a data member description" }
 consteval { define_aggregate (^^S2, { data_member_spec (^^S5, { .name = "a" }) }); }	// { dg-error "'define_aggregate' argument data member description without complete type" }
 consteval { define_aggregate (^^S3, { data_member_spec (^^int, { .name = "a" }),	// { dg-error "name 'a' used in multiple data member descriptions" }
