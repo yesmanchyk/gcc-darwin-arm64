@@ -6310,11 +6310,8 @@ extract_access_context (location_t loc, tree actx, tree *scope,
 	 accessible at P with the designating class (as DESIGNATING-CLS(r, ctx)
 	 if the effect of any using-declarations were ignored.  Otherwise,
 	 false.
-   Throws: meta::exception if
-   -- r represents a class member for which PARENT-CLS(r) is an incomplete
-      class or
-   -- r represents a direct base class relationship (D,B) for which D is
-      incomplete.  */
+   Throws: meta::exception if r represents a class member for which
+   PARENT-CLS(r) is an incomplete class.  */
 
 static tree
 eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
