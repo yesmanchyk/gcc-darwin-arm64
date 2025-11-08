@@ -22,6 +22,7 @@ using A8 = S8;
 struct S9;
 struct S10;
 struct S11;
+struct S12;
 consteval { define_aggregate (^^::, {}); }		// { dg-error "first 'define_aggregate' argument is not a class type reflection" }
 consteval { define_aggregate (^^int, {}); }		// { dg-error "first 'define_aggregate' argument is not a class type reflection" }
 consteval { define_aggregate (^^E, {}); }		// { dg-error "first 'define_aggregate' argument is not a class type reflection" }
@@ -37,5 +38,7 @@ consteval { define_aggregate (^^S3, { data_member_spec (^^int, { .name = "a" }),
 				      data_member_spec (^^long, { .name = "a" }) }); }
 consteval { define_aggregate (^^S4, { data_member_spec (^^int, { .name = u8"_" }),
 				      data_member_spec (^^long, { .name = u8"_" }) }); }
+consteval { define_aggregate (^^S12, { data_member_spec (^^int, { .name = "foobar" }),	// { dg-error "name 'foobar' used in multiple data member descriptions" }
+				       data_member_spec (^^long, { .name = u8"foobar" }) }); }
 constexpr S4 s4 = { 1, 2 };
 consteval { auto a = s4._; }				// { dg-error "request for member '_' is ambiguous" }

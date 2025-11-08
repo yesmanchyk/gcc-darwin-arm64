@@ -5834,8 +5834,8 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
    -- is_complete_type(T_K) is true for every r_K; and
    -- for every pair (r_K,r_L) where K<L, if N_K is not _|_ and N_L is not
       _|_, then either:
-      -- N_K != N_L is true or
-      -- N_K == u8"_" is true.
+      -- N_K is not the same identifier as N_L or
+      -- N_K is the identifier _ (U+005F LOW LINE).
    Effects: Produces an injected declaration D that defines C and has
    properties as follows:
    -- The target scope of D is the scope to which C belongs.
@@ -5849,7 +5849,7 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
       scope of D with the following properties:
       -- If N_K is _|_, M_K is an unnamed bit-field.
 	 Otherwise, M_K is a non-static data member whose name is the
-	 determined by the character sequence encoded by N_K in UTF-8.
+	 identifier N_K.
       -- The type of M_K is T_K.
       -- M_K is declared with the attribute [[no_unique_address]] if and only
 	 if NUA_K is true.
