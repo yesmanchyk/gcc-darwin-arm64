@@ -3180,7 +3180,7 @@ eval_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
    Throws: meta::exception unless all of the following conditions are met:
    -- dealias(r) is a reflection of a type, object, variable of non-reference
       type, non-static data member that is not a bit-field, direct base class
-      relationship, or data member description.
+      relationship, or data member description (T,N,A,W,NUA) where W is _|_.
    -- If dealias(r) represents a type, then is_complete_type(r) is true.  */
 
 static tree
@@ -3194,8 +3194,7 @@ eval_alignment_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	  || TYPE_REF_P (TREE_TYPE (r)))
       && (TREE_CODE (r) != FIELD_DECL || DECL_C_BIT_FIELD (r))
       && kind != REFLECT_BASE
-      && (kind != REFLECT_DATA_MEMBER_SPEC
-	  /* LWG4429 || TREE_VEC_ELT (r, 3) */))
+      && (kind != REFLECT_DATA_MEMBER_SPEC || TREE_VEC_ELT (r, 3)))
     return throw_exception (loc, ctx, "reflection not suitable for alignment_of",
 			    fun, jump_target);
   if (!INTEGRAL_TYPE_P (ret_type))

@@ -78,9 +78,8 @@ static_assert (!has_alignment_of (^^NSAlias));
 static_assert (!has_alignment_of (^^NS));
 static_assert (has_alignment_of (std::meta::bases_of (^^S, ctx)[0]));
 static_assert (has_alignment_of (std::meta::data_member_spec (^^int, { .name = "member" })));
-// TODO: LWG4429
-//static_assert (!has_alignment_of (std::meta::data_member_spec (^^int, { .name = "member", .bit_width = 6 })));
-//static_assert (!has_alignment_of (std::meta::data_member_spec (^^int, { .bit_width = 15 })));
+static_assert (!has_alignment_of (std::meta::data_member_spec (^^int, { .name = "member", .bit_width = 6 })));
+static_assert (!has_alignment_of (std::meta::data_member_spec (^^int, { .bit_width = 15 })));
 static_assert (has_alignment_of (^^arr2));
 static_assert (has_alignment_of (^^arr3));
 static_assert (!has_alignment_of (^^ref));
