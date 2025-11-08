@@ -5860,7 +5860,9 @@ eval_data_member_spec (location_t loc, const constexpr_ctx *ctx,
 	 Otherwise, M_K has no alignment-specifier.
    -- For every r_L in mdescrs such that K<L, the declaration corresponding to
       r_K precedes the declaration corresponding to r_L.
-   Returns: class_type.  */
+   Returns: class_type.
+   Remarks: If C is a specialization of a templated class and it has not been
+   instantiated, C is treated as an explicit specialization.  */
 
 static tree
 eval_define_aggregate (location_t loc, const constexpr_ctx *ctx,
