@@ -6945,10 +6945,11 @@ eval_subobjects_of (location_t loc, const constexpr_ctx *ctx, tree r,
    Returns: true if is_accessible(R, ctx) is false for any R in
    nonstatic_data_members_of(r, access_context::unchecked()).
    Otherwise, false.
-   Throws: meta::exception unless
-   -- nonstatic_data_members_of(r, access_context::unchecked()) is a constant
-      subexpression and
-   -- r does not represent a closure type.  */
+   Throws: meta::exception if
+   -- the evaluation of
+      nonstatic_data_members_of(r, access_context::unchecked()) would exit via
+      an exception and or
+   -- r represents a closure type.  */
 
 static tree
 eval_has_inaccessible_nonstatic_data_members (location_t loc,
@@ -6984,8 +6985,8 @@ eval_has_inaccessible_nonstatic_data_members (location_t loc,
 /* Implement std::meta::has_inaccessible_bases.
    Returns: true if is_accessible(R, ctx) is false for any R in
    bases_of(r, access_context::unchecked()).  Otherwise, false.
-   Throws: meta::exception unless bases_of(r, access_context::unchecked())
-   is a constant subexpression.  */
+   Throws: meta::exception if the evaluation of
+   bases_of(r, access_context::unchecked()) would exit via an exception.  */
 
 static tree
 eval_has_inaccessible_bases (location_t loc, const constexpr_ctx *ctx,
