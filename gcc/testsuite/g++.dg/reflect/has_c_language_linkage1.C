@@ -127,6 +127,7 @@ namespace NM {
 
 extern "C" {
   void corge (int);
+  typedef void plugh (int);
 }
 
 int
@@ -151,3 +152,5 @@ static_assert (has_c_language_linkage (^^main));
 static_assert (has_c_language_linkage (^^garply));
 static_assert (!has_c_language_linkage (^^ci));
 static_assert (!has_c_language_linkage (^^ci2));
+// TODO: We don't have TYPE_LANGUAGE nor DECL_LANGUAGE on TYPE_DECLs.
+//static_assert (has_c_language_linkage (^^plugh));

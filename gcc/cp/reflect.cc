@@ -1954,18 +1954,16 @@ eval_has_external_linkage (tree r, reflect_kind kind)
     return boolean_false_node;
 }
 
-/* Process std::meta::has_c_language_linkage.
-   Returns: true if r represents a variable, function, type, template, or
-   namespace whose name has C language linkage.  Otherwise, false.  */
+/* Process std::meta::has_c_language_linkage
+   Returns: true if r represents a variable, function, or function type with
+   C language linkage. Otherwise, false.  */
 
 static tree
 eval_has_c_language_linkage (tree r, reflect_kind kind)
 {
   if (eval_is_variable (r, kind) == boolean_false_node
       && eval_is_function (r) == boolean_false_node
-      && eval_is_type (r) == boolean_false_node
-      && eval_is_template (r) == boolean_false_node
-      && eval_is_namespace (r) == boolean_false_node)
+      && eval_is_function_type (r) == boolean_false_node)
     return boolean_false_node;
   r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
@@ -1979,9 +1977,7 @@ eval_has_c_language_linkage (tree r, reflect_kind kind)
 	return boolean_false_node;
       r = TYPE_NAME (r);
     }
-  if (TREE_CODE (r) != NAMESPACE_DECL
-      && decl_linkage (r) == lk_external
-      && DECL_LANGUAGE (r) == lang_c)
+  if (decl_linkage (r) == lk_external && DECL_LANGUAGE (r) == lang_c)
     return boolean_true_node;
   else
     return boolean_false_node;
