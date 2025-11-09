@@ -41,7 +41,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-//#include <type_traits>
 
 #define __glibcxx_want_reflection
 #include <bits/version.h>
