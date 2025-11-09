@@ -82,3 +82,6 @@ fn ()
   return constant_of (^^rg);
 }
 static_assert ([:fn ():] == 3);
+
+constexpr int foo () { return 42; }
+static_assert (constant_of (^^foo) == reflect_function (foo));

@@ -37,9 +37,6 @@ struct X { };
 static_assert (!constant_of_ok (^^X));
 static_assert (!constant_of_ok (^^X<int>));
 
-constexpr int foo () { return 42; }
-static_assert (!constant_of_ok (^^foo));
-
 template<int N>
 constexpr int bar () { return N; }
 static_assert (!constant_of_ok (^^bar));

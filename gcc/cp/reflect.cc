@@ -34,6 +34,11 @@ static tree eval_is_function_type (tree);
 static tree eval_is_object_type (location_t, tree);
 static tree eval_reflect_constant (location_t, const constexpr_ctx *, tree,
 				   tree, tree *, tree);
+static tree eval_is_array_type (location_t, tree);
+static tree eval_reflect_constant_array (location_t, const constexpr_ctx *,
+					 tree, bool *, bool *, tree *, tree);
+static tree eval_reflect_function (location_t, const constexpr_ctx *, tree,
+				   tree, tree *, tree);
 struct constexpr_ctx;
 
 static GTY(()) tree vector_identifier;
@@ -2644,26 +2649,52 @@ eval_object_of (location_t loc, const constexpr_ctx *ctx, tree r,
    Effects: Equivalent to:
      if constexpr (is_annotation(R)) {
        return C;
+     } else if constexpr (is_array_type(type_of(R)) {
+       return reflect_constant_array([: R :]);
+     } else if constexpr (is_function_type(type_of(R)) {
+       return reflect_function([: R :]);
      } else {
        return reflect_constant([: R :]);
      }
    Throws: meta::exception unless either r represents an annotation or
    [: R :] is a valid splice-expression.  */
 
-// We should have
-//   } else if constexpr (is_array(type_of(R))) {
-//    return reflect_constant_array([: R :]);
-//   } else if constexpr (is_function_type(type_of(R)) {
-//   return reflect_function([:R:]);
-// in the pseudocode above.
-
 static tree
 eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
-		  bool *non_constant_p, bool *overflow_p, tree *jump_target,
-		  tree fun)
+		  reflect_kind kind, bool *non_constant_p, bool *overflow_p,
+		  tree *jump_target, tree fun)
 {
+  tree type;
+  if (has_type (r, kind))
+    type = type_of (r, kind);
+  else
+    type = maybe_strip_typedefs (r);
   if (eval_is_annotation (r) == boolean_true_node)
     r = tree_strip_any_location_wrapper (TREE_VALUE (TREE_VALUE (r)));
+  else if (eval_is_array_type (loc, type) == boolean_true_node)
+    {
+      /* Create a call to reflect_constant_array so that we can simply
+	 let eval_reflect_constant_array do its job.  */
+      tree name = get_identifier ("reflect_constant_array");
+      tree call = lookup_qualified_name (std_meta_node, name);
+      if (error_operand_p (call) || !is_overloaded_fn (call))
+	{
+	  if (!cxx_constexpr_quiet_p (ctx))
+	    error_at (loc, "couldn%'t look up %<%D::%D%>", std_meta_node, name);
+	  *non_constant_p = true;
+	  return call;
+	}
+      /* We want the argument to be a CONSTRUCTOR or a STRING_CST.  */
+      r = cxx_eval_constant_expression (ctx, r, vc_prvalue, non_constant_p,
+					overflow_p, jump_target);
+      releasing_vec args (make_tree_vector_single (r));
+      call = finish_call_expr (call, &args, /*disallow_virtual=*/true,
+			       /*koenig_p=*/false, tf_warning_or_error);
+      return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
+					  overflow_p, jump_target, fun);
+    }
+  else if (eval_is_function_type (type) == boolean_true_node)
+    return eval_reflect_function (loc, ctx, type, r, jump_target, fun);
   else if (!check_splice_expr (loc, UNKNOWN_LOCATION, r,
 			       /*address_p=*/false,
 			       /*member_access_p=*/false,
@@ -2678,14 +2709,10 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 				      "a splice-expression",
 			    fun, jump_target);
 
-  /* For arrays, we'll call reflect_constant_array instead.  Evaluating
-     an array would give us a CONSTRUCTOR and we'd crash below in
-     eval_reflect_constant trying to take the address of the CONSTRUCTOR.  */
-  if (TREE_CODE (TREE_TYPE (r)) != ARRAY_TYPE)
-    r = cxx_eval_constant_expression (ctx, r, vc_prvalue, non_constant_p,
-				      overflow_p, jump_target);
+  r = cxx_eval_constant_expression (ctx, r, vc_prvalue, non_constant_p,
+				    overflow_p, jump_target);
   /* Figure out the type for reflect_constant.  */
-  tree type = TREE_TYPE (convert_from_reference (r));
+  type = TREE_TYPE (convert_from_reference (r));
   type = type_decays_to (type);
   type = cv_unqualified (type);
 
@@ -6162,8 +6189,8 @@ eval_reflect_constant_string (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 eval_reflect_constant_array (location_t loc, const constexpr_ctx *ctx,
-			      tree call, bool *non_constant_p,
-			      bool *overflow_p, tree *jump_target, tree fun)
+			     tree call, bool *non_constant_p,
+			     bool *overflow_p, tree *jump_target, tree fun)
 {
   tree str = get_range_elts (loc, ctx, call, 0, non_constant_p, overflow_p,
 			     jump_target, REFLECT_CONSTANT_ARRAY, fun);
@@ -7237,14 +7264,14 @@ static tree
 extract_value (location_t loc, const constexpr_ctx *ctx, tree T, tree r,
 	       tree *jump_target, tree fun)
 {
-  if (!REFLECT_EXPR_P (r))
-    return throw_exception (loc, ctx, "value cannot be extracted", fun,
-			    jump_target);
-  r = REFLECT_EXPR_HANDLE (r);
-  if (!can_extract_value_p (T, TREE_TYPE (r)))
-    return throw_exception (loc, ctx, "value cannot be extracted", fun,
-			    jump_target);
-  return build_static_cast (loc, T, r, tf_none);
+  if (REFLECT_EXPR_P (r))
+    {
+      r = REFLECT_EXPR_HANDLE (r);
+      if (can_extract_value_p (T, TREE_TYPE (r)))
+	return build_static_cast (loc, T, r, tf_none);
+    }
+  return throw_exception (loc, ctx, "value cannot be extracted", fun,
+			  jump_target);
 }
 
 /* Helper for extract_member_or_function.  Return true iff we can
@@ -7353,7 +7380,7 @@ eval_extract (location_t loc, const constexpr_ctx *ctx, tree type, tree r,
 				       fun);
   else
     {
-      r = eval_constant_of (loc, ctx, r, non_constant_p, overflow_p,
+      r = eval_constant_of (loc, ctx, r, kind, non_constant_p, overflow_p,
 			    jump_target, fun);
       if (*jump_target)
 	return NULL_TREE;
@@ -7546,7 +7573,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_OBJECT_OF:
       return eval_object_of (loc, ctx, h, kind, jump_target, fun);
     case METAFN_CONSTANT_OF:
-      return eval_constant_of (loc, ctx, h, non_constant_p, overflow_p,
+      return eval_constant_of (loc, ctx, h, kind, non_constant_p, overflow_p,
 			       jump_target, fun);
     case METAFN_IS_PUBLIC:
       return eval_is_public (h, kind);
