@@ -7238,7 +7238,14 @@ can_extract_value_p (tree T, tree U)
   else if (TREE_CODE (U) == ARRAY_TYPE
 	   && POINTER_TYPE_P (T)
 	   && is_convertible (U, T))
-    return true;
+    {
+      /* remove_extent_t<U> */
+      U = TREE_TYPE (U);
+      U = strip_typedefs (U);
+      /* remove_extent_t<U>* */
+      U = build_pointer_type (U);
+      return similar_type_p (T, U);
+    }
   else if (LAMBDA_TYPE_P (U)
 	   && FUNCTION_POINTER_TYPE_P (T)
 	   && is_convertible (U, T))
@@ -7255,8 +7262,8 @@ can_extract_value_p (tree T, tree U)
       types, and is_convertible_v<U, T> is true,
    -- U is not a pointer type and the cv-unqualified types of T and U are the
       same,
-   -- U is an array type, T is a pointer type, and the value r represents is
-      convertible to T, or
+   -- U is an array type, T is a pointer type, remove_extent_t<U>* and T are
+      similar types, and the value r represents is convertible to T, or
    -- U is a closure type, T is a function pointer type, and the value that r
       represents is convertible to T.  */
 
