@@ -2673,23 +2673,31 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
     r = tree_strip_any_location_wrapper (TREE_VALUE (TREE_VALUE (r)));
   else if (eval_is_array_type (loc, type) == boolean_true_node)
     {
+      const tsubst_flags_t complain = (cxx_constexpr_quiet_p (ctx)
+				       ? tf_none : tf_warning_or_error);
       /* Create a call to reflect_constant_array so that we can simply
 	 let eval_reflect_constant_array do its job.  */
       tree name = get_identifier ("reflect_constant_array");
       tree call = lookup_qualified_name (std_meta_node, name);
       if (error_operand_p (call) || !is_overloaded_fn (call))
 	{
-	  if (!cxx_constexpr_quiet_p (ctx))
+	  if (complain)
 	    error_at (loc, "couldn%'t look up %<%D::%D%>", std_meta_node, name);
 	  *non_constant_p = true;
-	  return call;
+	  return error_mark_node;
 	}
       /* We want the argument to be a CONSTRUCTOR or a STRING_CST.  */
       r = cxx_eval_constant_expression (ctx, r, vc_prvalue, non_constant_p,
 					overflow_p, jump_target);
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return error_mark_node;
       releasing_vec args (make_tree_vector_single (r));
       call = finish_call_expr (call, &args, /*disallow_virtual=*/true,
-			       /*koenig_p=*/false, tf_warning_or_error);
+			       /*koenig_p=*/false, complain);
+      if (call == error_mark_node)
+	return error_mark_node;
       return eval_reflect_constant_array (loc, ctx, call, non_constant_p,
 					  overflow_p, jump_target, fun);
     }
@@ -2711,6 +2719,10 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
 
   r = cxx_eval_constant_expression (ctx, r, vc_prvalue, non_constant_p,
 				    overflow_p, jump_target);
+  if (*jump_target)
+    return NULL_TREE;
+  if (*non_constant_p)
+    return error_mark_node;
   /* Figure out the type for reflect_constant.  */
   type = TREE_TYPE (convert_from_reference (r));
   type = type_decays_to (type);
