@@ -4186,28 +4186,6 @@ eval_is_trivially_copyable_type (tree type)
     return boolean_false_node;
 }
 
-/* Process std::meta::is_trivially_relocatable_type.  */
-
-static tree
-eval_is_trivially_relocatable_type (tree type)
-{
-  if (trivially_relocatable_type_p (type))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
-/* Process std::meta::is_replaceable_type.  */
-
-static tree
-eval_is_replaceable_type (tree type)
-{
-  if (replaceable_type_p (type))
-    return boolean_true_node;
-  else
-    return boolean_false_node;
-}
-
 /* Process std::meta::is_standard_layout_type.  */
 
 static tree
@@ -4632,14 +4610,6 @@ static tree
 eval_is_nothrow_destructible_type (location_t loc, tree type)
 {
   return eval_type_trait (loc, type, CPTK_IS_NOTHROW_DESTRUCTIBLE);
-}
-
-/* Process std::meta::is_nothrow_relocatable_type.  */
-
-static tree
-eval_is_nothrow_relocatable_type (location_t loc, tree type)
-{
-  return eval_type_trait (loc, type, CPTK_IS_NOTHROW_RELOCATABLE);
 }
 
 /* Process std::meta::has_virtual_destructor.  */
@@ -7870,10 +7840,6 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_is_volatile_type (h);
     case METAFN_IS_TRIVIALLY_COPYABLE_TYPE:
       return eval_is_trivially_copyable_type (h);
-    case METAFN_IS_TRIVIALLY_RELOCATABLE_TYPE:
-      return eval_is_trivially_relocatable_type (h);
-    case METAFN_IS_REPLACEABLE_TYPE:
-      return eval_is_replaceable_type (h);
     case METAFN_IS_STANDARD_LAYOUT_TYPE:
       return eval_is_standard_layout_type (h);
     case METAFN_IS_EMPTY_TYPE:
@@ -7959,8 +7925,6 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 				     "is_nothrow_swappable");
     case METAFN_IS_NOTHROW_DESTRUCTIBLE_TYPE:
       return eval_is_nothrow_destructible_type (loc, h);
-    case METAFN_IS_NOTHROW_RELOCATABLE_TYPE:
-      return eval_is_nothrow_relocatable_type (loc, h);
     case METAFN_IS_IMPLICIT_LIFETIME_TYPE:
       return eval_is_implicit_lifetime_type (h);
     case METAFN_HAS_VIRTUAL_DESTRUCTOR:

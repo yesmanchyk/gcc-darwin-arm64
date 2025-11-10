@@ -207,50 +207,6 @@ namespace N
   void foo ();
 }
 
-namespace TR
-{
-  struct A {};
-
-  struct B {
-    B ();
-    ~B ();
-    B (const B &);
-    B (B &&);
-    B &operator= (const B &);
-    B &operator= (B &&);
-  };
-
-  struct C {
-    C (C &&) = delete;
-    C &operator= (C &&) = delete;
-    C () = default;
-  };
-
-  struct D : A {};
-
-  struct E : virtual A {};
-
-  struct F trivially_relocatable_if_eligible : virtual A {};
-
-  struct G { B data; };
-
-  struct H { ~H () = default; };
-
-  struct I { ~I (); };
-  I::~I () = default;
-
-  struct J { virtual ~J () = default; };
-
-  struct K { ~K () = delete; };
-
-  struct L { L (L &&) = default; };
-
-  struct M { M (M &&); };
-  M::M (M &&) = default;
-
-  struct N { N (N &&) = delete; };
-}
-
 int v = 1;
 struct S1 { decltype (^^long) a; };
 union U2 { int a; decltype (^^N::foo) b; };
@@ -315,36 +271,6 @@ static_assert (is_trivially_copyable_type (^^MoveConsOnlyType));
 static_assert (is_trivially_copyable_type (^^HasTemplateCCtor));
 static_assert (is_trivially_copyable_type (^^MoveOnly));
 static_assert (is_trivially_copyable_type (^^MoveOnly2));
-
-static_assert (is_trivially_relocatable_type (^^TR::A));
-static_assert (!is_trivially_relocatable_type (^^TR::B));
-static_assert (!is_trivially_relocatable_type (^^TR::C));
-static_assert (is_trivially_relocatable_type (^^TR::D));
-static_assert (!is_trivially_relocatable_type (^^TR::E));
-static_assert (!is_trivially_relocatable_type (^^TR::F));
-static_assert (!is_trivially_relocatable_type (^^TR::G));
-static_assert (is_trivially_relocatable_type (^^TR::H));
-static_assert (!is_trivially_relocatable_type (^^TR::I));
-static_assert (is_trivially_relocatable_type (^^TR::J));
-static_assert (!is_trivially_relocatable_type (^^TR::K));
-static_assert (!is_trivially_relocatable_type (^^TR::L));
-static_assert (!is_trivially_relocatable_type (^^TR::M));
-static_assert (!is_trivially_relocatable_type (^^TR::N));
-
-static_assert (is_replaceable_type (^^TR::A));
-static_assert (!is_replaceable_type (^^TR::B));
-static_assert (!is_replaceable_type (^^TR::C));
-static_assert (is_replaceable_type (^^TR::D));
-static_assert (is_replaceable_type (^^TR::E));
-static_assert (is_replaceable_type (^^TR::F));
-static_assert (!is_replaceable_type (^^TR::G));
-static_assert (is_replaceable_type (^^TR::H));
-static_assert (!is_replaceable_type (^^TR::I));
-static_assert (is_replaceable_type (^^TR::J));
-static_assert (!is_replaceable_type (^^TR::K));
-static_assert (!is_replaceable_type (^^TR::L));
-static_assert (!is_replaceable_type (^^TR::M));
-static_assert (!is_replaceable_type (^^TR::N));
 
 static_assert (is_standard_layout_type (^^SLType));
 static_assert (is_standard_layout_type (^^PODType));

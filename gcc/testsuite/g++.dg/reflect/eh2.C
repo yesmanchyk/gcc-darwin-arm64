@@ -46,8 +46,6 @@ static_assert ((add_pointer (^^i), true)); // { dg-error "non-constant|uncaught 
 static_assert ((is_const_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_volatile_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_trivially_copyable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
-static_assert ((is_trivially_relocatable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
-static_assert ((is_replaceable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_standard_layout_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_empty_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_polymorphic_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
@@ -78,7 +76,6 @@ static_assert ((is_nothrow_move_constructible_type (^^i), true)); // { dg-error 
 static_assert ((is_nothrow_copy_assignable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_nothrow_move_assignable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((is_nothrow_destructible_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
-static_assert ((is_nothrow_relocatable_type (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((has_virtual_destructor (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((has_unique_object_representations (^^i), true)); // { dg-error "non-constant|uncaught exception" }
 static_assert ((rank (^^i), true)); // { dg-error "non-constant|uncaught exception" }

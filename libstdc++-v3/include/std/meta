@@ -449,8 +449,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_const_type(info);
     consteval bool is_volatile_type(info);
     consteval bool is_trivially_copyable_type(info);
-    consteval bool is_trivially_relocatable_type(info);
-    consteval bool is_replaceable_type(info);
     consteval bool is_standard_layout_type(info);
     consteval bool is_empty_type(info);
     consteval bool is_polymorphic_type(info);
@@ -504,7 +502,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     consteval bool is_nothrow_swappable_type(info);
 
     consteval bool is_nothrow_destructible_type(info);
-    consteval bool is_nothrow_relocatable_type(info);
 
     consteval bool is_implicit_lifetime_type(info);
 

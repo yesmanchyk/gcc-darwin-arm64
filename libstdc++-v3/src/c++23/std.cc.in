@@ -2198,8 +2198,6 @@ export namespace std
     using std::meta::is_const_type;
     using std::meta::is_volatile_type;
     using std::meta::is_trivially_copyable_type;
-    using std::meta::is_trivially_relocatable_type;
-    using std::meta::is_replaceable_type;
     using std::meta::is_standard_layout_type;
     using std::meta::is_empty_type;
     using std::meta::is_polymorphic_type;
@@ -2240,7 +2238,6 @@ export namespace std
     using std::meta::is_nothrow_swappable_with_type;
     using std::meta::is_nothrow_swappable_type;
     using std::meta::is_nothrow_destructible_type;
-    using std::meta::is_nothrow_relocatable_type;
     using std::meta::is_implicit_lifetime_type;
     using std::meta::has_virtual_destructor;
     using std::meta::has_unique_object_representations;

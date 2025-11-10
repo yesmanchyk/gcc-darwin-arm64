@@ -128,12 +128,6 @@ eval (int n)
     case 38:
       is_trivially_copyable_type (^^n);
       break;
-    case 39:
-      is_trivially_relocatable_type (^^n);
-      break;
-    case 40:
-      is_replaceable_type (^^n);
-      break;
     case 41:
       is_standard_layout_type (^^n);
       break;
@@ -223,9 +217,6 @@ eval (int n)
       break;
     case 70:
       is_nothrow_destructible_type (^^n);
-      break;
-    case 71:
-      is_nothrow_relocatable_type (^^n);
       break;
     case 72:
       has_virtual_destructor (^^n);
@@ -319,8 +310,6 @@ static_assert (test (35));
 static_assert (test (36));
 static_assert (test (37));
 static_assert (test (38));
-static_assert (test (39));
-static_assert (test (40));
 static_assert (test (41));
 static_assert (test (42));
 static_assert (test (43));
@@ -351,7 +340,6 @@ static_assert (test (67));
 static_assert (test (68));
 static_assert (test (69));
 static_assert (test (70));
-static_assert (test (71));
 static_assert (test (72));
 static_assert (test (73));
 static_assert (test (74));
