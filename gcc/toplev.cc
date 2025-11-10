@@ -352,6 +352,10 @@ wrapup_global_declaration_2 (tree decl)
       || (VAR_P (decl) && DECL_HAS_VALUE_EXPR_P (decl)))
     return false;
 
+  /* Compile-only variables are not to be written out.  */
+  if (lang_hooks.compile_only_p (decl))
+    return false;
+
   /* Don't write out static consts, unless we still need them.
 
      We also keep static consts if not optimizing (for debugging),

@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "attribs.h"
 #include "tree-pass.h"
+#include "langhooks.h"
 
 const char * const tls_model_names[]={"none", "emulated",
 				      "global-dynamic", "local-dynamic",
@@ -579,6 +580,10 @@ varpool_node::assemble_decl (void)
 
   /* Hard register vars do not need to be output.  */
   if (DECL_HARD_REGISTER (decl))
+    return false;
+
+  /* Compile-only variables may not be output.  */
+  if (lang_hooks.compile_only_p (decl))
     return false;
 
   gcc_checking_assert (!TREE_ASM_WRITTEN (decl)

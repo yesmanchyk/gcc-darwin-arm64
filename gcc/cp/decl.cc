@@ -1026,10 +1026,6 @@ wrapup_namespace_globals ()
 	      && DECL_ODR_USED (decl))
 	    error_at (DECL_SOURCE_LOCATION (decl),
 		      "odr-used inline variable %qD is not defined", decl);
-
-	  /* We shouldn't emit consteval-only types.  */
-	  if (VAR_P (decl) && consteval_only_p (decl))
-	    DECL_HAS_VALUE_EXPR_P (decl) = true;
 	}
 
       /* Clear out the list, so we don't rescan next time.  */
@@ -7321,12 +7317,15 @@ maybe_commonize_var (tree decl)
   if (DECL_ARTIFICIAL (decl) && !DECL_DECOMPOSITION_P (decl))
     return;
 
+  /* These are not output at all.  */
+  if (consteval_only_p (decl))
+    return;
+
   /* Static data in a function with comdat linkage also has comdat
      linkage.  */
   if ((TREE_STATIC (decl)
        && DECL_FUNCTION_SCOPE_P (decl)
-       && vague_linkage_p (DECL_CONTEXT (decl))
-       && !consteval_only_p (decl))
+       && vague_linkage_p (DECL_CONTEXT (decl)))
       || (TREE_PUBLIC (decl) && DECL_INLINE_VAR_P (decl)))
     {
       if (flag_weak)

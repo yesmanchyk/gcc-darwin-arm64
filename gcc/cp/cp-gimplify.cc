@@ -1309,12 +1309,8 @@ wipe_consteval_only_r (tree *stmt_p, int *, void *)
     {
       tree d = DECL_EXPR_DECL (*stmt_p);
       if (VAR_P (d) && consteval_only_p (d))
-	{
-	  /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
-	  *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
-	  /* And skip varpool_node::finalize_decl.  */
-	  DECL_HAS_VALUE_EXPR_P (d) = true;
-	}
+	/* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
+	*stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
     }
   return NULL_TREE;
 }
@@ -1380,10 +1376,7 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
 	{
 	  tree d = DECL_EXPR_DECL (stmt);
 	  if (VAR_P (d) && consteval_only_p (d))
-	    {
-	      *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
-	      DECL_HAS_VALUE_EXPR_P (d) = true;
-	    }
+	    *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
 	}
       break;
     case CALL_EXPR:

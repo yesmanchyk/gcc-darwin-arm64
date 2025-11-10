@@ -122,6 +122,8 @@ extern tree cxx_simulate_record_decl (location_t, const char *,
 #define LANG_HOOKS_EMITS_BEGIN_STMT true
 #undef LANG_HOOKS_FINALIZE_EARLY_DEBUG
 #define LANG_HOOKS_FINALIZE_EARLY_DEBUG c_common_finalize_early_debug
+#undef LANG_HOOKS_COMPILE_ONLY_P
+#define LANG_HOOKS_COMPILE_ONLY_P consteval_only_p
 
 static const scoped_attribute_specs *const cp_objcp_attribute_table[] =
 {

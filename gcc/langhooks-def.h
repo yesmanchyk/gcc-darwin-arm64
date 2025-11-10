@@ -159,6 +159,7 @@ extern const char *lhd_get_sarif_source_language (const char *);
 #define LANG_HOOKS_GET_SUBSTRING_LOCATION lhd_get_substring_location
 #define LANG_HOOKS_FINALIZE_EARLY_DEBUG lhd_finalize_early_debug
 #define LANG_HOOKS_GET_SARIF_SOURCE_LANGUAGE lhd_get_sarif_source_language
+#define LANG_HOOKS_COMPILE_ONLY_P	hook_bool_tree_false
 
 /* Attribute hooks.  */
 #define LANG_HOOKS_ATTRIBUTE_TABLE
@@ -413,7 +414,8 @@ extern void lhd_end_section (void);
   LANG_HOOKS_RUN_LANG_SELFTESTS, \
   LANG_HOOKS_GET_SUBSTRING_LOCATION, \
   LANG_HOOKS_FINALIZE_EARLY_DEBUG,   \
-  LANG_HOOKS_GET_SARIF_SOURCE_LANGUAGE \
+  LANG_HOOKS_GET_SARIF_SOURCE_LANGUAGE, \
+  LANG_HOOKS_COMPILE_ONLY_P \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

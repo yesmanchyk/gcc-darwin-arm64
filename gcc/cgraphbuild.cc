@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "except.h"
 #include "gimplify.h"
+#include "langhooks.h"
 
 /* Context of record_reference.  */
 struct record_reference_ctx
@@ -367,7 +368,8 @@ pass_build_cgraph_edges::execute (function *fun)
     if (VAR_P (decl)
 	&& (TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
 	&& !DECL_HAS_VALUE_EXPR_P (decl)
-	&& TREE_TYPE (decl) != error_mark_node)
+	&& TREE_TYPE (decl) != error_mark_node
+	&& !lang_hooks.compile_only_p (decl))
       varpool_node::finalize_decl (decl);
   record_eh_tables (node, fun);
 

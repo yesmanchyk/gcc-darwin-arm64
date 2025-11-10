@@ -9055,14 +9055,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     case VAR_DECL:
-      if (DECL_HAS_VALUE_EXPR_P (t)
-	  /* ??? Consteval-only expression are marked DECL_HAS_VALUE_EXPR_P
-	     albeit they do not carry any value-expr.  This is so that
-	     rest_of_decl_compilation doesn't finalize such a decl.
-	     And finalize_decl cannot use a front-end predicate like
-	     consteval_only_p.  Perhaps we should introduce a "consteval only"
-	     artificial attribute?  */
-	  && !consteval_only_p (t))
+      if (DECL_HAS_VALUE_EXPR_P (t))
 	{
 	  if (is_normal_capture_proxy (t)
 	      && current_function_decl == DECL_CONTEXT (t))

@@ -674,6 +674,11 @@ struct lang_hooks
      languages.  */
   const char *(*get_sarif_source_language) (const char *filename);
 
+  /* True if this tree should only exist at compile time and not be output
+     at all.  This is true for C++ consteval-only types which should not make
+     it out of the front end.  */
+  bool (*compile_only_p) (tree);
+
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.cc accordingly.  */
 };
