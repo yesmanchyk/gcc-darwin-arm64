@@ -4762,7 +4762,7 @@ eval_is_invocable_type (location_t loc, tree type, tree tvec)
 static tree
 finish_library_value_trait (location_t loc, const constexpr_ctx *ctx,
 			    const char *name, tree args, tree call,
-			    bool *non_constant_p)
+			    bool *non_constant_p, tree *jump_target, tree fun)
 {
   tree inst = lookup_template_class (get_identifier (name), args,
 				     /*in_decl*/NULL_TREE, /*context*/std_node,
@@ -4772,17 +4772,17 @@ finish_library_value_trait (location_t loc, const constexpr_ctx *ctx,
       || !COMPLETE_TYPE_P (inst)
       || !CLASS_TYPE_P (inst))
     {
-    fail:
       if (!cxx_constexpr_quiet_p (ctx))
-	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::value%>",
+	error_at (loc, "couldn%'t instantiate %<std::%s<%T>%>",
 		  name, args);
       *non_constant_p = true;
       return call;
     }
   tree val = lookup_qualified_name (inst, value_identifier,
-				    LOOK_want::NORMAL, /*complain*/true);
+				    LOOK_want::NORMAL, /*complain*/false);
   if (val == error_mark_node)
-    goto fail;
+    return throw_exception (loc, ctx, "value member missing",
+			    fun, jump_target);
   if (VAR_P (val) || TREE_CODE (val) == CONST_DECL)
     val = maybe_constant_value (val, NULL_TREE, mce_true);
   if (TREE_CODE (TREE_TYPE (call)) == BOOLEAN_TYPE)
@@ -4792,12 +4792,17 @@ finish_library_value_trait (location_t loc, const constexpr_ctx *ctx,
       else if (integer_nonzerop (val))
 	return boolean_true_node;
       else
-	goto fail;
+	return throw_exception (loc, ctx, "unexpected value of value member",
+				fun, jump_target);
     }
   else if (TREE_CODE (val) == INTEGER_CST)
-    return val;
-  else
-    goto fail;
+    {
+      val = build_converted_constant_expr (TREE_TYPE (call), val, tf_none);
+      if (TREE_CODE (val) == INTEGER_CST)
+	return val;
+    }
+  return throw_exception (loc, ctx, "unexpected value of value member",
+			  fun, jump_target);
 }
 
 /* Process std::meta::is_{,nothrow_}invocable_r_type.  */
@@ -4805,7 +4810,8 @@ finish_library_value_trait (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
 			  tree tres, tree type, tree tvec, tree call,
-			  bool *non_constant_p, const char *name)
+			  bool *non_constant_p, tree *jump_target, tree fun,
+			  const char *name)
 {
   /* Create std::is_invocable_r<TYPE>::value.  */
   tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 2);
@@ -4814,7 +4820,7 @@ eval_is_invocable_r_type (location_t loc, const constexpr_ctx *ctx,
   for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
     TREE_VEC_ELT (args, i + 2) = TREE_VEC_ELT (tvec, i);
   return finish_library_value_trait (loc, ctx, name, args, call,
-				     non_constant_p);
+				     non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::is_nothrow_invocable_type.  */
@@ -4832,14 +4838,15 @@ eval_is_nothrow_invocable_type (location_t loc, tree type, tree tvec)
 static tree
 eval_is_swappable_with_type (location_t loc, const constexpr_ctx *ctx,
 			     tree type1, tree type2, tree call,
-			     bool *non_constant_p, const char *name)
+			     bool *non_constant_p, tree *jump_target, tree fun,
+			     const char *name)
 {
   /* Create std::is_swappable_with<TYPE>::value.  */
   tree args = make_tree_vec (2);
   TREE_VEC_ELT (args, 0) = type1;
   TREE_VEC_ELT (args, 1) = type2;
   return finish_library_value_trait (loc, ctx, name, args, call,
-				     non_constant_p);
+				     non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::is_{,nothrow_}swappable_type.  */
@@ -4847,13 +4854,13 @@ eval_is_swappable_with_type (location_t loc, const constexpr_ctx *ctx,
 static tree
 eval_is_swappable_type (location_t loc, const constexpr_ctx *ctx,
 			tree type, tree call, bool *non_constant_p,
-			const char *name)
+			tree *jump_target, tree fun, const char *name)
 {
   /* Create std::is_swappable<TYPE>::value.  */
   tree args = make_tree_vec (1);
   TREE_VEC_ELT (args, 0) = type;
   return finish_library_value_trait (loc, ctx, name, args, call,
-				     non_constant_p);
+				     non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::remove_cvref.  */
@@ -4884,22 +4891,25 @@ eval_decay (location_t loc, tree type)
 static tree
 finish_library_type_trait (location_t loc, const constexpr_ctx *ctx,
 			   const char *name, tree args, tree call,
-			   bool *non_constant_p)
+			   bool *non_constant_p, tree *jump_target, tree fun)
 {
   tree inst = lookup_template_class (get_identifier (name), args,
 				     /*in_decl*/NULL_TREE,
 				     /*context*/std_node,
 				     tf_warning_or_error);
-  tree type = make_typename_type (inst, type_identifier,
-				  none_type, tf_warning_or_error);
-  if (type == error_mark_node)
+  if (inst == error_mark_node)
     {
       if (!cxx_constexpr_quiet_p (ctx))
-	error_at (loc, "couldn%'t evaluate %<std::%s<%T>::type%>",
+	error_at (loc, "couldn%'t instantiate %<std::%s<%T>%>",
 		  name, args);
       *non_constant_p = true;
       return call;
     }
+  tree type = make_typename_type (inst, type_identifier,
+				  none_type, tf_none);
+  if (type == error_mark_node)
+    return throw_exception (loc, ctx, "type member missing",
+			    fun, jump_target);
   type = strip_typedefs (type);
   return get_reflection_raw (loc, type);
 }
@@ -4908,10 +4918,11 @@ finish_library_type_trait (location_t loc, const constexpr_ctx *ctx,
 
 static tree
 eval_common_type (location_t loc, const constexpr_ctx *ctx, tree tvec,
-		  tree call, bool *non_constant_p, const char *name)
+		  tree call, bool *non_constant_p, tree *jump_target, tree fun,
+		  const char *name)
 {
   return finish_library_type_trait (loc, ctx, name, tvec, call,
-				    non_constant_p);
+				    non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::underlying_type.  */
@@ -4920,7 +4931,6 @@ static tree
 eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
 		      tree *jump_target, tree fun)
 {
-  /* The standard doesn't say this, but I hope it will clarify it.  */
   if (TREE_CODE (type) != ENUMERAL_TYPE || !COMPLETE_TYPE_P (type))
     return throw_exception (loc, ctx, "reflection does not represent "
 				      "a complete enumeration type",
@@ -4934,26 +4944,28 @@ eval_underlying_type (location_t loc, const constexpr_ctx *ctx, tree type,
 
 static tree
 eval_invoke_result (location_t loc, const constexpr_ctx *ctx, tree type,
-		    tree tvec, tree call, bool *non_constant_p)
+		    tree tvec, tree call, bool *non_constant_p,
+		    tree *jump_target, tree fun)
 {
   tree args = make_tree_vec (TREE_VEC_LENGTH (tvec) + 1);
   TREE_VEC_ELT (args, 0) = type;
   for (int i = 0; i < TREE_VEC_LENGTH (tvec); ++i)
     TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (tvec, i);
   return finish_library_type_trait (loc, ctx, "invoke_result", args, call,
-				    non_constant_p);
+				    non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::unwrap_{reference,ref_decay}.  */
 
 static tree
 eval_unwrap_reference (location_t loc, const constexpr_ctx *ctx, tree type,
-		       tree call, bool *non_constant_p, const char *name)
+		       tree call, bool *non_constant_p, tree *jump_target,
+		       tree fun, const char *name)
 {
   tree args = make_tree_vec (1);
   TREE_VEC_ELT (args, 0) = type;
   return finish_library_type_trait (loc, ctx, name, args, call,
-				    non_constant_p);
+				    non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::type_order.  */
@@ -5132,7 +5144,6 @@ static tree
 eval_make_signed (location_t loc, const constexpr_ctx *ctx, tree type,
 		  bool unsignedp, tree *jump_target, tree fun)
 {
-  // TODO: I don't see the standard specifying what to do here.
   if (!INTEGRAL_TYPE_P (type) || TREE_CODE (type) == BOOLEAN_TYPE)
     return throw_exception (loc, ctx, "reflection represents non-integral "
 				      "or bool type", fun, jump_target);
@@ -5382,11 +5393,17 @@ eval_substitute (location_t loc, const constexpr_ctx *ctx,
    dealias(type).  */
 
 static tree
-eval_tuple_size (tree type)
+eval_tuple_size (location_t loc, const constexpr_ctx *ctx, tree type,
+		 tree call, bool *non_constant_p, tree *jump_target,
+		 tree fun)
 {
   type = strip_typedefs (type);
-  /* It's UB to specialize tuple_size_v, so we can use this.  */
-  return get_tuple_size (type);
+
+  /* Create std::tuple_size<TYPE>::value.  */
+  tree args = make_tree_vec (1);
+  TREE_VEC_ELT (args, 0) = type;
+  return finish_library_value_trait (loc, ctx, "tuple_size", args, call,
+				     non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::tuple_element.
@@ -5395,15 +5412,18 @@ eval_tuple_size (tree type)
    and I is a constant equal to index.  */
 
 static tree
-eval_tuple_element (location_t loc, tree i, tree type)
+eval_tuple_element (location_t loc, const constexpr_ctx *ctx, tree i,
+		    tree type, tree call, bool *non_constant_p,
+		    tree *jump_target, tree fun)
 {
-  const unsigned HOST_WIDE_INT index = tree_to_uhwi (i);
   type = strip_typedefs (type);
-  type = get_tuple_element_type (type, index);
-  if (type == error_mark_node)
-    return error_mark_node;
-  type = strip_typedefs (type);
-  return get_reflection_raw (loc, type);
+  /* Create std::tuple_element<I,TYPE>::type.  */
+  tree args = make_tree_vec (2);
+  TREE_VEC_ELT (args, 0) = i;
+  TREE_VEC_ELT (args, 1) = type;
+  return finish_library_type_trait (loc, ctx, "tuple_element",
+				    args, call, non_constant_p, jump_target,
+				    fun);
 }
 
 /* Process std::meta::variant_size.
@@ -5412,7 +5432,8 @@ eval_tuple_element (location_t loc, tree i, tree type)
 
 static tree
 eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
-		   tree call, bool *non_constant_p)
+		   tree call, bool *non_constant_p, tree *jump_target,
+		   tree fun)
 {
   type = strip_typedefs (type);
 
@@ -5420,7 +5441,7 @@ eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
   tree args = make_tree_vec (1);
   TREE_VEC_ELT (args, 0) = type;
   return finish_library_value_trait (loc, ctx, "variant_size", args, call,
-				     non_constant_p);
+				     non_constant_p, jump_target, fun);
 }
 
 /* Process std::meta::variant_alternative.
@@ -5429,23 +5450,18 @@ eval_variant_size (location_t loc, const constexpr_ctx *ctx, tree type,
    dealias(type) and I is a constant equal to index.  */
 
 static tree
-eval_variant_alternative (location_t loc, tree i, tree type)
+eval_variant_alternative (location_t loc, const constexpr_ctx *ctx, tree i,
+			  tree type, tree call, bool *non_constant_p,
+			  tree *jump_target, tree fun)
 {
   type = strip_typedefs (type);
   /* Create std::variant_alternative<I,TYPE>::type.  */
   tree args = make_tree_vec (2);
   TREE_VEC_ELT (args, 0) = i;
   TREE_VEC_ELT (args, 1) = type;
-  tree inst = lookup_template_class (get_identifier ("variant_alternative"),
-				     args, /*in_decl*/NULL_TREE,
-				     /*context*/std_node,
-				     tf_warning_or_error);
-  type = make_typename_type (inst, type_identifier,
-			     none_type, tf_warning_or_error);
-  if (type == error_mark_node)
-    return error_mark_node;
-  type = strip_typedefs (type);
-  return get_reflection_raw (loc, type);
+  return finish_library_type_trait (loc, ctx, "variant_alternative",
+				    args, call, non_constant_p, jump_target,
+				    fun);
 }
 
 /* Process std::meta::data_member_spec.
@@ -7833,10 +7849,11 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_is_move_assignable_type (h);
     case METAFN_IS_SWAPPABLE_WITH_TYPE:
       return eval_is_swappable_with_type (loc, ctx, h, h1, call,
-					  non_constant_p, "is_swappable_with");
+					  non_constant_p, jump_target, fun,
+					  "is_swappable_with");
     case METAFN_IS_SWAPPABLE_TYPE:
       return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
-				     "is_swappable");
+				     jump_target, fun, "is_swappable");
     case METAFN_IS_DESTRUCTIBLE_TYPE:
       return eval_is_destructible_type (loc, h);
     case METAFN_IS_TRIVIALLY_CONSTRUCTIBLE_TYPE:
@@ -7871,11 +7888,11 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_is_nothrow_move_assignable_type (h);
     case METAFN_IS_NOTHROW_SWAPPABLE_WITH_TYPE:
       return eval_is_swappable_with_type (loc, ctx, h, h1, call,
-					  non_constant_p,
+					  non_constant_p, jump_target, fun,
 					  "is_nothrow_swappable_with");
     case METAFN_IS_NOTHROW_SWAPPABLE_TYPE:
       return eval_is_swappable_type (loc, ctx, h, call, non_constant_p,
-				     "is_nothrow_swappable");
+				     jump_target, fun, "is_nothrow_swappable");
     case METAFN_IS_NOTHROW_DESTRUCTIBLE_TYPE:
       return eval_is_nothrow_destructible_type (loc, h);
     case METAFN_IS_IMPLICIT_LIFETIME_TYPE:
@@ -7910,12 +7927,13 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
       return eval_is_invocable_type (loc, h, hvec);
     case METAFN_IS_INVOCABLE_R_TYPE:
       return eval_is_invocable_r_type (loc, ctx, h, h1, hvec, call,
-				       non_constant_p, "is_invocable_r");
+				       non_constant_p, jump_target, fun,
+				       "is_invocable_r");
     case METAFN_IS_NOTHROW_INVOCABLE_TYPE:
       return eval_is_nothrow_invocable_type (loc, h, hvec);
     case METAFN_IS_NOTHROW_INVOCABLE_R_TYPE:
       return eval_is_invocable_r_type (loc, ctx, h, h1, hvec, call,
-				       non_constant_p,
+				       non_constant_p, jump_target, fun,
 				       "is_nothrow_invocable_r");
     case METAFN_REMOVE_CONST:
       return eval_remove_const (loc, h);
@@ -7952,53 +7970,34 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_DECAY:
       return eval_decay (loc, h);
     case METAFN_COMMON_TYPE:
-      return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
+      return eval_common_type (loc, ctx, hvec, call, non_constant_p,
+			       jump_target, fun, ident);
     case METAFN_COMMON_REFERENCE:
-      return eval_common_type (loc, ctx, hvec, call, non_constant_p, ident);
+      return eval_common_type (loc, ctx, hvec, call, non_constant_p,
+			       jump_target, fun, ident);
     case METAFN_UNDERLYING_TYPE:
       return eval_underlying_type (loc, ctx, h, jump_target, fun);
     case METAFN_INVOKE_RESULT:
-      return eval_invoke_result (loc, ctx, h, hvec, call, non_constant_p);
+      return eval_invoke_result (loc, ctx, h, hvec, call, non_constant_p,
+				 jump_target, fun);
     case METAFN_UNWRAP_REFERENCE:
-      return eval_unwrap_reference (loc, ctx, h, call, non_constant_p, ident);
+      return eval_unwrap_reference (loc, ctx, h, call, non_constant_p,
+				    jump_target, fun, ident);
     case METAFN_UNWRAP_REF_DECAY:
-      return eval_unwrap_reference (loc, ctx, h, call, non_constant_p, ident);
+      return eval_unwrap_reference (loc, ctx, h, call, non_constant_p,
+				    jump_target, fun, ident);
     case METAFN_TUPLE_SIZE:
-      {
-	tree tsize = eval_tuple_size (h);
-	if (*jump_target)
-	  return NULL_TREE;
-	if (!tsize || tsize == error_mark_node)
-	  {
-	    if (!cxx_constexpr_quiet_p (ctx))
-	      error_at (loc, "couldn%'t compute %qs of %qT", "tuple_size", h);
-	    *non_constant_p = true;
-	    return NULL_TREE;
-	  }
-	return tsize;
-      }
+      return eval_tuple_size (loc, ctx, h, call, non_constant_p, jump_target,
+			      fun);
     case METAFN_TUPLE_ELEMENT:
-      {
-	tree type = eval_tuple_element (loc, expr, h1);
-	if (type == error_mark_node)
-	  {
-	    *non_constant_p = true;
-	    return NULL_TREE;
-	  }
-	return type;
-      }
+      return eval_tuple_element (loc, ctx, expr, h1, call,
+				 non_constant_p, jump_target, fun);
     case METAFN_VARIANT_SIZE:
-      return eval_variant_size (loc, ctx, h, call, non_constant_p);
+      return eval_variant_size (loc, ctx, h, call, non_constant_p,
+				jump_target, fun);
     case METAFN_VARIANT_ALTERNATIVE:
-      {
-	tree type = eval_variant_alternative (loc, expr, h1);
-	if (type == error_mark_node)
-	  {
-	    *non_constant_p = true;
-	    return NULL_TREE;
-	  }
-	return type;
-      }
+      return eval_variant_alternative (loc, ctx, expr, h1, call,
+				       non_constant_p, jump_target, fun);
     case METAFN_TYPE_ORDER:
       return eval_type_order (h, h1);
     case METAFN_ANNOTATIONS_OF:
@@ -8006,7 +8005,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
 				  fun);
     case METAFN_ANNOTATIONS_OF_WITH_TYPE:
       return eval_annotations_of (loc, ctx, h, kind, h1, jump_target, fun);
-  /* Special metafunctions.  */
+    /* Special metafunctions.  */
     case METAFN_ACCESS_CONTEXT_CURRENT:
       if (DECL_CLASS_SCOPE_P (fun)
 	  && TYPE_NAME (DECL_CONTEXT (fun))

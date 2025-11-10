@@ -164,3 +164,55 @@ static_assert (add_pointer (^^void) == ^^void *);
 static_assert (add_pointer (^^const void) == ^^const void *);
 static_assert (add_pointer (^^volatile void) == ^^volatile void *);
 static_assert (add_pointer (^^const volatile void) == ^^const volatile void *);
+
+consteval
+{
+  try
+    {
+      make_signed (^^bool);
+      throw 1;
+    }
+  catch (std::meta::exception &)
+    {
+    }
+  try
+    {
+      make_unsigned (^^bool);
+      throw 1;
+    }
+  catch (std::meta::exception &)
+    {
+    }
+  try
+    {
+      make_signed (^^float);
+      throw 1;
+    }
+  catch (std::meta::exception &)
+    {
+    }
+  try
+    {
+      make_unsigned (^^double);
+      throw 1;
+    }
+  catch (std::meta::exception &)
+    {
+    }
+  try
+    {
+      make_signed (^^C);
+      throw 1;
+    }
+  catch (std::meta::exception &)
+    {
+    }
+  try
+    {
+      make_unsigned (^^C);
+      throw 1;
+    }
+  catch (std::meta::exception &)
+    {
+    }
+}
