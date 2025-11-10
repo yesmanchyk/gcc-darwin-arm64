@@ -1,6 +1,7 @@
 /* C++ reflection code.
    Copyright (C) 2025 Free Software Foundation, Inc.
-   Written by Marek Polacek <polacek@redhat.com>
+   Written by Marek Polacek <polacek@redhat.com> and
+   Jakub Jelinek <jakub@redhat.com>.
 
 This file is part of GCC.
 
