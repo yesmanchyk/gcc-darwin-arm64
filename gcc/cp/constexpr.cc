@@ -3863,12 +3863,17 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       ctx->global->metafns_called = true;
       tree e = process_metafunction (ctx, fun, t, non_constant_p, overflow_p,
 				     jump_target);
-      if (*jump_target || *non_constant_p)
+      if (*jump_target)
 	return NULL_TREE;
+      if (*non_constant_p)
+	return t;
       e = cxx_eval_constant_expression (ctx, e, vc_prvalue,
 					non_constant_p, overflow_p,
 					jump_target);
-      // XXX Handle errors?
+      if (*jump_target)
+	return NULL_TREE;
+      if (*non_constant_p)
+	return t;
       return e;
     }
   bool non_constexpr_call = false;
