@@ -8053,7 +8053,10 @@ splice (tree refl)
   refl = build_converted_constant_expr (meta_info_type_node, refl,
 					tf_warning_or_error);
 
-  refl = cxx_constant_value (refl);
+  if (processing_template_decl)
+    refl = fold_non_dependent_expr (refl, tf_warning_or_error, true);
+  else
+    refl = cxx_constant_value (refl);
   if (!REFLECT_EXPR_P (refl))
     /* I don't wanna do your dirty work no more.  */
     return error_mark_node;
