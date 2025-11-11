@@ -33,8 +33,7 @@ namespace NS {
 
   auto fn() -> [:is_namespace(access_context::current().scope()) ? ^^int : ^^bool:];
   static_assert(return_type_of(type_of(^^fn)) == ^^int);
-  // TODO: This doesn't work yet.
-  // static_assert(type_of(^^fn) == ^^auto()->int);                            // OK
+  static_assert(type_of(^^fn) == ^^auto()->int);                            // OK
 
   template<auto R>
     struct TCls {

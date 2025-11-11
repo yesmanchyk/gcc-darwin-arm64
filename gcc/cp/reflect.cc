@@ -8333,6 +8333,10 @@ compare_reflections (tree lhs, tree rhs)
 	break;
       }
 
+  if (TYPE_P (lhs) && TYPE_P (rhs))
+    if (!typedef_variant_p (lhs) && !typedef_variant_p (rhs))
+      return same_type_p (lhs, rhs);
+
   return false;
 }
 
