@@ -6291,6 +6291,10 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	 a variable template.  For &[: ^^S::x :], we have to create an
 	 OFFSET_REF.  For a VAR_DECL, we need the convert_from_reference.  */
       cp_unevaluated u;
+      /* CWG 3109 adjusted [class.protected] to say that checking access to
+	 protected non-static members is disabled for members designated by a
+	 splice-expression.  */
+      push_deferring_access_checks (dk_no_check);
       const char *error_msg;
       /* We don't have the parser scope here, so figure out the context.  In
 	   struct S { static constexpr int i = 42; };
@@ -6310,6 +6314,7 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 				loc);
       if (error_msg)
 	cp_parser_error (parser, error_msg);
+      pop_deferring_access_checks ();
     }
 
   return t;

@@ -8,7 +8,7 @@ private:
 public:
   static constexpr auto rm = ^^m;
 };
-class Derived { static constexpr auto mp = &[:Base::rm:]; }; // { dg-bogus "is private within this context" "" { xfail *-*-* } }
+class Derived { static constexpr auto mp = &[:Base::rm:]; };
 
 class Base2 {
 protected:
@@ -16,4 +16,4 @@ protected:
 public:
   static constexpr auto rm = ^^m;
 };
-class Derived2 { static constexpr auto mp = &[:Base2::rm:]; }; // { dg-bogus "is protected within this context" "" { xfail *-*-* } }
+class Derived2 { static constexpr auto mp = &[:Base2::rm:]; };
