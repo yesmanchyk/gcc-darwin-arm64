@@ -29619,6 +29619,13 @@ value_dependent_expression_p (tree expression)
 	/* Direct base relationship isn't value-dependent and calling
 	   uses_template_parms on TREE_BINFO leads to ICEs.  */
 	return false;
+      if (REFLECT_EXPR_KIND (expression) == REFLECT_DATA_MEMBER_SPEC)
+	{
+	  /* Data member description is value dependent if the type is
+	     dependent, other optional fields shouldn't be ever dependent.  */
+	  tree h = REFLECT_EXPR_HANDLE (expression);
+	  return dependent_type_p (TREE_VEC_ELT (h, 0));
+	}
       return uses_template_parms (REFLECT_EXPR_HANDLE (expression));
 
     default:

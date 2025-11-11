@@ -8446,3 +8446,149 @@ dependent_splice_p (const_tree t)
 	  || (TREE_CODE (t) == TEMPLATE_ID_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == SPLICE_EXPR));
 }
+
+/* Annotation index for mangling.  */
+
+static GTY(()) int annotation_idx;
+
+/* Helper function for mangle.cc (write_reflection).
+   Determine 2 letter manling prefix and store it into prefix.
+   Additionally return the reflection handle possibly adjusted so that
+   write_reflection can mangle the operands of it if any are needed.  */
+
+tree
+reflection_mangle_prefix (tree refl, char prefix[3])
+{
+  tree h = REFLECT_EXPR_HANDLE (refl);
+  reflect_kind kind = static_cast<reflect_kind>(REFLECT_EXPR_KIND (refl));
+  if (h == unknown_type_node)
+    {
+      strcpy (prefix, "nu");
+      return NULL_TREE;
+    }
+  if (eval_is_value (kind) == boolean_true_node)
+    {
+      strcpy (prefix, "vl");
+      if (VAR_P (h) && DECL_NTTP_OBJECT_P (h))
+	h = tparm_object_argument (h);
+      return h;
+    }
+  if (eval_is_object (kind) == boolean_true_node)
+    {
+      strcpy (prefix, "ob");
+      return h;
+    }
+  if (eval_is_variable (h, kind) == boolean_true_node)
+    {
+      strcpy (prefix, "vr");
+      return h;
+    }
+  if (eval_is_structured_binding (h, kind) == boolean_true_node)
+    {
+      strcpy (prefix, "sb");
+      return h;
+    }
+  if (eval_is_function (h) == boolean_true_node)
+    {
+      strcpy (prefix, "fn");
+      return maybe_get_reflection_fndecl (h);
+    }
+  if (eval_is_function_parameter (h, kind) == boolean_true_node)
+    {
+      strcpy (prefix, "pa");
+      return maybe_update_function_parm (h);
+    }
+  if (eval_is_enumerator (h) == boolean_true_node)
+    {
+      strcpy (prefix, "en");
+      return h;
+    }
+  if (eval_is_annotation (h) == boolean_true_node)
+    {
+      strcpy (prefix, "an");
+      if (TREE_PURPOSE (TREE_VALUE (h)) == NULL_TREE)
+	TREE_PURPOSE (TREE_VALUE (h))
+	  = build_int_cst (integer_type_node, annotation_idx++);
+      return TREE_PURPOSE (TREE_VALUE (h));
+    }
+  if (eval_is_type_alias (h) == boolean_true_node)
+    {
+      strcpy (prefix, "ta");
+      return h;
+    }
+  if (eval_is_type (h) == boolean_true_node)
+    {
+      strcpy (prefix, "ty");
+      return h;
+    }
+  if (eval_is_nonstatic_data_member (h) == boolean_true_node)
+    {
+      strcpy (prefix, "dm");
+      return h;
+    }
+  if (TREE_CODE (h) == FIELD_DECL && DECL_UNNAMED_BIT_FIELD (h))
+    {
+      strcpy (prefix, "un");
+      return h;
+    }
+  if (eval_is_class_template (h) == boolean_true_node)
+    {
+      strcpy (prefix, "ct");
+      return h;
+    }
+  if (eval_is_function_template (h) == boolean_true_node)
+    {
+      strcpy (prefix, "ft");
+      h = MAYBE_BASELINK_FUNCTIONS (h);
+      h = OVL_FIRST (h);
+      return h;
+    }
+  if (eval_is_variable_template (h) == boolean_true_node)
+    {
+      strcpy (prefix, "vt");
+      return h;
+    }
+  if (eval_is_alias_template (h) == boolean_true_node)
+    {
+      strcpy (prefix, "at");
+      return h;
+    }
+  if (eval_is_concept (h) == boolean_true_node)
+    {
+      strcpy (prefix, "co");
+      return h;
+    }
+  if (eval_is_namespace_alias (h) == boolean_true_node)
+    {
+      strcpy (prefix, "na");
+      return h;
+    }
+  if (eval_is_namespace (h) == boolean_true_node)
+    {
+      if (h == global_namespace)
+	{
+	  strcpy (prefix, "ng");
+	  return NULL_TREE;
+	}
+      strcpy (prefix, "ns");
+      return h;
+    }
+  if (eval_is_base (h, kind) == boolean_true_node)
+    {
+      strcpy (prefix, "ba");
+      return h;
+    }
+  if (eval_is_data_member_spec (h, kind) == boolean_true_node)
+    {
+      strcpy (prefix, "ds");
+      return h;
+    }
+  // TODO: nothing should make it through here, but unfortunately
+  // reflections of function template specializations aren't
+  // is_function right now.
+  // gcc_unreachable ();
+  strcpy (prefix, "ER");
+  return NULL_TREE;
+}
+
+#include "gt-cp-reflect.h"

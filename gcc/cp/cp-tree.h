@@ -9257,6 +9257,7 @@ extern bool check_splice_expr (location_t, location_t, tree, bool, bool, bool)
   ATTRIBUTE_PURE;
 extern tree make_splice_scope (tree, bool);
 extern bool dependent_splice_p (const_tree) ATTRIBUTE_PURE;
+extern tree reflection_mangle_prefix (tree, char [3]);
 
 /* Inline bodies.  */
 
