@@ -959,15 +959,6 @@ throw_exception (location_t loc, const constexpr_ctx *ctx, const char *msgid,
   return NULL_TREE;
 }
 
-/* Wrapper around throw_exception, generic case.  */
-
-static tree
-throw_exception_generic (location_t loc, const constexpr_ctx *ctx,
-			 tree from, tree *jump_target)
-{
-  return throw_exception (loc, ctx, "Oy vey!", from, jump_target);
-}
-
 /* Wrapper around throw_exception to complain that the reflection does not
    represent a type.  */
 
@@ -3862,7 +3853,8 @@ eval_reflect_constant (location_t loc, const constexpr_ctx *ctx, tree type,
     }
   expr = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (expr == error_mark_node)
-    throw_exception_generic (loc, ctx, fun, jump_target);
+    return throw_exception (loc, ctx, "reflect_constant failed", fun,
+			    jump_target);
   return get_reflection_raw (loc, expr, get_reflection_kind (expr));
 }
 
@@ -3884,7 +3876,8 @@ eval_reflect_object (location_t loc, const constexpr_ctx *ctx, tree type,
   type = cp_build_reference_type (type, /*rval=*/false);
   tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (e == error_mark_node)
-    throw_exception_generic (loc, ctx, fun, jump_target);
+    return throw_exception (loc, ctx, "reflect_object failed", fun,
+			    jump_target);
   /* We got (const T &) &foo.  Get the referent, since we want the object
      designated by EXPR.  */
   expr = maybe_get_reference_referent (expr);
@@ -3909,7 +3902,8 @@ eval_reflect_function (location_t loc, const constexpr_ctx *ctx, tree type,
   type = cp_build_reference_type (type, /*rval=*/false);
   tree e = convert_reflect_constant_arg (type, convert_from_reference (expr));
   if (e == error_mark_node)
-    throw_exception_generic (loc, ctx, fun, jump_target);
+    return throw_exception (loc, ctx, "reflect_function failed", fun,
+			    jump_target);
   /* We got (void (&<Ta885>) (void)) fn.  Get the function.  */
   expr = maybe_get_reference_referent (expr);
   return get_reflection_raw (loc, expr);
