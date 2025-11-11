@@ -196,7 +196,7 @@ get_reflection (location_t loc, tree t, reflect_kind kind/*=REFLECT_UNDEF*/)
   /* [expr.reflect] If the id-expression denotes an overload set S,
      overload resolution for the expression &S with no target shall
      select a unique function; R represents that function.  */
-  else if (!processing_template_decl)
+  else if (!processing_template_decl && t != unknown_type_node)
     {
       /* We can't resolve all TEMPLATE_ID_EXPRs here (due to
 	 _postfix_dot_deref_expression) but we can weed out the bad ones.  */
