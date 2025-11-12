@@ -31269,7 +31269,7 @@ cp_parser_base_clause (cp_parser* parser)
 static tree
 cp_parser_base_specifier (cp_parser* parser)
 {
-  cp_token *token;
+  cp_token *token, *typename_token = NULL, *splice_token = NULL;
   bool done = false;
   bool virtual_p = false;
   bool duplicate_virtual_error_issued_p = false;
@@ -31358,7 +31358,15 @@ cp_parser_base_specifier (cp_parser* parser)
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME))
     {
       token = cp_lexer_peek_token (parser->lexer);
-      if (!processing_template_decl)
+      if (cp_parser_next_tokens_start_splice_type_spec_p (parser, true))
+	{
+	  /* If typename is followed by [:, don't diagnose it just yet,
+	     but defer it depending on whether it is splice-scope-specifier
+	     or splice-type-specifier.  */
+	  typename_token = token;
+	  splice_token = cp_lexer_peek_nth_token (parser->lexer, 2);
+	}
+      else if (!processing_template_decl)
 	error_at (token->location,
 		  "keyword %<typename%> not allowed outside of templates");
       else
@@ -31392,10 +31400,31 @@ cp_parser_base_specifier (cp_parser* parser)
   class_scope_p = (parser->scope && TYPE_P (parser->scope));
   template_p = class_scope_p && cp_parser_optional_template_keyword (parser);
 
+  if (typename_token && cp_lexer_peek_token (parser->lexer) != splice_token)
+    {
+      /* Emit deferred diagnostics for invalid typename keyword if
+	 cp_parser_nested_name_specifier_opt parsed splice-scope-specifier.  */
+      if (!processing_template_decl)
+	error_at (typename_token->location,
+		  "keyword %<typename%> not allowed outside of templates");
+      else
+	error_at (typename_token->location,
+		  "keyword %<typename%> not allowed in this context "
+		  "(the base class is implicitly a type)");
+    }
+
   if (!parser->scope
       && cp_lexer_next_token_is_decltype (parser->lexer))
     /* DR 950 allows decltype as a base-specifier.  */
     type = cp_parser_decltype (parser);
+  else if (!parser->scope
+	   && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SPLICE))
+    {
+      /* Parse C++26 splice-type-specifier.  */
+      type = cp_parser_splice_type_specifier (parser);
+      if (type == NULL_TREE)
+	return error_mark_node;
+    }
   else
     {
       /* Otherwise, look for the class-name.  */
