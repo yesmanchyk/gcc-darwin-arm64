@@ -2845,7 +2845,7 @@ min_vis_r (tree *tp, int *walk_subtrees, void *data)
 /* walk_tree helper function for expr_visibility.  */
 
 static tree
-min_vis_expr_r (tree *tp, int */*walk_subtrees*/, void *data)
+min_vis_expr_r (tree *tp, int *walk_subtrees, void *data)
 {
   int *vis_p = (int *)data;
   int tpvis = VISIBILITY_DEFAULT;
@@ -2915,6 +2915,75 @@ min_vis_expr_r (tree *tp, int */*walk_subtrees*/, void *data)
 
     case FIELD_DECL:
       tpvis = type_visibility (DECL_CONTEXT (t));
+      break;
+
+    case REFLECT_EXPR:
+      tree r, c;
+      r = REFLECT_EXPR_HANDLE (t);
+      switch (REFLECT_EXPR_KIND (t))
+	{
+	case REFLECT_BASE:
+	  /* For direct base class relationship, determine visibility
+	     from both D and B types.  */
+	  tpvis = type_visibility (BINFO_TYPE (r));
+	  if (tpvis > *vis_p)
+	    *vis_p = tpvis;
+	  c = r;
+	  while (BINFO_INHERITANCE_CHAIN (c))
+	    c = BINFO_INHERITANCE_CHAIN (c);
+	  tpvis = type_visibility (BINFO_TYPE (c));
+	  *walk_subtrees = 0;
+	  break;
+	case REFLECT_DATA_MEMBER_SPEC:
+	  /* For data member description determine visibility
+	     from the type.  */
+	  tpvis = type_visibility (TREE_VEC_ELT (r, 0));
+	  *walk_subtrees = 0;
+	  break;
+	case REFLECT_PARM:
+	  /* For function parameter reflection determine visibility
+	     based on parent_of.  */
+	  tpvis = expr_visibility (DECL_CONTEXT (r));
+	  *walk_subtrees = 0;
+	  break;
+	case REFLECT_OBJECT:
+	  c = get_base_address (r);
+	  if ((VAR_P (c) && decl_function_context (c))
+	      || TREE_CODE (c) == PARM_DECL)
+	    {
+	      /* Make reflect_object of block scope variables
+		 subobjects local.  */
+	      tpvis = VISIBILITY_ANON;
+	      *walk_subtrees = 0;
+	    }
+	  break;
+	default:
+	  if (TREE_CODE (r) == TREE_LIST
+	      && TREE_PURPOSE (r)
+	      && get_attribute_namespace (r) == internal_identifier
+	      && get_attribute_name (r) == annotation_identifier)
+	    {
+	      /* Annotations are always local to the TU.  */
+	      tpvis = VISIBILITY_ANON;
+	      *walk_subtrees = 0;
+	      break;
+	    }
+	  if (TYPE_P (r))
+	    {
+	      tpvis = type_visibility (r);
+	      *walk_subtrees = 0;
+	      break;
+	    }
+	  if ((VAR_P (r) && decl_function_context (r))
+	      || TREE_CODE (r) == PARM_DECL)
+	    {
+	      /* Block scope variables are local to the TU.  */
+	      tpvis = VISIBILITY_ANON;
+	      *walk_subtrees = 0;
+	      break;
+	    }
+	  break;
+	}
       break;
 
     default:
