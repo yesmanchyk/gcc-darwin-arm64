@@ -6453,7 +6453,6 @@ members_of_representable_p (tree c, tree r)
 	{
 	  if (undeduced_auto_decl (r))
 	    return false;
-	  // TODO: check if constraints are satisfied.
 	  return true;
 	}
     }
