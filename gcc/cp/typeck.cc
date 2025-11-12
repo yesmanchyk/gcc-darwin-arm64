@@ -3452,6 +3452,16 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
   if (BASELINK_P (name))
     /* A member function that has already been looked up.  */
     member = name;
+  else if (TREE_CODE (name) == TREE_BINFO)
+    {
+      /* Splicing a base class subobject.  We can only get here via
+	 e1.[:e2:].  */
+      expr = build_base_path (PLUS_EXPR, object, name, /*nonnull=*/true,
+			      complain);
+      if (expr == error_mark_node)
+	error_not_base_type (BINFO_TYPE (name), object_type);
+      return expr;
+    }
   else
     {
       bool is_template_id = false;

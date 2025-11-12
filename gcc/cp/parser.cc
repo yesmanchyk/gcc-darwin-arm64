@@ -6282,7 +6282,8 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
       gcc_assert (TREE_CODE (t) == SCOPE_REF
 		  || BASELINK_P (t)
 		  || TREE_CODE (t) == SPLICE_EXPR
-		  || TREE_CODE (t) == TEMPLATE_ID_EXPR);
+		  || TREE_CODE (t) == TEMPLATE_ID_EXPR
+		  || TREE_CODE (t) == TREE_BINFO);
       /* ??? We're not setting *idk here.  */
     }
   else

@@ -22983,7 +22983,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      op = OVL_NAME (op);
 	    gcc_assert (identifier_p (op)
 			|| BASELINK_P (op)
-			|| TREE_CODE (op) == TEMPLATE_ID_EXPR);
+			|| TREE_CODE (op) == TEMPLATE_ID_EXPR
+			|| TREE_CODE (op) == TREE_BINFO);
 	  }
 	RETURN (op);
       }
