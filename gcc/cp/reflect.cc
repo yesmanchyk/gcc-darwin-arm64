@@ -220,11 +220,13 @@ get_reflection (location_t loc, tree t, reflect_kind kind/*=REFLECT_UNDEF*/)
 
 /* Return a null reflection value.  */
 
-// XXX why not just one static tree?
 tree
 get_null_reflection ()
 {
-  return get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
+  static tree null_reflection;
+  if (!null_reflection)
+    null_reflection = get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
+  return null_reflection;
 }
 
 /* Do strip_typedefs on T, but only for types.  */
