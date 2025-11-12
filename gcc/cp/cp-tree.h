@@ -1934,7 +1934,9 @@ enum reflect_kind : addr_space_t {
   /* The reflection represents a data member description.  */
   REFLECT_DATA_MEMBER_SPEC,
   /* The reflection represents a direct base relationship.  */
-  REFLECT_BASE
+  REFLECT_BASE,
+  /* The reflection represents an annotation.  */
+  REFLECT_ANNOTATION
 };
 
 /* The reflect_kind of a REFLECT_EXPR.  */

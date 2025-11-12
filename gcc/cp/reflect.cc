@@ -2053,13 +2053,13 @@ eval_is_enumerable_type (const_tree r)
    Returns: true if r represents an annotation.  Otherwise, false.  */
 
 static tree
-eval_is_annotation (const_tree r)
+eval_is_annotation (const_tree r, reflect_kind kind)
 {
-  if (TREE_CODE (r) == TREE_LIST
-      && TREE_PURPOSE (r)
-      && get_attribute_namespace (r) == internal_identifier
-      && get_attribute_name (r) == annotation_identifier)
-    return boolean_true_node;
+  if (kind == REFLECT_ANNOTATION)
+    {
+      gcc_assert (TREE_CODE (r) == TREE_LIST);
+      return boolean_true_node;
+    }
   else
     return boolean_false_node;
 }
@@ -2429,7 +2429,7 @@ has_type (tree r, reflect_kind kind)
       || eval_is_variable (r, kind) == boolean_true_node
       || eval_is_enumerator (r) == boolean_true_node
       || TREE_CODE (r) == FIELD_DECL
-      || eval_is_annotation (r) == boolean_true_node
+      || eval_is_annotation (r, kind) == boolean_true_node
       || eval_is_function_parameter (r, kind) == boolean_true_node
       || eval_is_object (kind) == boolean_true_node
       || eval_is_value (kind) == boolean_true_node
@@ -2463,7 +2463,7 @@ type_of (tree r, reflect_kind kind)
     r = BINFO_TYPE (r);
   else if (kind == REFLECT_DATA_MEMBER_SPEC)
     r = TREE_VEC_ELT (r, 0);
-  else if (eval_is_annotation (r) == boolean_true_node)
+  else if (eval_is_annotation (r, kind) == boolean_true_node)
     {
       r = TREE_TYPE (TREE_VALUE (TREE_VALUE (r)));
       if (CLASS_TYPE_P (r))
@@ -2538,7 +2538,7 @@ eval_source_location_of (location_t loc, tree r, reflect_kind kind,
     rloc = DECL_SOURCE_LOCATION (TYPE_NAME (r));
   else if (DECL_P (r) && r != global_namespace)
     rloc = DECL_SOURCE_LOCATION (r);
-  else if (eval_is_annotation (r) == boolean_true_node)
+  else if (eval_is_annotation (r, kind) == boolean_true_node)
     rloc = EXPR_LOCATION (TREE_VALUE (TREE_VALUE (r)));
   tree decl = NULL_TREE, field = NULL_TREE;
   if (rloc != UNKNOWN_LOCATION)
@@ -2655,7 +2655,7 @@ eval_constant_of (location_t loc, const constexpr_ctx *ctx, tree r,
     type = type_of (r, kind);
   else
     type = maybe_strip_typedefs (r);
-  if (eval_is_annotation (r) == boolean_true_node)
+  if (eval_is_annotation (r, kind) == boolean_true_node)
     r = tree_strip_any_location_wrapper (TREE_VALUE (TREE_VALUE (r)));
   else if (eval_is_array_type (loc, type) == boolean_true_node)
     {
@@ -3610,7 +3610,7 @@ eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	       TREE_VEC_ELT (r, 1), TREE_VEC_ELT (r, 2), TREE_VEC_ELT (r, 3),
 	       TREE_VEC_ELT (r, 4) == boolean_true_node
 	       ? "true" : "false");
-  else if (eval_is_annotation (r) == boolean_true_node)
+  else if (eval_is_annotation (r, kind) == boolean_true_node)
     pp_printf (&pp, "[[=%E]]",
 	       tree_strip_any_location_wrapper (TREE_VALUE (TREE_VALUE (r))));
   else
@@ -3812,7 +3812,8 @@ eval_annotations_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	    continue;
 	}
       CONSTRUCTOR_APPEND_ELT (elts, NULL_TREE,
-			      get_reflection_raw (location_of (val), a));
+			      get_reflection_raw (location_of (val), a,
+						  REFLECT_ANNOTATION));
     }
   if (elts)
     {
@@ -5290,7 +5291,7 @@ eval_can_substitute (location_t loc, const constexpr_ctx *ctx,
 	  || eval_is_namespace (a) == boolean_true_node
 	  || eval_is_constructor (a) == boolean_true_node
 	  || eval_is_destructor (a) == boolean_true_node
-	  || eval_is_annotation (a) == boolean_true_node
+	  || eval_is_annotation (a, kind) == boolean_true_node
 	  || (TREE_CODE (a) == FIELD_DECL && !DECL_UNNAMED_BIT_FIELD (a))
 	  || kind == REFLECT_DATA_MEMBER_SPEC)
 	return throw_exception (loc, ctx,
@@ -7547,7 +7548,7 @@ process_metafunction (const constexpr_ctx *ctx, tree fun, tree call,
     case METAFN_IS_ENUMERATOR:
       return eval_is_enumerator (h);
     case METAFN_IS_ANNOTATION:
-      return eval_is_annotation (h);
+      return eval_is_annotation (h, kind);
     case METAFN_IS_CONST:
       return eval_is_const (h, kind);
     case METAFN_IS_VOLATILE:
@@ -8504,7 +8505,7 @@ reflection_mangle_prefix (tree refl, char prefix[3])
       strcpy (prefix, "en");
       return h;
     }
-  if (eval_is_annotation (h) == boolean_true_node)
+  if (eval_is_annotation (h, kind) == boolean_true_node)
     {
       strcpy (prefix, "an");
       if (TREE_PURPOSE (TREE_VALUE (h)) == NULL_TREE)

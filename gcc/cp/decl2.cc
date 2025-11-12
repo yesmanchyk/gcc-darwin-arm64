@@ -2957,17 +2957,12 @@ min_vis_expr_r (tree *tp, int *walk_subtrees, void *data)
 	      *walk_subtrees = 0;
 	    }
 	  break;
+	case REFLECT_ANNOTATION:
+	  /* Annotations are always local to the TU.  */
+	  tpvis = VISIBILITY_ANON;
+	  *walk_subtrees = 0;
+	  break;
 	default:
-	  if (TREE_CODE (r) == TREE_LIST
-	      && TREE_PURPOSE (r)
-	      && get_attribute_namespace (r) == internal_identifier
-	      && get_attribute_name (r) == annotation_identifier)
-	    {
-	      /* Annotations are always local to the TU.  */
-	      tpvis = VISIBILITY_ANON;
-	      *walk_subtrees = 0;
-	      break;
-	    }
 	  if (TYPE_P (r))
 	    {
 	      tpvis = type_visibility (r);
