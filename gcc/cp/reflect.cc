@@ -1147,9 +1147,7 @@ eval_is_function (tree r)
 {
   r = MAYBE_BASELINK_FUNCTIONS (r);
 
-  if (TREE_CODE (r) == FUNCTION_DECL
-      /* A destructor.  */
-      || (TREE_CODE (r) == BIT_NOT_EXPR && TYPE_P (TREE_OPERAND (r, 0))))
+  if (TREE_CODE (r) == FUNCTION_DECL)
     return boolean_true_node;
   else
     return boolean_false_node;
