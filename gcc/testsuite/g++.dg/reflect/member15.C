@@ -7,12 +7,14 @@
 // to finish_class_member_access_expr, which could extract the name
 // and the type; lookup_member would have to handle the case when
 // just a name isn't enough.  Sigh.  Stupid corner cases.
+// Looking by name + type won't work either though.
 
 #include <meta>
 
 using namespace std::meta;
 
 struct S { int _; long _; short _; } s;
+struct T { int _; int _; int _; } t;
 
 constexpr access_context uctx = access_context::unchecked ();
 
@@ -21,4 +23,6 @@ g ()
 {
   S s;
   s.[:members_of (^^S, access_context::unchecked ())[1]:] // { dg-bogus "ambiguous" "" { xfail *-*-* } }
+  T t;
+  t.[:members_of (^^T, access_context::unchecked ())[1]:] // { dg-bogus "ambiguous" "" { xfail *-*-* } }
 }
