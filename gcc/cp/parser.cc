@@ -6205,8 +6205,8 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
       /* [expr.prim.splice]/2 For a splice-expression of the form
 	 splice-specifier, the expression is ill-formed if it is:  */
       /* -- a constructor or a destructor  */
-      if (TREE_CODE (t) == BIT_NOT_EXPR
-	  && TYPE_P (TREE_OPERAND (t, 0)))
+      if (TREE_CODE (t) == FUNCTION_DECL
+	  && (DECL_CONSTRUCTOR_P (t) || DECL_DESTRUCTOR_P (t)))
 	{
 	  error_at (loc, "cannot use constructor or destructor in a splice "
 		    "expression");

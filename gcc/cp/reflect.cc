@@ -212,6 +212,19 @@ get_reflection (location_t loc, tree t, reflect_kind kind/*=REFLECT_UNDEF*/)
       && DECL_SELF_REFERENCE_P (TYPE_NAME (t)))
     t = TYPE_MAIN_VARIANT (t);
 
+  /* It's annoying to deal with BIT_NOT_EXPR in a reflection later, so
+     look up the FUNCTION_DECL here.  */
+  if (TREE_CODE (t) == BIT_NOT_EXPR
+      && CLASS_TYPE_P (TREE_OPERAND (t, 0))
+      && COMPLETE_TYPE_P (TREE_OPERAND (t, 0)))
+    {
+      r = TREE_OPERAND (t, 0);
+      if (CLASSTYPE_LAZY_DESTRUCTOR (r))
+	lazily_declare_fn (sfk_destructor, r);
+      if (tree dtor = CLASSTYPE_DESTRUCTOR (r))
+	t = dtor;
+    }
+
   if (t == error_mark_node)
     return error_mark_node;
 
@@ -318,6 +331,17 @@ get_info (const constexpr_ctx *ctx, tree call, int n, bool *non_constant_p,
       return NULL_TREE;
     }
   return info;
+}
+
+/* Try to get the underlying FUNCTION_DECL from reflection if any,
+   otherwise return R.  */
+
+static tree
+maybe_get_reflection_fndecl (tree r)
+{
+  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = OVL_FIRST (r);
+  return r;
 }
 
 /* Helper function for get_range_elts, called through cp_walk_tree.  */
@@ -1137,8 +1161,7 @@ eval_is_function (tree r)
 static tree
 eval_is_function_template (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
 
   if (DECL_FUNCTION_TEMPLATE_P (r))
     return boolean_true_node;
@@ -1253,27 +1276,6 @@ eval_is_structured_binding (const_tree r, reflect_kind kind)
     return boolean_true_node;
   else
     return boolean_false_node;
-}
-
-/* Try to get the underlying FUNCTION_DECL from reflection if any,
-   otherwise return R.  */
-
-static tree
-maybe_get_reflection_fndecl (tree r)
-{
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
-  if (TREE_CODE (r) == BIT_NOT_EXPR
-      && CLASS_TYPE_P (TREE_OPERAND (r, 0))
-      && COMPLETE_TYPE_P (TREE_OPERAND (r, 0)))
-    {
-      tree t = TREE_OPERAND (r, 0);
-      if (CLASSTYPE_LAZY_DESTRUCTOR (t))
-	lazily_declare_fn (sfk_destructor, t);
-      if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
-	r = dtor;
-    }
-  return r;
 }
 
 /* Process std::meta::is_class_member.
@@ -1478,8 +1480,7 @@ eval_is_override (tree r)
 static tree
 eval_is_namespace_member (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   if (TREE_CODE (r) == CONST_DECL)
     {
       if (UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
@@ -1523,8 +1524,7 @@ eval_is_nonstatic_data_member (const_tree r)
 static tree
 eval_is_static_member (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_STATIC_FUNCTION_P (r))
     return boolean_true_node;
@@ -1813,8 +1813,7 @@ eval_is_user_declared (tree r)
 static tree
 eval_is_explicit (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
 
   if (TREE_CODE (r) == FUNCTION_DECL && DECL_NONCONVERTING_P (r))
     return boolean_true_node;
@@ -2090,8 +2089,7 @@ eval_is_conversion_function (tree r)
 static tree
 eval_is_operator_function (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
 
   if (TREE_CODE (r) == FUNCTION_DECL)
     {
@@ -2256,8 +2254,7 @@ eval_is_destructor (tree r)
 static tree
 eval_is_conversion_function_template (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
 
   if (DECL_FUNCTION_TEMPLATE_P (r) && DECL_CONV_FN_P (r))
     return boolean_true_node;
@@ -2272,8 +2269,7 @@ eval_is_conversion_function_template (tree r)
 static tree
 eval_is_operator_function_template (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
 
   if (DECL_FUNCTION_TEMPLATE_P (r))
     {
@@ -2309,8 +2305,7 @@ eval_is_literal_operator_template (tree r)
 static tree
 eval_is_constructor_template (tree r)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
 
   if (DECL_FUNCTION_TEMPLATE_P (r) && DECL_CONSTRUCTOR_P (r))
     return boolean_true_node;
@@ -2333,8 +2328,7 @@ eval_operator_of (location_t loc, const constexpr_ctx *ctx, tree r,
     return throw_exception (loc, ctx,
 			    "reflection does not represent an operator "
 			    "function", fun, jump_target);
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   r = STRIP_TEMPLATE (r);
   maybe_init_meta_operators (loc);
   int i = IDENTIFIER_ASSIGN_OP_P (DECL_NAME (r)) ? 1 : 0;
@@ -2899,8 +2893,7 @@ eval_has_parent (tree r, reflect_kind kind)
       else
 	return boolean_false_node;
     }
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   if (kind == REFLECT_BASE)
     return boolean_true_node;
   if (!DECL_P (r))
@@ -2937,8 +2930,7 @@ eval_parent_of (location_t loc, const constexpr_ctx *ctx, tree r,
 				      "entity with parent",
 			    fun, jump_target);
   tree c;
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   if (TYPE_P (r))
     {
       if (TYPE_NAME (r) && DECL_P (TYPE_NAME (r)))
@@ -3377,8 +3369,7 @@ eval_bit_size_of (location_t loc, const constexpr_ctx *ctx, tree r,
 static tree
 eval_has_identifier (tree r, reflect_kind kind)
 {
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   if (kind == REFLECT_BASE)
     {
       r = type_of (r, kind);
@@ -3503,8 +3494,7 @@ eval_identifier_of (location_t loc, const constexpr_ctx *ctx, tree r,
     return throw_exception (loc, ctx,
 			    "reflection with has_identifier false",
 			    fun, jump_target);
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   const char *name = NULL;
   if (kind == REFLECT_BASE)
     {
@@ -3573,8 +3563,7 @@ eval_display_string_of (location_t loc, const constexpr_ctx *ctx, tree r,
 #pragma GCC diagnostic ignored "-Wformat"
 #pragma GCC diagnostic ignored "-Wformat-diag"
 #endif
-  r = MAYBE_BASELINK_FUNCTIONS (r);
-  r = OVL_FIRST (r);
+  r = maybe_get_reflection_fndecl (r);
   pretty_printer pp, *refpp = global_dc->get_reference_printer ();
   pp_format_decoder (&pp) = pp_format_decoder (refpp);
   pp.set_format_postprocessor (pp_format_postprocessor (refpp)->clone ());
@@ -6338,8 +6327,7 @@ eval_is_accessible (location_t loc, const constexpr_ctx *ctx, tree r,
 
   if (eval_is_class_member (r) == boolean_true_node)
     {
-      r = MAYBE_BASELINK_FUNCTIONS (r);
-      r = OVL_FIRST (r);
+      r = maybe_get_reflection_fndecl (r);
       c = r;
       if (TREE_CODE (r) == CONST_DECL && UNSCOPED_ENUM_P (DECL_CONTEXT (r)))
 	c = DECL_CONTEXT (r);
@@ -8309,8 +8297,8 @@ compare_reflections (tree lhs, tree rhs)
      the RHS will be OVERLOAD<TEMPLATE_DECL> but the LHS will
      only be TEMPLATE_DECL.  They should compare equal, though.  */
   // ??? Can we do something better?
-  lhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (lhs));
-  rhs = OVL_FIRST (MAYBE_BASELINK_FUNCTIONS (rhs));
+  lhs = maybe_get_reflection_fndecl (lhs);
+  rhs = maybe_get_reflection_fndecl (rhs);
   if (kind == REFLECT_PARM)
     {
       lhs = maybe_update_function_parm (lhs);
@@ -8550,8 +8538,7 @@ reflection_mangle_prefix (tree refl, char prefix[3])
   if (eval_is_function_template (h) == boolean_true_node)
     {
       strcpy (prefix, "ft");
-      h = MAYBE_BASELINK_FUNCTIONS (h);
-      h = OVL_FIRST (h);
+      h = maybe_get_reflection_fndecl (h);
       return h;
     }
   if (eval_is_variable_template (h) == boolean_true_node)
