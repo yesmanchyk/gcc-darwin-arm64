@@ -3011,7 +3011,7 @@ eval_parameters_of (location_t loc, const constexpr_ctx *ctx, tree r,
 	  || eval_is_function_type (r) != boolean_true_node))
     return throw_exception_nofn (loc, ctx, fun, jump_target);
 
-  r = MAYBE_BASELINK_FUNCTIONS (r);
+  r = maybe_get_reflection_fndecl (r);
   vec<constructor_elt, va_gc> *elts = nullptr;
   tree args = (TREE_CODE (r) == FUNCTION_DECL
 	       ? FUNCTION_FIRST_USER_PARM (r)

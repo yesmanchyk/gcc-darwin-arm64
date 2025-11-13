@@ -20,8 +20,7 @@ struct C {
 static_assert (parameters_of (^^C::foo).size() == 2);
 static_assert (parameters_of (^^C::bar).size() == 2);
 static_assert (parameters_of (^^C::baz).size() == 1);
-// FIXME ICEs, need to throw
-//static_assert (parameters_of (^^C::~C).size() == 1);
+static_assert (parameters_of (^^C::~C).size() == 0);
 
 template<typename... Ts>
 void pack (Ts...) { }
