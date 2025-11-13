@@ -22950,6 +22950,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  {
 	    if (SPLICE_EXPR_EXPRESSION_P (t))
 	      SET_SPLICE_EXPR_EXPRESSION_P (op);
+	    if (SPLICE_EXPR_MEMBER_ACCESS_P (t))
+	      SET_SPLICE_EXPR_MEMBER_ACCESS_P (op, true);
+	    if (SPLICE_EXPR_ADDRESS_P (t))
+	      SET_SPLICE_EXPR_ADDRESS_P (op, true);
 	    RETURN (op);
 	  }
 	if (SPLICE_EXPR_EXPRESSION_P (t)
