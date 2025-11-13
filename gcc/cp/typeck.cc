@@ -3458,7 +3458,7 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
 	 e1.[:e2:].  */
       expr = build_base_path (PLUS_EXPR, object, name, /*nonnull=*/true,
 			      complain);
-      if (expr == error_mark_node)
+      if (expr == error_mark_node && (complain & tf_error))
 	error_not_base_type (BINFO_TYPE (name), object_type);
       return expr;
     }
