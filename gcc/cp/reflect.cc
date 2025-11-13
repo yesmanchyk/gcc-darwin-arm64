@@ -8066,6 +8066,11 @@ splice (tree refl)
     /* I don't wanna do your dirty work no more.  */
     return error_mark_node;
 
+  /* We are bringing some entity from the unevaluated expressions world
+     to possibly outside of that, mark it used.  */
+  if (!mark_used (REFLECT_EXPR_HANDLE (refl)))
+    return error_mark_node;
+
   return REFLECT_EXPR_HANDLE (refl);
 }
 
