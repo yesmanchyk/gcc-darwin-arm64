@@ -27,5 +27,4 @@ struct E { };
 struct F : E { };
 
 constexpr auto b = bases_of (^^F, access_context::unchecked ())[0];
-// TODO: This ICEs due to mangling of direct base relationship.
-//static_assert (std::same_as <C <0, D <A <^^F>>>, A <b>>);
+static_assert (std::same_as <C <0, D <A <^^F>>>, A <b>>);
