@@ -8439,6 +8439,28 @@ check_splice_expr (location_t loc, location_t start_loc, tree t,
       return false;
     }
 
+  /* If we had a reflect_kind here, we could just check for
+     REFLECT_ANNOTATION and be done with it.  But we don't have it yet (TODO),
+     so do it the suboptimal way.  */
+  if (TREE_CODE (t) == TREE_LIST
+      && TREE_PURPOSE (t)
+      && get_attribute_namespace (t) == internal_identifier
+      && get_attribute_name (t) == annotation_identifier)
+    {
+      if (complain_p)
+	error_at (loc, "cannot use an annotation in a splice expression");
+      return false;
+    }
+
+  /* Same, but with REFLECT_DATA_MEMBER_SPEC.  */
+  if (TREE_CODE (t) == TREE_VEC)
+    {
+      if (complain_p)
+	error_at (loc, "cannot use a data member specification in a "
+		  "splice expression");
+      return false;
+    }
+
   return true;
 }
 
