@@ -218,12 +218,15 @@ get_reflection (location_t loc, tree t, reflect_kind kind/*=REFLECT_UNDEF*/)
   return get_reflection_raw (loc, t, kind);
 }
 
+/* Null reflection shared tree.  */
+
+static GTY(()) tree null_reflection;
+
 /* Return a null reflection value.  */
 
 tree
 get_null_reflection ()
 {
-  static tree null_reflection;
   if (!null_reflection)
     null_reflection = get_reflection_raw (UNKNOWN_LOCATION, unknown_type_node);
   return null_reflection;
