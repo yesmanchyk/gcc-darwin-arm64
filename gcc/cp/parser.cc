@@ -6200,42 +6200,22 @@ cp_parser_splice_expression (cp_parser *parser, bool template_p,
 	    }
 	}
     }
-  else
+  else if (/* No 'template' but there were template arguments?  */
+	   targs_p
+	   /* No 'template' but the splice-specifier designates a template?  */
+	   || really_overloaded_fn (t))
     {
-      /* [expr.prim.splice]/2 For a splice-expression of the form
-	 splice-specifier, the expression is ill-formed if it is:  */
-      /* -- a constructor or a destructor  */
-      if (TREE_CODE (t) == FUNCTION_DECL
-	  && (DECL_CONSTRUCTOR_P (t) || DECL_DESTRUCTOR_P (t)))
-	{
-	  error_at (loc, "cannot use constructor or destructor in a splice "
-		    "expression");
-	  return error_mark_node;
-	}
-      /* -- an unnamed bit-field  */
-      if (TREE_CODE (t) == FIELD_DECL && DECL_UNNAMED_BIT_FIELD (t))
-	{
-	  error_at (loc, "cannot use an unnamed bit-field in a splice "
-		    "expression");
-	  return error_mark_node;
-	}
-      /* No 'template' but there were template arguments?  */
-      if (targs_p
-	  /* No 'template' but the splice-specifier designates a template?  */
-	  || really_overloaded_fn (t))
-	{
-	  auto_diagnostic_group d;
-	  if (targs_p)
-	    error_at (loc, "reflection not usable in a splice expression with "
-		      "template arguments");
-	  else
-	    error_at (loc, "reflection not usable in a splice expression");
-	  location_t sloc = expr.get_start ();
-	  rich_location richloc (line_table, sloc);
-	  richloc.add_fixit_insert_before (sloc, "template ");
-	  inform (&richloc, "add %<template%> to denote a template");
-	  return error_mark_node;
-	}
+      auto_diagnostic_group d;
+      if (targs_p)
+	error_at (loc, "reflection not usable in a splice expression with "
+		  "template arguments");
+      else
+	error_at (loc, "reflection not usable in a splice expression");
+      location_t sloc = expr.get_start ();
+      rich_location richloc (line_table, sloc);
+      richloc.add_fixit_insert_before (sloc, "template ");
+      inform (&richloc, "add %<template%> to denote a template");
+      return error_mark_node;
     }
 
   if (parser->in_template_argument_list_p

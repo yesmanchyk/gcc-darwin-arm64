@@ -8395,6 +8395,25 @@ check_splice_expr (location_t loc, location_t start_loc, tree t,
 	}
       return false;
     }
+  /* [expr.prim.splice]/2 For a splice-expression of the form
+     splice-specifier, the expression is ill-formed if it is:  */
+  /* -- a constructor or a destructor  */
+  if (TREE_CODE (t) == FUNCTION_DECL
+      && (DECL_CONSTRUCTOR_P (t) || DECL_DESTRUCTOR_P (t)))
+    {
+      if (complain_p)
+	error_at (loc, "cannot use constructor or destructor in a splice "
+		  "expression");
+      return false;
+    }
+  /* -- an unnamed bit-field  */
+  if (TREE_CODE (t) == FIELD_DECL && DECL_UNNAMED_BIT_FIELD (t))
+    {
+      if (complain_p)
+	error_at (loc, "cannot use an unnamed bit-field in a splice "
+		  "expression");
+      return false;
+    }
   /* Class members may not be implicitly referenced through a splice.
      But taking the address is fine, and so is class member access a la
      foo.[: ^^S::bar :].  */
