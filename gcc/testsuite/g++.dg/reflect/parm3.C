@@ -5,8 +5,8 @@
 using info = decltype(^^int);
 
 consteval void foo (info) { }
-constexpr void bar (info) { }
-void baz (info) { }
+constexpr void bar (info) { } // { dg-error "function of consteval-only type must be declared .consteval." }
+void baz (info) { }  // { dg-error "function of consteval-only type must be declared .consteval." }
 
 void
 f ()

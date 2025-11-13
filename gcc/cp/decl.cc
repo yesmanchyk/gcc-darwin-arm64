@@ -9927,6 +9927,20 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	record_types_used_by_current_var_decl (decl);
     }
 
+  /* CWG 3115: Every function of consteval-only type shall be an
+     immediate function.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && !DECL_IMMEDIATE_FUNCTION_P (decl)
+      && consteval_only_p (decl)
+      /* But if the function can be escalated, merrily we roll along.  */
+      && !immediate_escalating_function_p (decl))
+    {
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"function of consteval-only type must be declared %qs",
+		"consteval");
+      return;
+    }
+
   /* Add this declaration to the statement-tree.  This needs to happen
      after the call to check_initializer so that the DECL_EXPR for a
      reference temp is added before the DECL_EXPR for the reference itself.  */
@@ -20635,6 +20649,16 @@ finish_function (bool inline_p)
 		      "parameter %qD set but not used", decl);
       unused_but_set_errorcount = errorcount;
     }
+
+  /* CWG 3115: Every function of consteval-only type shall be an immediate
+     function.  */
+  if (!DECL_IMMEDIATE_FUNCTION_P (fndecl)
+      && consteval_only_p (fndecl)
+      && !immediate_escalating_function_p (fndecl)
+      && !is_std_allocator_allocate (fndecl))
+    error_at (DECL_SOURCE_LOCATION (fndecl),
+	      "function of consteval-only type must be declared %qs",
+	      "consteval");
 
   /* Complain about locally defined typedefs that are not used in this
      function.  */

@@ -5,7 +5,7 @@
 using info = decltype(^^int);
 constexpr static info glob = ^^::;
 constexpr info array[3] = { glob, glob, glob };
-info foo ();
+consteval info foo () { return ^^::; }
 
 struct A {
   info i = ^^int;
@@ -49,7 +49,7 @@ constexpr G g;
 struct H {
   info (*fp)();
 };
-constexpr H h{foo};
+constexpr H h{foo}; // { dg-error "address of immediate function" }
 
 union U {
   int n;

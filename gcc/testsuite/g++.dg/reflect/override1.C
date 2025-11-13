@@ -35,5 +35,5 @@ struct D5 : B2 {
 
 struct D6 : B2 {
   info i;
-  virtual void foo() override { } // { dg-error "overriding" }
+  virtual void foo() override { } // { dg-error "consteval-only type|overriding" }
 };

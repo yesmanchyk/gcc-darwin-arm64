@@ -5,11 +5,11 @@
 using info = decltype(^^int);
 
 struct S {
-  int mfn0 (info) { return 0; }
-  constexpr int mfn1 (info) { return 1; }
+  int mfn0 (info) { return 0; }  // { dg-error "function of consteval-only type must be declared .consteval." }
+  constexpr int mfn1 (info) { return 1; }  // { dg-error "function of consteval-only type must be declared .consteval." }
   consteval int mfn2 (info) { return 2; }
-  int mfn3 (int, info) { return 0; }
-  info mfn4 () { return ^^int; }  // { dg-error "consteval-only expressions" }
+  int mfn3 (int, info) { return 0; }  // { dg-error "function of consteval-only type must be declared .consteval." }
+  info mfn4 () { return ^^int; }  // { dg-error "consteval-only expressions|function of consteval-only type must be declared .consteval." }
 };
 
 void
@@ -23,10 +23,10 @@ g (S s)
 }
 
 template<typename T>
-int fn (T) { return 4; }
+int fn (T) { return 4; } // { dg-error "function of consteval-only type must be declared .consteval." }
 const int a = fn (^^int); // { dg-error "consteval-only expressions" }
 int b = fn (^^int); // { dg-error "consteval-only expressions" }
 
 template<typename T>
-T fn2 () { return ^^void; } // { dg-error "consteval-only expressions" }
+T fn2 () { return ^^void; } // { dg-error "consteval-only" }
 const info i = fn2<info>(); // { dg-error "consteval-only variable" }
