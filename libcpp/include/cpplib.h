@@ -111,6 +111,7 @@ class rich_location;
   OP(SCOPE,		"::")						\
   OP(DEREF_STAR,	"->*")						\
   OP(DOT_STAR,		".*")						\
+  OP(REFLECT_OP,	"^^")						\
   OP(ATSIGN,		"@")  /* used in Objective-C */			\
 									\
   TK(NAME,		IDENT)	 /* word */				\

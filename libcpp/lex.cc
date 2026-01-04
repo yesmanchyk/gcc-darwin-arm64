@@ -4323,7 +4323,13 @@ _cpp_lex_direct (cpp_reader *pfile)
     case '*': IF_NEXT_IS ('=', CPP_MULT_EQ, CPP_MULT); break;
     case '=': IF_NEXT_IS ('=', CPP_EQ_EQ, CPP_EQ); break;
     case '!': IF_NEXT_IS ('=', CPP_NOT_EQ, CPP_NOT); break;
-    case '^': IF_NEXT_IS ('=', CPP_XOR_EQ, CPP_XOR); break;
+    case '^':
+      result->type = CPP_XOR;
+      if (*buffer->cur == '=')
+	    buffer->cur++, result->type = CPP_XOR_EQ;
+      else if (*buffer->cur == '^')
+	    buffer->cur++, result->type = CPP_REFLECT_OP;
+      break;
     case '#': IF_NEXT_IS ('#', CPP_PASTE, CPP_HASH); result->val.token_no = 0; break;
 
     case '?': result->type = CPP_QUERY; break;
