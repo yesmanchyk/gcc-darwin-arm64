@@ -9147,6 +9147,10 @@ extern tree coro_get_ramp_function		(tree);
 
 extern tree co_await_get_resume_call		(tree await_expr);
 
+/* In reflect.cc */
+extern void init_reflection ();
+extern tree get_reflection (location_t, tree);
+
 /* Inline bodies.  */
 
 inline tree

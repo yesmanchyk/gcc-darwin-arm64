@@ -5693,6 +5693,8 @@ cxx_init_decl_processing (void)
   if (modules_p ())
     init_modules (parse_in);
 
+  init_reflection ();
+
   make_fname_decl = cp_make_fname_decl;
   start_fname_decls ();
 

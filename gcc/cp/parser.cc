@@ -9547,16 +9547,6 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
 }
 
 static tree
-get_reflection (location_t loc, tree t)
-{
-  t = build1_loc (loc, REFLECT_EXPR, meta_info_type_node, t);
-  TREE_CONSTANT (t) = true;
-  TREE_READONLY (t) = true;
-  TREE_SIDE_EFFECTS (t) = false;
-  return t;
-}
-
-static tree
 cp_parser_reflect_expression (cp_parser *parser)
 {
   /* Consume the '^^'.  */
