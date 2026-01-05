@@ -9546,6 +9546,43 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
   *type = TREE_TYPE (cp_parser_nonclass_name (parser));
 }
 
+static tree
+get_reflection (location_t loc, tree t)
+{
+  t = build1_loc (loc, REFLECT_EXPR, meta_info_type_node, t);
+  TREE_CONSTANT (t) = true;
+  TREE_READONLY (t) = true;
+  TREE_SIDE_EFFECTS (t) = false;
+  return t;
+}
+
+static tree
+cp_parser_reflect_expression (cp_parser *parser)
+{
+  /* Consume the '^^'.  */
+  cp_lexer_consume_token (parser->lexer);
+
+  /* Get the location of the operand.  */
+  const location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  // ...
+  // if (cp_parser_parse_definitely (parser))
+  //   return get_reflection (loc, t);
+  /* Nope.  Well then, maybe it's a type-id.  */
+  cp_parser_parse_tentatively (parser);
+
+  tree t = cp_parser_type_id (parser);
+  if (cp_parser_parse_definitely (parser))
+    {
+      // if (TYPE_P (t)) ...
+      return get_reflection (loc, t);
+    }
+
+  /* Oy vey, nothing worked.  */
+  error_at (loc, "%<^^%> cannot be applied to this operand");
+  return error_mark_node;
+}
+
 /* Parse a unary-expression.
 
    unary-expression:
@@ -9822,6 +9859,8 @@ cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
       else if (keyword == RID_DELETE)
 	return cp_parser_delete_expression (parser);
     }
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_REFLECT_OP))
+    return cp_parser_reflect_expression (parser);
 
   /* Look for a unary operator.  */
   unary_operator = cp_parser_unary_operator (token);
