@@ -211,6 +211,7 @@ enum cp_tree_index
 
     /* We must find these via the global namespace.  */
     CPTI_STD,
+    CPTI_STD_META,
     CPTI_ABI,
 
     /* These are created at init time, but the library/headers provide
@@ -260,6 +261,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
 #define std_node			cp_global_trees[CPTI_STD]
 #define abi_node			cp_global_trees[CPTI_ABI]
+#define std_meta_node			cp_global_trees[CPTI_STD_META]
 #define global_namespace		cp_global_trees[CPTI_GLOBAL]
 #define const_type_info_type_node	cp_global_trees[CPTI_CONST_TYPE_INFO_TYPE]
 #define conv_op_marker			cp_global_trees[CPTI_CONV_OP_MARKER]
@@ -1852,6 +1854,11 @@ check_constraint_info (tree t)
    namespace).  templates copy from their template_result, consts have
    it for unscoped enums.  */
 #define DECL_MODULE_EXPORT_P(NODE) TREE_LANG_FLAG_3 (NODE)
+
+#define REFLECT_EXPR_P(NODE) (TREE_CODE (NODE) == REFLECT_EXPR)
+
+#define REFLECTION_TYPE_P(TYPE) (TREE_CODE (TYPE) == META_TYPE)
+
 
 /* Represents a streamed-in translation-unit-local entity.  Any use of
    this node when instantiating a template should emit an error.  */
@@ -4763,7 +4770,8 @@ get_vec_init_expr (tree t)
    || ARITHMETIC_TYPE_P (TYPE)			\
    || TYPE_PTR_P (TYPE)				\
    || TYPE_PTRMEMFUNC_P (TYPE)                  \
-   || NULLPTR_TYPE_P (TYPE))
+   || NULLPTR_TYPE_P (TYPE)			\
+   || REFLECTION_TYPE_P (TYPE))
 
 /* Determines whether this type is a C++0x scoped enumeration
    type. Scoped enumerations types are introduced via "enum class" or
@@ -9150,6 +9158,7 @@ extern tree co_await_get_resume_call		(tree await_expr);
 /* In reflect.cc */
 extern void init_reflection ();
 extern tree get_reflection (location_t, tree);
+extern bool consteval_only_var_p (tree) ATTRIBUTE_PURE;
 
 /* Inline bodies.  */
 

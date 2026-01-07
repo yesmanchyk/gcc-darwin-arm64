@@ -4405,6 +4405,7 @@ reduced_constant_expression_p (tree t, tree sz /* = NULL_TREE */)
   switch (TREE_CODE (t))
     {
     case PTRMEM_CST:
+    case REFLECT_EXPR:
       /* Even if we can't lower this yet, it's constant.  */
       return true;
 
@@ -9009,6 +9010,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case CASE_LABEL_EXPR:
     case PREDICT_EXPR:
     case OMP_DECLARE_MAPPER:
+    case REFLECT_EXPR:
       return t;
 
     case PARM_DECL:
@@ -11474,6 +11476,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
     case REQUIRES_EXPR:
     case STATIC_ASSERT:
     case DEBUG_BEGIN_STMT:
+    case REFLECT_EXPR:
       return true;
 
     case RETURN_EXPR:

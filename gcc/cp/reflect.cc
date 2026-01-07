@@ -27,7 +27,7 @@ init_reflection ()
 
   // vector_identifier = get_identifier ("vector");
 
-  // TREE_TYPE (std_meta_node) = void_type_node;
+  TREE_TYPE (std_meta_node) = void_type_node;
 }
 
 tree
@@ -40,3 +40,24 @@ get_reflection (location_t loc, tree t)
   return t;
 }
 
+/* True if VAR, a decl, is a consteval-only type as per
+   [basic.types.general].  Currently, that means it has reflection type,
+   or is compounded from it.  */
+
+bool
+consteval_only_var_p (tree var)
+{
+  tree type = strip_pointer_or_array_types (TREE_TYPE (var));
+  if (REFLECTION_TYPE_P (type))
+    return true;
+
+  /* Classes with std::meta::info members are also consteval-only.  */
+  if (CLASS_TYPE_P (type))
+    for (tree member = TYPE_FIELDS (type);
+        member; member = DECL_CHAIN (member))
+      if (TREE_CODE (member) == FIELD_DECL
+         && consteval_only_var_p (member))
+       return true;
+
+  return false;
+}

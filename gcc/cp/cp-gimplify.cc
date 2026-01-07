@@ -1320,6 +1320,42 @@ cp_fold_immediate_r (tree *stmt_p, int *walk_subtrees, void *data_)
       return NULL_TREE;
     }
 
+  /* Detect consteval-only types outside a manifestly constant-evaluated
+     context.  E.g.:
+
+       void f() {
+        constexpr auto r = ^^int;  // OK
+        [: r :] i = 42;  // still OK
+        auto z = r;  // bad
+       }
+
+     But
+
+       consteval void g() {
+        constexpr auto r = ^^int;
+        auto z = r;
+       }
+
+     is OK.  */
+  if (data->flags & ff_genericize)
+    if (TREE_CODE (stmt) == DECL_EXPR)
+      {
+       tree d = DECL_EXPR_DECL (stmt);
+       if (VAR_P (d) && consteval_only_var_p (d))
+         {
+           if (!DECL_DECLARED_CONSTEXPR_P (d))
+             error_at (DECL_SOURCE_LOCATION (d),
+                       "consteval-only expressions are only allowed in "
+                       "manifestly constant-evaluated context");
+           /* Wipe the DECL_EXPR so that it doesn't get into gimple.  */
+           *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
+           /* And skip varpool_node::finalize_decl.  */
+           DECL_HAS_VALUE_EXPR_P (d) = true;
+         }
+      }
+  // XXX now everything else with a reflection is an error
+
+
   tree decl = NULL_TREE;
   bool call_p = false;
 

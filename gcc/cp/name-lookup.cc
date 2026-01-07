@@ -1583,6 +1583,13 @@ name_lookup::adl_type (tree type)
       adl_type (TYPE_PTRMEM_POINTED_TO_TYPE (type));
       return;
     }
+  else if (REFLECTION_TYPE_P (type))
+    {
+      /* The namespace std::meta is an associated namespace of
+        std::meta::info.  */
+      adl_namespace (std_meta_node);
+      return;
+    }
 
   switch (TREE_CODE (type))
     {

@@ -4806,6 +4806,16 @@ prune_vars_needing_no_initialization (tree *vars)
 	  continue;
 	}
 
+      /* Reflections are consteval-only types and we don't want them
+        to survive until gimplification.  */
+      if (consteval_only_var_p (decl))
+       {
+         var = &TREE_CHAIN (t);
+         continue;
+       }
+
+
+
       /* This variable is going to need initialization and/or
 	 finalization, so we add it to the list.  */
       *var = TREE_CHAIN (t);
